@@ -4,7 +4,7 @@ import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserService } from 'app/core/user/user.service';
 import { environment } from 'environments/environment';
-import { catchError, Observable, of, switchMap, throwError } from 'rxjs';
+import { catchError, map, Observable, of, switchMap, throwError } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -33,7 +33,7 @@ export class AuthService {
 
 
     resetPassword(id: any): Observable<any> {
-        return this._httpClient.post(`${environment.apiUrl}/User/resetPassword`, id);
+        return this._httpClient.post(`${environment.apiUrl}/auth/reset-password`, id);
     }
 
 
@@ -42,7 +42,13 @@ export class AuthService {
             return throwError('El usuario ya esta registrado.');
         }
 
-        return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/User/login`, credentials).pipe(
+        const payload = {
+            userName: credentials.UserName,
+            password: credentials.Password
+        };
+
+        return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/auth/login`, payload).pipe(
+            map((response: any) => this.normalizeAuthResponse(response)),
             switchMap((response: any) => {
 
                 if (response.success) {
@@ -58,8 +64,9 @@ export class AuthService {
 
     signInUsingToken(): Observable<any> {
         return this._httpClient
-            .post<ApiResponse<any>>(`${environment.apiUrl}/User/signToken`, this.accessToken)
+            .post<ApiResponse<any>>(`${environment.apiUrl}/auth/sign-token`, {})
             .pipe(
+                map((response: any) => this.normalizeAuthResponse(response)),
                 catchError(() =>
                     of(false)
                 ),
@@ -114,6 +121,24 @@ export class AuthService {
 
 
     changePassword(newPassword: string, confirmPassword: string): Observable<any> {
-        return this._httpClient.post<any>(`${environment.apiUrl}/User/changePassword`, { password: newPassword, confirmPassword });
+        return this._httpClient.post<any>(`${environment.apiUrl}/auth/change-password`, {
+            currentPassword: confirmPassword,
+            newPassword
+        });
+    }
+
+    private normalizeAuthResponse(response: any): ApiResponse<any> {
+        if (!response?.success || !response.data) {
+            return response;
+        }
+
+        return {
+            ...response,
+            data: {
+                ...response.data,
+                token: response.data.token ?? response.data.Token,
+                hasChangePassword: response.data.hasChangePassword ?? response.data.HasChangePassword
+            }
+        };
     }
 }

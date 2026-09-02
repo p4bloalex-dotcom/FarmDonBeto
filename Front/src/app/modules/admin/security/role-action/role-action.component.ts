@@ -64,6 +64,8 @@ export class RoleActionComponent {
     const existingIndex = this.modifiedPermissions.findIndex(p => p.idRolePermission === data.idRolePermission);
     const newPermission: any = {
       idRolePermission: data.idRolePermission,
+      roleId: data.idRole,
+      permissionId: data.permissionId,
       isCheck: data.isCheck
     };
     if (existingIndex > -1) {

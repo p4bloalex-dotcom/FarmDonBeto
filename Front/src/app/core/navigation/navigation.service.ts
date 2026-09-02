@@ -30,7 +30,7 @@ export class NavigationService {
      * Get all navigation data
      */
     get(): Observable<Navigation> {
-        return this._httpClient.get<Navigation>(`${environment.apiUrl}/Menu/accessMenus`).pipe(
+        return this._httpClient.get<Navigation>(`${environment.apiUrl}/security/menus/access`).pipe(
             tap((navigation) => {
                 const response = navigation as any;
                 this.normalizeLinks(response?.data ?? response);

@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders, HttpParams, HttpResponse } from '@angular/comm
 import { inject, Injectable } from '@angular/core';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { environment } from 'environments/environment';
-import { catchError, forkJoin, map, Observable, of } from 'rxjs';
+import { forkJoin, map, Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -12,22 +12,34 @@ export class GeneralApiService {
   constructor() { }
 
   getList(endpoint: string) {
-    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${endpoint}/list`);
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}`)
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
   modify(endpoint: string, id: any, data: any) {
-    return this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/${endpoint}/edit/${id}`, data);
+    return this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`, this.toNodePayload(endpoint, data))
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
   changeStatus(endpoint: string, id: any, data: any) {
-    return this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/${endpoint}/changeStatus/${id}`, data);
+    if (endpoint === 'Menu') {
+      return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}/status`, { status: data.status })
+        .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
+    }
+
+    return this.modify(endpoint, id, data);
   }
 
   getPaged(endpoint: string, pageIndex: number, pageSize: number) {
     const params = new HttpParams()
       .set('pageIndex', pageIndex.toString())
       .set('pageSize', pageSize.toString());
-    return this._httpClient.get<any>(`${environment.apiUrl}/${endpoint}/pagination`, { params });
+    if (endpoint === 'Menu') {
+      return this.getClientPagedList(endpoint, pageIndex, pageSize);
+    }
+
+    return this._httpClient.get<any>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/pagination`, { params })
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
   getPagedQuery(endpoint: string, pageIndex: number, pageSize: number, idData: number) {
@@ -35,7 +47,8 @@ export class GeneralApiService {
       .set('pageIndex', pageIndex.toString())
       .set('pageSize', pageSize.toString())
       .set('IdData', idData);
-    return this._httpClient.get<any>(`${environment.apiUrl}/${endpoint}/pagination`, { params });
+    return this._httpClient.get<any>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/pagination`, { params })
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
   getPagedQuery2(endpoint: string, pageIndex: number, pageSize: number, typeFilter: any, dataFilter: any) {
@@ -56,11 +69,32 @@ export class GeneralApiService {
 
 
   add(endpoint: string, data: any) {
-    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/${endpoint}/add`, data);
+    if (endpoint === 'RoleAction') {
+      const calls = data
+        .filter((item: any) => item.permissionId)
+        .map((item: any) => this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}`, {
+          roleId: item.roleId,
+          permissionId: item.permissionId,
+          isCheck: item.isCheck
+        }));
+
+      if (calls.length === 0) {
+        return new Observable(observer => {
+          observer.next({ success: true, data: 'Sin permisos para actualizar', error: null });
+          observer.complete();
+        });
+      }
+
+      return forkJoin(calls).pipe(map(() => ({ success: true, data: 'Permisos actualizados', error: null })));
+    }
+
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}`, this.toNodePayload(endpoint, data))
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
   delete(endpoint: string, id: any): any {
-    return this._httpClient.delete<ApiResponse<any>>(`${environment.apiUrl}/${endpoint}/delete/${id}`, id);
+    return this._httpClient.delete<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`)
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
   reverse(endpoint: string, batchId: any): any {
@@ -81,7 +115,15 @@ export class GeneralApiService {
 
 
   GetById(endpoint: string, id: any): any {
-    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${endpoint}/find/${id}`, id);
+    if (endpoint === 'Role') {
+      return forkJoin({
+        role: this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`),
+        screens: this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/security/permissions/screens`)
+      }).pipe(map(({ role, screens }) => this.toRolePermissionTree(role, screens, id)));
+    }
+
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`)
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
   GetBySearch(endpoint: string, data: any): any {
@@ -91,8 +133,8 @@ export class GeneralApiService {
 
   comboList(endpoints: string[]): any {
     const calls = endpoints.map(ep =>
-      this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${ep}/list`).pipe(
-        map(resp => {
+      this.getList(ep).pipe(
+        map((resp: ApiResponse<any>) => {
           if (resp.success == false) {
             throw new Error(resp.error.detail);
           }
@@ -126,7 +168,7 @@ export class GeneralApiService {
     });
   }
 
-makeAttendance(data: any, token: string) {
+  makeAttendance(data: any, token: string) {
   const headers = new HttpHeaders({
     Authorization: `Bearer ${token}`
   });
@@ -137,6 +179,126 @@ makeAttendance(data: any, token: string) {
     { headers }
   );
 }
+
+  private endpointPath(endpoint: string): string {
+    const mapEndpoints: Record<string, string> = {
+      Role: 'security/roles',
+      Menu: 'security/menus',
+      Permission: 'security/permissions',
+      RoleAction: 'security/permissions/role',
+      Audit: 'security/audit'
+    };
+
+    return mapEndpoints[endpoint] ?? endpoint;
+  }
+
+  private toNodePayload(endpoint: string, data: any): any {
+    if (endpoint !== 'Menu') {
+      return data;
+    }
+
+    return {
+      ...data,
+      idMenuFather: data.idMenuFather ?? data.id_menu_father ?? null
+    };
+  }
+
+  private normalizeResponse(endpoint: string, response: any): ApiResponse<any> {
+    if (!response) {
+      return response;
+    }
+
+    const normalized = {
+      ...response,
+      error: response.error ?? (response.success === false ? { title: 'Error', status: 400, detail: response.message } : null)
+    };
+
+    if (normalized.data?.meta) {
+      normalized.data.meta = {
+        ...normalized.data.meta,
+        totalItemCount: normalized.data.meta.totalItemCount ?? normalized.data.meta.totalCount
+      };
+    }
+
+    if (endpoint === 'Menu') {
+      if (Array.isArray(normalized.data)) {
+        normalized.data = normalized.data.map(item => this.normalizeMenu(item));
+      }
+      if (Array.isArray(normalized.data?.data)) {
+        normalized.data.data = normalized.data.data.map(item => this.normalizeMenu(item));
+      }
+    }
+
+    return normalized;
+  }
+
+  private normalizeMenu(item: any): any {
+    return {
+      ...item,
+      id_menu_father: item.id_menu_father ?? item.idMenuFather ?? null,
+      menu_father: item.menu_father ?? item.parent ?? null
+    };
+  }
+
+  private getClientPagedList(endpoint: string, pageIndex: number, pageSize: number): Observable<ApiResponse<any>> {
+    return this.getList(endpoint).pipe(map((resp: ApiResponse<any>) => {
+      const rows = resp.data ?? [];
+      const start = (pageIndex - 1) * pageSize;
+
+      return {
+        ...resp,
+        data: {
+          data: rows.slice(start, start + pageSize),
+          meta: {
+            pageIndex,
+            pageSize,
+            totalCount: rows.length,
+            totalItemCount: rows.length,
+            totalPages: Math.ceil(rows.length / pageSize)
+          }
+        }
+      };
+    }));
+  }
+
+  private toRolePermissionTree(roleResponse: ApiResponse<any>, screensResponse: ApiResponse<any>, roleId: number): ApiResponse<any> {
+    const rolePermissions = roleResponse.data?.permissions ?? [];
+    const screens = screensResponse.data ?? [];
+
+    const categories = screens.reduce((acc: any[], screen: any) => {
+      let category = acc.find(item => item.nameMenu === screen.category);
+      if (!category) {
+        category = { nameMenu: screen.category, menus: [] };
+        acc.push(category);
+      }
+
+      category.menus.push({
+        nameMenu: screen.title,
+        Permissions: screen.permissions.map((permission: any) => {
+          const persisted = rolePermissions.find((item: any) => item.name === permission.permissionName);
+
+          return {
+            idRole: roleId,
+            permissionId: persisted?.id,
+            idRolePermission: `${roleId}-${persisted?.id ?? permission.permissionName}`,
+            namePermission: permission.action,
+            permissionName: permission.permissionName,
+            isCheck: persisted?.isCheck ?? false
+          };
+        })
+      });
+
+      return acc;
+    }, []);
+
+    return {
+      ...roleResponse,
+      data: {
+        ...roleResponse.data,
+        categories
+      }
+    };
+  }
 
 
 
