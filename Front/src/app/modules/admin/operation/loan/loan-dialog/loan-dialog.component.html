@@ -1,0 +1,184 @@
+<form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+    <div class="px-4 py-1 border-b">
+        <h2 class="text-2xl font-semibold">
+            @if (actionDialog ==1) {Crear registro}
+            @else if( actionDialog==2 ) {Editar registro}
+            @else if ( actionDialog == 3 ){Cambiar estado}
+            @else if (actionDialog == 4){Eliminar registro}
+            @else if (actionDialog == 7){Información del registro}
+            @else if (actionDialog == 8){Reversar registro}
+            @else if (actionDialog == 9){Recibir producto}
+            @else {Accion desconocida}
+        </h2>
+    </div>
+
+    <div class="m-4">
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            <mat-form-field class="w-1/3">
+                <mat-label>Tipo de solicitud</mat-label>
+                <mat-select id="typeApplicant" [value]="" formControlName="typeApplicant">
+                    <mat-option [value]="2">Interno</mat-option>
+                    <mat-option [value]="3">Externo</mat-option>
+                </mat-select>
+                @if (dataForm.get('typeApplicant').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Producto</mat-label>
+                <mat-select [value]="" formControlName="id_item" (selectionChange)="onGetUnitProducto()">
+                    <mat-option [value]=""></mat-option>
+                    @if (this.dataForm.get('typeApplicant').value == 2) {
+                        @for ( item of aData2; track trackByFn($index, item)) {
+                            @if (item.canLoanInternal == true) {
+                                <mat-option [value]="item.id_item">{{item.name}}</mat-option>
+                            }
+                        }
+                    }
+                    @else if(this.dataForm.get('typeApplicant').value == 3){
+                        @for ( item of aData2; track trackByFn($index, item)) {
+                            @if(item.canLoanExternal == true){
+                                <mat-option [value]="item.id_item">{{item.name}}</mat-option>
+                            }
+                        }
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-1/2">
+            <mat-label>Tipo unidad</mat-label>
+            <input matInput [value]="unitProduct" readonly />
+            </mat-form-field>
+            
+            <mat-form-field class="w-1/4">
+                <mat-label>Cantidad</mat-label>
+                <input id="quantity" matInput formControlName="quantity" type="number" autocomplete="off" />
+                @if (dataForm.get('quantity').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+
+        </div>
+
+        
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            @if (this.dataForm.get('typeApplicant').value == 3) {
+                <mat-form-field class="w-full">
+                    <mat-label>Nombre</mat-label>
+                    <input id="name" matInput formControlName="name"  autocomplete="off"/>
+                    @if (dataForm.get('name').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+                <mat-form-field class="w-full">
+                    <mat-label>DPI</mat-label>
+                    <input id="dPI" matInput formControlName="dPI"  autocomplete="off"/>
+                    @if (dataForm.get('dPI').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+                <mat-form-field class="w-full">
+                    <mat-label>Numero de telefono</mat-label>
+                    <input id="phoneNumber" matInput formControlName="phoneNumber" autocomplete="off"/>
+                    @if (dataForm.get('phoneNumber').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full">
+                    <mat-label>Direccion</mat-label>
+                    <input id="address" matInput formControlName="address" autocomplete="off" />
+                    @if (dataForm.get('address').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+            }
+        </div>
+        
+        
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+                         @if (this.dataForm.get('typeApplicant').value == 2) 
+            {
+                @if (actionDialog ==1) {
+                    <mat-form-field class="w-full">
+                        <mat-label>Personal</mat-label>
+                        <mat-select [value]="" formControlName="id_personal">
+                            <mat-option [value]=""></mat-option>
+                            @for ( item of aData1; track trackByFn($index, item)) {
+                            <mat-option [value]="item.idPersonal">{{item.name}}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                }
+                @else {
+                                    <mat-form-field class="w-full">
+                    <mat-label>Nombre</mat-label>
+                    <input id="id_personal" matInput formControlName="id_personal"  autocomplete="off"/>
+                    @if (dataForm.get('id_personal').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+                }
+            }
+
+            <mat-form-field class="w-full md:w-1/2">
+                <mat-label>Fecha de devolución</mat-label>
+                <input matInput [matDatepicker]="picker" formControlName="returnDate" readonly (focus)="picker.open()" />
+                <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                <mat-datepicker #picker></mat-datepicker>
+                @if (dataForm.get('returnDate').hasError('required')) {
+                <mat-error>
+                    El campo es requerido
+                </mat-error>
+                }
+            </mat-form-field>
+
+            @if (actionDialog == 9) 
+            {
+                <mat-form-field class="w-1/4">
+                    <mat-label>Cantidad devuelta</mat-label>
+                    <input id="quantityReturn" matInput formControlName="quantityReturn" type="number" autocomplete="off" />
+                    @if (dataForm.get('quantity').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+            }
+        </div>
+        
+        
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            <mat-form-field class="w-full">
+                <mat-label>Descripcion</mat-label>
+                <textarea id="description" matInput formControlName="description" autocomplete="off"
+                    rows="2"></textarea>
+                @if (dataForm.get('description').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+        </div>
+
+
+        <div class="mt-4 flex justify-end space-x-4">
+            <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+            <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()"
+                class="relative flex items-center justify-center">
+                @if (!dataForm.invalid) {
+                <span>
+                    @if (actionDialog ==1) {Crear}
+                    @else if( actionDialog==2 ) {Guardar}
+                    @else if ( actionDialog == 3 ){Guardar}
+                    @else if (actionDialog == 4){Eliminar}
+                    @else if (actionDialog == 7){Cerrar}
+                    @else if (actionDialog == 8){Reversar}
+                    @else if (actionDialog == 9){Recibir}
+                    @else {Accion desconocida}
+                </span>
+                }
+            </button>
+        </div>
+
+    </div>
+</form>

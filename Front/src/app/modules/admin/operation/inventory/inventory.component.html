@@ -1,0 +1,151 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col max-h-screen dark:bg-transparent sm:absolute sm:inset-0">
+    <!-- Header fijo -->
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+        <div class="text-3xl font-extrabold tracking-tight">Inventario</div>
+        <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
+            <!-- Search -->
+            <!-- <mat-form-field class="fuse-mat-dense fuse-mat-rounded min-w-64" [subscriptSizing]="'dynamic'">
+                <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
+                <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar'" />
+            </mat-form-field> -->
+
+            <div class="flex justify-left w-full px-8 py-1">
+                <form [formGroup]="dataForm" class="flex flex-col md:flex-row md:items-center md:space-x-4 w-full">
+
+                    @if (this.dataForm.value.typeFilter == 1) {
+                    <mat-form-field class="flex-1 w-full min-w-[200px]">
+                        <mat-label>Estado</mat-label>
+                        <mat-select formControlName="typeSearch">
+                            <mat-option [value]="1">Disponible</mat-option>
+                            <mat-option [value]="2">Asignado</mat-option>
+                            <mat-option [value]="3">Prestado</mat-option>
+                            <mat-option [value]="4">En uso</mat-option>
+                            <mat-option [value]="5">En mantenimiento</mat-option>
+                            <mat-option [value]="6">Fuera de servicio</mat-option>
+                            <mat-option [value]="7">Dado de baja</mat-option>
+                            <mat-option [value]="8">Asignacion definitiva</mat-option>
+                            <mat-option [value]="9">Cosumido</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    }
+                    @else if(this.dataForm.value.typeFilter == 2) {
+                    <mat-form-field class="flex-1 w-full min-w-[200px]">
+                        <mat-label>Carateristica</mat-label>
+                        <mat-select formControlName="typeSearch">
+                            <mat-option value="canassign">Asignable</mat-option>
+                            <mat-option value="canloanexternal">Préstamo interno</mat-option>
+                            <mat-option value="canloaninternal">Préstamo externo</mat-option>
+                            <mat-option value="isexpirable">Es expirable</mat-option>
+                            <mat-option value="isconsumable">Es consumible</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    }
+                    @else if(this.dataForm.value.typeFilter == 3){
+                    <mat-form-field class="w-full">
+                        <mat-label>Nombre</mat-label>
+                        <input id="typeSearch" matInput formControlName="typeSearch" autocomplete="off"/>
+                        @if (dataForm.get('typeSearch').hasError('required')) {
+                        <mat-error>El campo es requerido</mat-error>
+                        }
+                    </mat-form-field>
+                    }
+
+                    <!-- Tipo de búsqueda -->
+                    <mat-form-field class="flex-1 w-full min-w-[250px]">
+                        <mat-label>Tipo de búsqueda</mat-label>
+                        <mat-select formControlName="typeFilter">
+                            <mat-option [value]="1">Estado</mat-option>
+                            <mat-option [value]="2">Comportamiento</mat-option>
+                            <mat-option [value]="3">Nombre</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="find()"
+                        class="h-12 flex-none w-32 mt-4 md:mt-0">
+                        <span>Buscar</span>
+                    </button>
+
+                </form>
+            </div>
+
+
+            <button class="ml-4" mat-flat-button [color]="'primary'" (click)="openDialog(null, 1)">
+                <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                <span class="ml-2 mr-1">Crear</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-auto overflow-y-auto p-6 sm:p-10 mb-13">
+        <div class="-m-4 flex w-full max-w-400 flex-wrap items-start">
+            @for (item of filteredData; track $index) {
+            <fuse-card class="filter-listing flex w-full max-w-80 flex-col m-2">
+                @if (item.picture == null) {
+                <img class="object-contain h-16 mx-auto" src="images/itemBombero.png" alt="Card cover image" />
+                }
+                @else {
+                <img class="object-contain h-16 mx-auto" [src]="item.picture" alt="Inventario" />
+                }
+                <div class="mx-8 my-1 mb-1">
+                    <div class="flex justify-between">
+                        <div class="flex flex-col">
+                            <div class="text-secondary mt-1 text-md">
+                                #{{item.id_item}}
+                            </div>
+                            <div class="mt-1 text-2xl font-semibold leading-tight">
+                                {{item.name}}
+                            </div>
+                            <div class="text-secondary mt-1 text-md">
+                                Tipo: {{item.uniName}}
+                            </div>
+                            <div class="text-secondary mt-1 text-md">
+                                {{item.description}}
+                            </div>
+                        </div>
+                    </div>
+                    <hr class="my-2 border-b" />
+                    <div class="flex flex-wrap text-md">
+                        @for (item2 of item.status; track $index) {
+                        <span class="whitespace-nowrap"><b>{{item2.quantity}}</b> {{item2.status}}</span>
+                        <span class="text-secondary mx-2">&bull;</span>
+                        }
+                    </div>
+                    <hr class="my-2 border-b" />
+                    <div class="-mx-3 mt-3">
+                        <button class="mr-1 px-3"
+                        mat-button
+                            [color]="'bg-primary-200'"
+                            (click)="openDialog2(item, 2)"
+                            matTooltip="Actualizar inventario">
+                                <mat-icon [svgIcon]="'mat_solid:update'"></mat-icon>
+                        </button>
+
+                        <button class="px-3"
+                                mat-button
+                                [color]="'bg-accent-300'"
+                                (click)="openDialog3(item, 2)"
+                                matTooltip="Actualizar informacion">
+                            <mat-icon [svgIcon]="'edit'"></mat-icon>
+                        </button>
+
+                        <button class="px-3"
+                                mat-button
+                                [color]="'bg-accent-300'"
+                                (click)="openDialog2(item, 10)"
+                                matTooltip="Salida de producto">
+                            <mat-icon [svgIcon]="'feather:log-out'"></mat-icon>
+                        </button>
+
+                    </div>
+                </div>
+            </fuse-card>
+            }
+        </div>
+    </div>
+    <mat-paginator
+        class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+        [length]="totalItems" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" [showFirstLastButtons]="true"
+        (page)="onPageChange($event)">
+    </mat-paginator>
+</div>

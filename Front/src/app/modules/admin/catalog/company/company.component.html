@@ -1,0 +1,122 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col absolute inset-0 flex min-w-0 flex-col overflow-y-auto"
+    cdkScrollable>
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+        <div class="text-3xl font-extrabold tracking-tight">Compañía</div>
+        <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
+        </div>
+    </div>
+
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+
+        <form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+            <div class="m-4">
+                <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+                    <mat-form-field class="w-full">
+                        <mat-label>Nombre</mat-label>
+                        <input matInput formControlName="name" />
+                        @if (dataForm.get('name').hasError('required')) {
+                        <mat-error>El campo es requerido</mat-error>
+                        }
+                    </mat-form-field>
+
+                </div>
+
+
+                <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+                    <mat-form-field class="w-full">
+                        <mat-label>Departamento</mat-label>
+                        <mat-select [value]="" formControlName="id_department"
+                            (selectionChange)="onDepartmentSelected($event)">
+                            <mat-option [value]=""></mat-option>
+                            @for ( item of aData1; track trackByFn($index, item)) {
+                            <mat-option [value]="item.id_department">{{item.name}}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field class="w-full">
+                        <mat-label>Municipio</mat-label>
+                        <mat-select [value]="" formControlName="id_municipality">
+                            <mat-option [value]=""></mat-option>
+                            @for ( item of aData2; track trackByFn($index, item)) {
+                            <mat-option [value]="item.id_municipality">{{item.name}}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field class="w-full">
+                        <mat-label>Zona especifica</mat-label>
+                        <input matInput formControlName="address" />
+                        @if (dataForm.get('address').hasError('required')) {
+                        <mat-error>El campo es requerido</mat-error>
+                        }
+                    </mat-form-field>
+                </div>
+
+                <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+                    <mat-form-field class="w-full">
+                        <mat-label>Numero de telefono</mat-label>
+                        <input matInput formControlName="phone" />
+                        @if (dataForm.get('phone').hasError('required'))
+                        {
+                        <mat-error>El campo es requerido</mat-error>
+                        }
+                        @if (dataForm.get('phone').hasError('pattern'))
+                        {
+                        <mat-error>Formato incorrecto</mat-error>
+                        }
+                    </mat-form-field>
+
+
+
+                    <mat-form-field class="w-full">
+                        <mat-label>Correo electronico</mat-label>
+                        <input matInput formControlName="email" />
+                        @if (dataForm.get('email').hasError('required'))
+                        {
+                        <mat-error>El campo es requerido</mat-error>
+                        }
+                    </mat-form-field>
+                </div>
+
+
+                <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+                    <div>
+                        <label for="image-file-input" class="flex items-center justify-center
+                                w-18 h-10
+                                px-4 text-sm font-medium text-gray-700
+                                bg-white border border-gray-300 rounded-md shadow-sm
+                                cursor-pointer hover:bg-gray-50">
+                            <mat-icon svgIcon="heroicons_outline:photo" class="mr-2"></mat-icon>
+                        </label>
+
+                        <input id="image-file-input" type="file" class="hidden" [multiple]="false"
+                            [accept]="'image/jpeg, image/png'" (change)="uploadImage($event.target.files)"
+                            #imageFileInput />
+                        @if (dataForm.get('logo')?.value) {
+                        <img class="w-24 h-24 object-cover rounded-md mt-2" [src]="dataForm.get('logo').value"
+                            alt="Vista previa de la imagen" />
+                        }
+                    </div>
+                </div>
+
+
+
+                <div class="mt-4 flex justify-end space-x-4">
+                    <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()"
+                        class="h-12 w-32 mt-4 mb-4  md:mt-0 pz-4">
+                        <span>Guardar</span>
+                    </button>
+                </div>
+
+            </div>
+        </form>
+
+    </div>
+
+
+
+</div>

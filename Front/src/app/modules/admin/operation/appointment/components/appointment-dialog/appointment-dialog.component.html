@@ -1,0 +1,104 @@
+<mat-dialog-content class="p-0 overflow-auto max-h-[75vh]">
+  <form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+    <div class="px-4 py-1 border-b">
+      <h2 class="text-2xl font-semibold">
+        @if (actionDialog == 1) {Crear cita}
+        @else if (actionDialog == 2) {Editar cita}
+        @else if (actionDialog == 3) {Cambiar estado de cita}
+        @else if (actionDialog == 4) {Eliminar cita}
+        @else {Acción desconocida}
+      </h2>
+    </div>
+
+    <div class="m-4 space-y-4">
+      <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+        <mat-form-field class="w-full md:w-2/3">
+          <mat-label>Origen</mat-label>
+          <input id="source" matInput formControlName="source" autocomplete="off" />
+          @if (dataForm.get('source').hasError('required')) {
+            <mat-error>El origen es requerido</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field class="w-full md:w-1/3">
+          <mat-label>Estado</mat-label>
+          <mat-select id="status" formControlName="status">
+            <mat-option value="E">Activo</mat-option>
+            <mat-option value="P">Pendiente</mat-option>
+            <mat-option value="F">Finalizado</mat-option>
+            <mat-option value="D">Cancelado</mat-option>
+          </mat-select>
+          @if (dataForm.get('status').hasError('required')) {
+            <mat-error>El estado es requerido</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+        <div class="w-full md:w-1/2">
+          <label for="start_at" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Inicio *</label>
+          <input type="datetime-local" id="start_at" formControlName="start_at" step="60"
+            class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
+        </div>
+
+        <div class="w-full md:w-1/2">
+          <label for="end_at" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Fin *</label>
+          <input type="datetime-local" id="end_at" formControlName="end_at" step="60"
+            class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
+        </div>
+      </div>
+
+      <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+        <mat-form-field class="w-full md:w-1/3">
+          <mat-label>Cliente ID</mat-label>
+          <input id="customer_id" type="number" matInput formControlName="customer_id" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field class="w-full md:w-1/3">
+          <mat-label>Empleado</mat-label>
+          <mat-select id="employee_id" formControlName="employee_id">
+            @for (item of employees; track item.id) {
+              <mat-option [value]="item.id">{{ item.name || item.Name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field class="w-full md:w-1/3">
+          <mat-label>Servicio</mat-label>
+          <mat-select id="service_id" formControlName="service_id">
+            @for (item of services; track item.id) {
+              <mat-option [value]="item.id">{{ item.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+        <mat-form-field class="w-full md:w-1/3">
+          <mat-label>Precio</mat-label>
+          <input id="price" type="number" matInput formControlName="price" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field class="w-full md:w-2/3">
+          <mat-label>Observaciones</mat-label>
+          <textarea id="notes" matInput formControlName="notes" rows="1" autocomplete="off"></textarea>
+        </mat-form-field>
+      </div>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <div class="mt-4 flex justify-end space-x-4">
+    <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+    <button mat-flat-button color="primary" [disabled]="dataForm.invalid && actionDialog !== 4" (click)="save()">
+      <span>
+        @if (actionDialog == 1) {Crear}
+        @else if (actionDialog == 2) {Guardar}
+        @else if (actionDialog == 3) {Guardar}
+        @else if (actionDialog == 4) {Eliminar}
+        @else {Confirmar}
+      </span>
+    </button>
+  </div>
+</mat-dialog-actions>

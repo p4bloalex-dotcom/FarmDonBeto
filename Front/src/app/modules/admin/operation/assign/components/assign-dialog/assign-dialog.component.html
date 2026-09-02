@@ -1,0 +1,137 @@
+<form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+    <div class="px-4 py-1 border-b">
+        <h2 class="text-2xl font-semibold">
+            @if (actionDialog ==1) {Crear registro}
+            @else if( actionDialog==2 ) {Editar registro}
+            @else if ( actionDialog == 3 ){Cambiar estado}
+            @else if (actionDialog == 4){Eliminar registro}
+            @else if (actionDialog == 7){Información del registro}
+            @else if (actionDialog == 8){Reversar registro}
+            @else if (actionDialog == 9){Recibir producto}
+            @else {Accion desconocida}
+        </h2>
+    </div>
+
+    <div class="m-4">
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+            <mat-form-field class="w-full">
+                <mat-label>Personal</mat-label>
+                <mat-select [value]="" formControlName="idPersonal">
+                    <mat-option [value]=""></mat-option>
+                    @for ( item of aData1; track trackByFn($index, item)) {
+                    <mat-option [value]="item.idPersonal">{{item.name}}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Producto</mat-label>
+                <mat-select [value]="" formControlName="id_item" (selectionChange)="onGetUnitProducto()">
+                    <mat-option [value]=""></mat-option>
+                    @for ( item of aData2; track trackByFn($index, item)) {
+                    <mat-option [value]="item.id_item">{{item.name}}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-1/2">
+            <mat-label>Tipo unidad</mat-label>
+            <input matInput [value]="unitProduct" readonly />
+            </mat-form-field>
+
+            <mat-form-field class="w-1/2">
+                <mat-label>Cantidad</mat-label>
+                <input id="quantity" matInput formControlName="quantity" type="number" autocomplete="off" />
+                @if (dataForm.get('quantity').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+        </div>
+
+
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            <mat-form-field class="w-full">
+                <mat-label>Descripcion</mat-label>
+                <textarea id="description" matInput formControlName="description" autocomplete="off"
+                    rows="2"></textarea>
+                @if (dataForm.get('description').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+        </div>
+
+
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+            <div class="flex items-center space-x-2 w-1/4">
+                <label class="font-medium">Requiere devolucion?</label>
+                <mat-checkbox formControlName="isReturnable"></mat-checkbox>
+            </div>
+
+            @if (this.dataForm.get('isReturnable').value == true)
+            {
+            <mat-form-field class="w-full md:w-1/2">
+                <mat-label>Fecha de devolucion</mat-label>
+                <input matInput [matDatepicker]="picker" formControlName="due_date" readonly (focus)="picker.open()" />
+                <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                <mat-datepicker #picker></mat-datepicker>
+                @if (dataForm.get('due_date').hasError('required')) {
+                <mat-error>
+                    El campo es requerido
+                </mat-error>
+                }
+            </mat-form-field>
+            }
+
+            @if (actionDialog == 9)
+            {
+            <mat-form-field class="w-1/4">
+                <mat-label>Cantidad devuelta</mat-label>
+                <input id="quantityReturn" matInput formControlName="quantityReturn" type="number" autocomplete="off" />
+                @if (dataForm.get('quantity').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+            }
+        </div>
+
+        <!-- <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            <mat-form-field class="w-1/4">
+                <mat-label>Estado</mat-label>
+                <mat-select id="status" [value]="" formControlName="status">
+                <mat-option [value]="'E'">Activo</mat-option>
+                <mat-option [value]="'D'">Cancelar</mat-option>
+                </mat-select>
+                @if (dataForm.get('status').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+        </div> -->
+
+
+
+        <div class="mt-4 flex justify-end space-x-4">
+            <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+            <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()"
+                class="relative flex items-center justify-center">
+                @if (!dataForm.invalid) {
+                <span>
+                    @if (actionDialog ==1) {Crear}
+                    @else if( actionDialog==2 ) {Guardar}
+                    @else if ( actionDialog == 3 ){Guardar}
+                    @else if (actionDialog == 4){Eliminar}
+                    @else if (actionDialog == 7){Cerrar}
+                    @else if (actionDialog == 8){Reversar}
+                    @else if (actionDialog == 9){Recibir}
+                    @else {Accion desconocida}
+                </span>
+                }
+            </button>
+        </div>
+
+    </div>
+</form>

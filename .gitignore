@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Builds
+dist/
+build/
+coverage/
+**/dist/
+**/build/
+**/coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE and OS files
+.vscode/
+.idea/
+.vs/
+.DS_Store
+Thumbs.db
+
+# .NET generated files from reference project
+bin/
+obj/
+**/bin/
+**/obj/

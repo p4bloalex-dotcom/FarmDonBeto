@@ -1,0 +1,133 @@
+<!-- <ng-container *if="data?.length; else emptyState">
+
+
+</ng-container>
+
+<ng-template #emptyState>
+  <div class="border-t p-8 text-center text-xl font-semibold tracking-tight">
+    No se encontró ningún registro
+  </div>
+</ng-template> -->
+
+@if (pagedData) {
+  @if (pagedData.length > 0) {
+    <div class="dynamic-table-container">
+      <div class="inventory-grid header" [style.grid-template-columns]="getGridTemplate() + ' ' + actionColumnWidth" matSort
+        matSortDisableClear>
+        @for (item of columns ;track trackByFn($index, item)){
+          <div [class.hidden]="isHidden(item)" class="cell header-cell">
+            {{ item.header }}
+          </div>
+        }
+        <div class="cell actions-cell font-semibold">
+          {{ actionColumnLabel }}
+        </div>
+      </div>
+    
+       @for (row of pagedData ;track trackByFn($index, row)){
+          <div class="inventory-grid row" [style.grid-template-columns]="getGridTemplate() + ' ' + actionColumnWidth">
+
+            @for (col of columns; track $index) 
+            {
+              <div
+                [class.hidden]="isHidden(col)"
+                [class.primary-cell]="isPrimaryColumn(col)"
+                [class.secondary-cell]="!isPrimaryColumn(col)"
+                class="cell"
+                [attr.data-label]="col.header"
+              >
+                <!-- {{ row[col.field]  | cellFormat: col.field}} -->
+                @if (col.field == "status") { 
+                  @if (row[col.field] == "E") {<div class="status status-active">Activo</div>}
+                  @else if (row[col.field] == "D") { <div class="status status-desactive">Desactivado</div>}
+                  @else {                  {{ row[col.field]  | cellFormat: col.field}}}
+                }@else { 
+                  {{ row[col.field]  | cellFormat: col.field}}
+                }
+              </div>
+            }
+            
+            <div class="cell actions-cell flex gap-2 justify-center" data-label="Acciones">
+              @for (act of actions; track $index) {
+                <button  
+                    (click)="onAction(act.action, row)" 
+                    [attr.aria-label]="act.label" 
+                    matTooltip={{act.label}}
+                    class="btn btn-sm action-btn">
+                      @if (act.icon) { 
+                        <mat-icon class="action-{{ act.action }}"  svgIcon={{act.icon}}></mat-icon>
+                      }
+                      @else{ {{ act.label}}}
+                </button>
+              } 
+            </div>
+
+          </div>
+       }
+
+       <div class="mobile-list">
+        @for (row of pagedData ;track trackByFn($index, row)){
+          <div class="mobile-row">
+            <div class="mobile-content">
+              @for (col of getVisibleColumns(); track $index) {
+                @if (isPrimaryColumn(col)) {
+                  <div class="mobile-title">
+                    {{ row[col.field] | cellFormat: col.field }}
+                  </div>
+                } @else {
+                  <div class="mobile-meta-item">
+                    <span class="mobile-meta-label">{{ col.header }}</span>
+                    @if (col.field == "status") {
+                      @if (row[col.field] == "E") {<span class="status status-active">Activo</span>}
+                      @else if (row[col.field] == "D") {<span class="status status-desactive">Desactivado</span>}
+                      @else {<span>{{ row[col.field] | cellFormat: col.field }}</span>}
+                    } @else {
+                      <span>{{ row[col.field] | cellFormat: col.field }}</span>
+                    }
+                  </div>
+                }
+              }
+            </div>
+
+            <div class="mobile-actions">
+              @for (act of actions; track $index) {
+                <button
+                  (click)="onAction(act.action, row)"
+                  [attr.aria-label]="act.label"
+                  matTooltip={{act.label}}
+                  class="btn btn-sm action-btn">
+                    @if (act.icon) {
+                      <mat-icon class="action-{{ act.action }}" svgIcon={{act.icon}}></mat-icon>
+                    }
+                    @else{ {{ act.label}}}
+                </button>
+              }
+            </div>
+          </div>
+        }
+       </div>
+     </div>
+
+    <!-- <mat-paginator
+      [length]="pagination.length"
+      [pageIndex]="pagination.page"
+      [pageSize]="pagination.size"
+      [pageSizeOptions]="[5, 10, 25, 100]"
+      [showFirstLastButtons]="true">
+    </mat-paginator> -->
+    <mat-paginator
+      class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+      [ngClass]="{ 'pointer-events-none': isLoading }"
+      [length] = "length"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="pageSizeOptions"
+      [showFirstLastButtons]="true"
+      (page)="onPageEvent($event)">
+    </mat-paginator>
+  }
+  @else {
+    <div class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16">
+        No se encontró ningun registro
+    </div>
+  }
+}

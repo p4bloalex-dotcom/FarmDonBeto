@@ -1,0 +1,90 @@
+<form [formGroup]="dataForm" #dataInNgForm="ngForm" class="flex flex-col w-full m-0 p-0">
+  <div class="px-4 py-1 border-b">
+    <h2 class="text-2xl font-semibold">
+      @if (actionDialog ==1) {Crear}
+      @else if( actionDialog==2 ) {Editar}
+      @else if ( actionDialog == 3 ){Cambiar estado}
+      @else {Accion desconocido}
+    </h2>
+  </div>
+
+  <div class="m-4">
+
+    <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+      <mat-form-field class="w-full">
+        <mat-label>Nombre</mat-label>
+        <input id="name" matInput formControlName="name" />
+        @if (dataForm.get('name').hasError('required')) {
+        <mat-error>El campo es requerido</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field class="w-full">
+        <mat-label>Ruta</mat-label>
+        <input id="path" matInput formControlName="path" />
+        @if (dataForm.get('path').hasError('required')) {
+        <mat-error>El campo es requerido</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field class="w-full">
+        <mat-label>Icono</mat-label>
+        <input id="icon" matInput formControlName="icon" />
+        @if (dataForm.get('icon').hasError('required')) {
+        <mat-error>El campo es requerido</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+
+    <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+      <mat-form-field class="w-full">
+        <mat-label>Menu padre</mat-label>
+        <mat-select [value]="" formControlName="id_menu_father">
+          <mat-option [value]=""></mat-option>
+          @for ( item of aData1; track trackByFn($index, item)) {
+          <mat-option [value]="item.idMenu">{{getFieldValue(aData1,item.id,'name', 'id')}}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field class="w-full">
+        <mat-label>Estado</mat-label>
+        <mat-select id="status" [value]="" formControlName="status">
+          <mat-option [value]="'E'">Activo</mat-option>
+          <mat-option [value]="'D'">Desactivado</mat-option>
+          <!-- <mat-option [value]="'I'">Oculto</mat-option> -->
+        </mat-select>
+        @if (dataForm.get('status').hasError('required')) {
+        <mat-error>El campo es requerido</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field class="w-full">
+        <mat-label>Orden en que aparece</mat-label>
+        <input id="order" matInput formControlName="order" />
+        @if (dataForm.get('order').hasError('required')) {
+        <mat-error>El campo es requerido</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+
+
+    <!-- Botones al final, igual que antes -->
+    <div class="mt-4 flex justify-end space-x-4">
+      <button mat-flat-button matDialogClose (click)="close()">Cerrar</button>
+      <button mat-flat-button color="primary" [disabled]="dataForm.disabled" (click)="save()"
+        class="relative flex items-center justify-center">
+        @if (!dataForm.disabled) {
+        <span>Guardar</span>
+        }
+        @if (dataForm.disabled) {
+        <mat-progress-spinner diameter="24" mode="indeterminate"></mat-progress-spinner>
+        }
+      </button>
+    </div>
+
+  </div>
+</form>

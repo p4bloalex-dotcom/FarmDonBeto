@@ -1,0 +1,223 @@
+<mat-dialog-content class="p-0 overflow-auto max-h-[75vh]">
+    <form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+        <div class="px-4 py-1 border-b">
+            <h2 class="text-2xl font-semibold">
+                @if (actionDialog ==1) {Crear registro}
+                @else if( actionDialog==2 ) {Editar registro}
+                @else if ( actionDialog == 3 ){Cambiar estado}
+                @else if (actionDialog == 4){Eliminar registro}
+                @else {Accion desconocido}
+            </h2>
+        </div>
+
+        <div class="m-4">
+
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+                <mat-form-field class="w-full">
+                    <mat-label>Tipo</mat-label>
+                    <mat-select id="recurrence" [value]="" formControlName="recurrence">
+                        <mat-option [value]="0">Único (evento)</mat-option>
+                        <mat-option [value]="1">Días (con intervalo)</mat-option>
+                        <mat-option [value]="2">Ciclo trabajo-descanso</mat-option>
+                        <mat-option [value]="3">Semana</mat-option>
+                        <mat-option [value]="6">Cumplimiento por hora</mat-option>
+                        <!-- <mat-option [value]="4">Meses</mat-option> -->
+                    </mat-select>
+                    @if (dataForm.get('recurrence').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+                <!-- @if (showHourRequired())
+                {
+                <div class="w-1/2">
+
+                    <label for="break" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                        Horas requeridas @if (dataForm.get('hour_required')?.hasError('required') ||
+                        dataForm.get('hour_required')?.validator) {*}
+                    </label>
+                    <input type="time" id="time_start" formControlName="hour_required" step="60"
+                        class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+
+                </div>
+                } -->
+
+                @if (showPeriod())
+                {
+                <mat-form-field class="w-1/2">
+                    <mat-label>Periodo</mat-label>
+                    <mat-select id="period" [value]="" formControlName="period">
+                        <mat-option [value]="1">Semanal</mat-option>
+                        <!-- <mat-option [value]="2">Mensual</mat-option> -->
+                    </mat-select>
+                    @if (dataForm.get('period').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+                }
+
+                @if (showInterval())
+                {
+                <mat-form-field class="w-full">
+                    <mat-label>Intervalo</mat-label>
+                    <input id="interval" matInput formControlName="interval" autocomplete="off" type="number" />
+                    @if (dataForm.get('interval').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+                }
+
+                @if (showDays())
+                {
+                <mat-form-field class="w-full">
+                    <mat-label>Día</mat-label>
+                    <mat-select id="days" [value]="" formControlName="days">
+                        <mat-option [value]="1">Lunes</mat-option>
+                        <mat-option [value]="2">Martes</mat-option>
+                        <mat-option [value]="3">Miercoles</mat-option>
+                        <mat-option [value]="4">Jueves</mat-option>
+                        <mat-option [value]="5">Viernes</mat-option>
+                        <mat-option [value]="6">Sabado</mat-option>
+                        <mat-option [value]="0">Domingo</mat-option>
+                    </mat-select>
+                    @if (dataForm.get('days').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+                }
+            </div>
+
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+                <mat-form-field class="w-full">
+                    <mat-label>Nombre</mat-label>
+                    <input id="name" matInput formControlName="name" autocomplete="off" />
+                    @if (dataForm.get('name').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-1/2">
+                    <mat-label>Fecha de activación</mat-label>
+                    <input matInput [matDatepicker]="picker" formControlName="date_start" readonly
+                        (focus)="picker.open()" />
+                    <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                    <mat-datepicker #picker></mat-datepicker>
+                    @if (dataForm.get('date_start').hasError('required')) {
+                    <mat-error>
+                        El campo es requerido
+                    </mat-error>
+                    }
+                </mat-form-field>
+
+                <div class="w-1/3">
+                    <label for="break" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                        Inicio @if (dataForm.get('time_start')?.hasError('required') ||
+                        dataForm.get('time_start')?.validator) {*}
+                    </label>
+                    <input type="time" id="time_start" formControlName="time_start" step="60"
+                        class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                </div>
+
+                <!-- @if (showDuration())
+                { -->
+                <div class="w-1/3">
+                    <label for="break" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                        Duración @if (dataForm.get('duration')?.hasError('required') ||
+                        dataForm.get('duration')?.validator) {*}
+                    </label>
+                    <input type="time" id="duration" formControlName="duration" step="60"
+                        class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                </div>
+                <!-- } -->
+
+            </div>
+
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+                @if (showBreak())
+                {
+                <div class="w-1/3">
+                    <label for="break" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                        Descanso @if (dataForm.get('break')?.hasError('required') || dataForm.get('break')?.validator)
+                        {*}
+                    </label>
+                    <input type="time" id="break" formControlName="break" step="60"
+                        class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                </div>
+                }
+
+                <!-- <mat-form-field class="w-1/3">
+                    <mat-label>Personal minimo requerido</mat-label>
+                    <input id="min_staff" matInput formControlName="min_staff" type="number" autocomplete="off" />
+                    @if (dataForm.get('min_staff').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-1/3">
+                    <mat-label>Personal máximo requerido</mat-label>
+                    <input id="max_staff" matInput formControlName="max_staff" type="number" autocomplete="off" />
+                    @if (dataForm.get('max_staff').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+                <div class="flex items-center space-x-2 w-1/4">
+                    <label class="font-medium">Requerido?</label>
+                    <mat-checkbox formControlName="is_required"></mat-checkbox>
+                </div> -->
+
+                @if (showReplacement())
+                {
+                <div class="flex items-center space-x-2 w-1/4">
+                    <label class="font-medium">Reemplazo?</label>
+                    <mat-checkbox formControlName="allow_replacement"></mat-checkbox>
+                </div>
+                }
+
+                <mat-form-field class="w-1/3">
+                    <mat-label>Estado</mat-label>
+                    <mat-select id="status" [value]="" formControlName="status">
+                        <mat-option [value]="'E'">Activo</mat-option>
+                        <mat-option [value]="'D'">Desactivado</mat-option>
+                    </mat-select>
+                    @if (dataForm.get('status').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <!-- 
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+                <mat-form-field class="w-1/3">
+                    <mat-label>Estado</mat-label>
+                    <mat-select id="status" [value]="" formControlName="status">
+                        <mat-option [value]="'E'">Activo</mat-option>
+                        <mat-option [value]="'D'">Desactivado</mat-option>
+                    </mat-select>
+                    @if (dataForm.get('status').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+            </div> -->
+        </div>
+    </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+    <div class="mt-4 flex justify-end space-x-4">
+        <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+        <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()"
+            class="relative flex items-center justify-center">
+            @if (!dataForm.invalid) {
+            <span>
+                @if (actionDialog ==1) {Crear}
+                @else if( actionDialog==2 ) {Guardar}
+                @else if ( actionDialog == 3 ){Guardar}
+                @else if (actionDialog == 4){Eliminar}
+                @else {Accion desconocido}
+            </span>
+            }
+        </button>
+    </div>
+</mat-dialog-actions>

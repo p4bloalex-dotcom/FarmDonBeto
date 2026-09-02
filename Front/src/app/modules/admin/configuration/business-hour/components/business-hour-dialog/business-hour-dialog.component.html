@@ -1,0 +1,99 @@
+<mat-dialog-content class="max-h-[78vh] overflow-auto p-0">
+  <form [formGroup]="dataForm" class="flex w-full flex-col m-0 p-0">
+    <div class="border-b px-4 py-3">
+      <h2 class="text-xl font-semibold sm:text-2xl">
+        @if (actionDialog == 1) {Crear horario}
+        @else if (actionDialog == 2) {Editar horario}
+        @else if (actionDialog == 3) {Cambiar estado del horario}
+        @else if (actionDialog == 4) {Eliminar horario}
+        @else {Accion desconocida}
+      </h2>
+    </div>
+
+    <div class="m-4">
+      <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <mat-form-field class="w-full">
+          <mat-label>Dia de la semana</mat-label>
+          <mat-select id="day_week" formControlName="day_week">
+            @for (day of aData1; track day.id) {
+              <mat-option [value]="day.id">{{ day.name }}</mat-option>
+            }
+          </mat-select>
+          @if (dataForm.get('day_week').hasError('required')) {
+            <mat-error>El campo es requerido</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field class="w-full">
+          <mat-label>Estado</mat-label>
+          <mat-select id="status" formControlName="status">
+            <mat-option value="E">Activo</mat-option>
+            <mat-option value="D">Desactivado</mat-option>
+          </mat-select>
+          @if (dataForm.get('status').hasError('required')) {
+            <mat-error>El estado es requerido</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <div class="mb-4 rounded-lg border p-3">
+        <mat-checkbox formControlName="is_closed">El negocio cierra este dia</mat-checkbox>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div class="w-full">
+          <label for="open_time" class="mb-1 block text-sm font-medium text-gray-900 dark:text-white">
+            Hora de apertura
+          </label>
+          <input
+            type="time"
+            id="open_time"
+            formControlName="open_time"
+            step="60"
+            class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+          @if (dataForm.get('open_time').hasError('required') && dataForm.get('open_time').touched) {
+            <p class="mt-1 text-xs text-red-500">El campo es requerido</p>
+          }
+        </div>
+
+        <div class="w-full">
+          <label for="close_time" class="mb-1 block text-sm font-medium text-gray-900 dark:text-white">
+            Hora de cierre
+          </label>
+          <input
+            type="time"
+            id="close_time"
+            formControlName="close_time"
+            step="60"
+            class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+          @if (dataForm.get('close_time').hasError('required') && dataForm.get('close_time').touched) {
+            <p class="mt-1 text-xs text-red-500">El campo es requerido</p>
+          }
+        </div>
+      </div>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <div class="flex w-full flex-col-reverse gap-3 px-2 pb-2 sm:w-auto sm:flex-row sm:justify-end sm:space-x-4">
+    <button class="w-full sm:w-auto" mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+    <button
+      class="relative flex w-full items-center justify-center sm:w-auto"
+      mat-flat-button
+      color="primary"
+      [disabled]="dataForm.invalid && actionDialog !== 4"
+      (click)="save()"
+    >
+      <span>
+        @if (actionDialog == 1) {Crear}
+        @else if (actionDialog == 2) {Guardar}
+        @else if (actionDialog == 3) {Guardar}
+        @else if (actionDialog == 4) {Eliminar}
+        @else {Confirmar}
+      </span>
+    </button>
+  </div>
+</mat-dialog-actions>

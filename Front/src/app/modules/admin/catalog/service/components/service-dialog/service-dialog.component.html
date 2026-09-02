@@ -1,0 +1,108 @@
+<mat-dialog-content class="p-0 overflow-auto max-h-[75vh]">
+  <form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+    <div class="px-4 py-1 border-b">
+      <h2 class="text-2xl font-semibold">
+        @if (actionDialog == 1) {Crear servicio}
+        @else if (actionDialog == 2) {Editar servicio}
+        @else if (actionDialog == 3) {Cambiar estado del servicio}
+        @else if (actionDialog == 4) {Eliminar servicio}
+        @else {Acción desconocida}
+      </h2>
+    </div>
+
+    <div class="m-4">
+      <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4 mb-4">
+        <!-- Name -->
+        <mat-form-field class="w-full md:w-2/3">
+          <mat-label>Nombre del servicio</mat-label>
+          <input id="name" matInput formControlName="name" autocomplete="off" />
+          @if (dataForm.get('name').hasError('required')) {
+            <mat-error>El nombre es requerido</mat-error>
+          }
+        </mat-form-field>
+
+        <!-- Status -->
+        <mat-form-field class="w-full md:w-1/3">
+          <mat-label>Estado</mat-label>
+          <mat-select id="status" formControlName="status">
+            <mat-option value="E">Activo</mat-option>
+            <mat-option value="D">Desactivado</mat-option>
+          </mat-select>
+          @if (dataForm.get('status').hasError('required')) {
+            <mat-error>El estado es requerido</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <!-- Description -->
+      <div class="flex flex-col space-y-4 mb-4">
+        <mat-form-field class="w-full">
+          <mat-label>Descripción</mat-label>
+          <textarea id="description" matInput formControlName="description" rows="3" autocomplete="off"></textarea>
+        </mat-form-field>
+      </div>
+
+      <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4 mb-4">
+        <!-- Duration Minutes -->
+        <div class="w-full md:w-1/3">
+          <label for="duration_minutes" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+            Duración del servicio *
+          </label>
+          <input type="time" id="duration_minutes" formControlName="duration_minutes" step="60"
+            class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
+          @if (dataForm.get('duration_minutes').hasError('required') && dataForm.get('duration_minutes').touched) {
+            <p class="text-red-500 text-xs mt-1">El campo es requerido</p>
+          }
+        </div>
+
+        <!-- Gap Service -->
+        <div class="w-full md:w-1/3">
+          <label for="gap_service" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+            Brecha de descanso *
+          </label>
+          <input type="time" id="gap_service" formControlName="gap_service" step="60"
+            class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
+          @if (dataForm.get('gap_service').hasError('required') && dataForm.get('gap_service').touched) {
+            <p class="text-red-500 text-xs mt-1">El campo es requerido</p>
+          }
+        </div>
+
+        <!-- Price -->
+        <div class="w-full md:w-1/3">
+          <label for="price" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+            Precio del servicio *
+          </label>
+          <input type="number" id="price" formControlName="price" autocomplete="off"
+            class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
+          @if (dataForm.get('price').hasError('required') && dataForm.get('price').touched) {
+            <p class="text-red-500 text-xs mt-1">El precio es requerido</p>
+          }
+          @if (dataForm.get('price').hasError('min') && dataForm.get('price').touched) {
+            <p class="text-red-500 text-xs mt-1">Debe ser mayor o igual a 0</p>
+          }
+        </div>
+      </div>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <div class="mt-4 flex justify-end space-x-4">
+    <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+    <button
+      mat-flat-button
+      color="primary"
+      [disabled]="dataForm.invalid && actionDialog !== 4"
+      (click)="save()"
+      class="relative flex items-center justify-center"
+    >
+      <span>
+        @if (actionDialog == 1) {Crear}
+        @else if (actionDialog == 2) {Guardar}
+        @else if (actionDialog == 3) {Guardar}
+        @else if (actionDialog == 4) {Eliminar}
+        @else {Confirmar}
+      </span>
+    </button>
+  </div>
+</mat-dialog-actions>

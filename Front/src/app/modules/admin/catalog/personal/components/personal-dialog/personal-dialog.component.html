@@ -1,0 +1,146 @@
+<mat-dialog-content class="p-0 overflow-auto max-h-[75vh]">
+    <form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+        <div class="px-4 py-1 border-b">
+            <h2 class="text-2xl font-semibold">
+                @if (actionDialog ==1) {Crear registro}
+                @else if( actionDialog==2 ) {Editar registro}
+                @else if ( actionDialog == 3 ){Cambiar estado}
+                @else if (actionDialog == 4){Eliminar registro}
+                @else {Accion desconocido}
+            </h2>
+        </div>
+
+        <div class="m-4">
+
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+                <mat-form-field class="w-full">
+                    <mat-label>Primer nombre</mat-label>
+                    <input id="first_name" matInput formControlName="first_name" autocomplete="off" />
+                    @if (dataForm.get('first_name').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full">
+                    <mat-label>Segundo nombre</mat-label>
+                    <input id="middle_name" matInput formControlName="middle_name" autocomplete="off" />
+                    @if (dataForm.get('middle_name').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+            </div>
+
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+
+                <mat-form-field class="w-full">
+                    <mat-label>Otro nombre</mat-label>
+                    <input id="other_names" matInput formControlName="other_names" autocomplete="off" />
+                    @if (dataForm.get('other_names').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+
+                <mat-form-field class="w-full">
+                    <mat-label>Primer apellido</mat-label>
+                    <input id="last_name" matInput formControlName="last_name" autocomplete="off" />
+                    @if (dataForm.get('last_name').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+            </div>
+
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+                <mat-form-field class="w-full">
+                    <mat-label>Segundo apellido</mat-label>
+                    <input id="second_lastname" matInput formControlName="second_lastname" autocomplete="off" />
+                    @if (dataForm.get('second_lastname').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full">
+                    <mat-label>Numero de telefono</mat-label>
+                    <input id="phone" matInput formControlName="phone" autocomplete="off" />
+                    @if (dataForm.get('phone').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                    @if (dataForm.get('phone').hasError('pattern')) {
+                    <mat-error>Formato incorrecto</mat-error>
+                    }
+                </mat-form-field>
+
+            </div>
+
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+                <mat-form-field class="w-full">
+                    <mat-label>Correo electronico</mat-label>
+                    <input id="email" matInput formControlName="email" autocomplete="off" />
+                    @if (dataForm.get('email').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full">
+                    <mat-label>Compania</mat-label>
+                    <mat-select id="company_id" [value]="" formControlName="company_id">
+                        @for (item of aData1; track $index) {
+                        <mat-option [value]="item.id">{{item.name}}</mat-option>
+                        }
+                    </mat-select>
+                    @if (dataForm.get('company_id').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+
+            </div>
+
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+                <mat-form-field class="w-full">
+                    <mat-label>Estado</mat-label>
+                    <mat-select id="status" [value]="" formControlName="status">
+                        <mat-option [value]="'E'">Activo</mat-option>
+                        <mat-option [value]="'D'">Desactivado</mat-option>
+                    </mat-select>
+                    @if (dataForm.get('status').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+                <mat-form-field class="w-full">
+                    <mat-label>Genero</mat-label>
+                    <mat-select id="gender" [value]="" formControlName="gender">
+                        <mat-option [value]="'M'">Masculino</mat-option>
+                        <mat-option [value]="'F'">Femenino</mat-option>
+                    </mat-select>
+                    @if (dataForm.get('gender').hasError('required')) {
+                    <mat-error>El campo es requerido</mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+        </div>
+    </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+    <div class="mt-4 flex justify-end space-x-4">
+        <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+        <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()"
+            class="relative flex items-center justify-center">
+            @if (!dataForm.invalid) {
+            <span>
+                @if (actionDialog ==1) {Crear}
+                @else if( actionDialog==2 ) {Guardar}
+                @else if ( actionDialog == 3 ){Guardar}
+                @else if (actionDialog == 4){Eliminar}
+                @else {Accion desconocido}
+            </span>
+            }
+        </button>
+    </div>
+</mat-dialog-actions>

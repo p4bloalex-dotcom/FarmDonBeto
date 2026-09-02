@@ -1,0 +1,73 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+        <div class="text-3xl font-extrabold tracking-tight">Accesos a acciones</div>
+        <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
+        </div>
+    </div>
+    <div class="flex justify-center w-full overflow-hidden p-4">
+        <form [formGroup]="dataForm" class="flex flex-col md:flex-row md:items-center md:space-x-4 w-full max-w-3xl">
+
+            <mat-form-field class="flex-1">
+                <mat-label>Selecione el rol</mat-label>
+                <mat-select [value]="" formControlName="idRole">
+                    <mat-option [value]=""></mat-option>
+                    @for ( item of axData1; track trackByFn($index, item)) {
+                    <mat-option [value]="item.id">{{item.name}}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="find()"
+                class="h-12 w-32 mt-4 md:mt-0">
+                <span>Buscar</span>
+            </button>
+        </form>
+    </div>
+
+
+    <div class="flex justify-center w-full overflow-hidden p-4">
+        <div class="w-full max-w-3xl max-h-[70vh] overflow-y-auto shadow rounded-lg border border-gray-200 bg-white">
+            <mat-accordion [multi]="false">
+                @for (categoria of aPermission; track $index) {
+                <mat-expansion-panel>
+                    <mat-expansion-panel-header>
+                        <mat-panel-title class="font-semibold text-gray-800">
+                            {{ categoria.nameMenu }}
+                        </mat-panel-title>
+                    </mat-expansion-panel-header>
+
+                    <mat-accordion [multi]="false">
+                        @for (menu of categoria.menus; track $index) {
+                        <mat-expansion-panel>
+                            <mat-expansion-panel-header>
+                                <mat-panel-title class="text-sm text-gray-700">
+                                    {{ menu.nameMenu }}
+                                </mat-panel-title>
+                            </mat-expansion-panel-header>
+
+                            @for (permiso of menu.Permissions; track $index) {
+                            <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                                <span class="text-gray-600 text-sm">{{ permiso.namePermission }}</span>
+                                <mat-checkbox [(ngModel)]="permiso.isCheck" (change)="onPermisoChange(permiso)">
+                                </mat-checkbox>
+                            </div>
+                            }
+                        </mat-expansion-panel>
+                        }
+                    </mat-accordion>
+
+                </mat-expansion-panel>
+                }
+            </mat-accordion>
+        </div>
+    </div>
+    <div class="flex justify-center w-full overflow-hidden p-4">
+        <button mat-flat-button color="primary" [disabled]="modifiedPermissions.length < 1" (click)="savePermission()"
+            class="h-12 w-32 mt-4 mb-4  md:mt-0 pz-4">
+            <span>Guardar</span>
+        </button>
+    </div>
+
+
+</div>

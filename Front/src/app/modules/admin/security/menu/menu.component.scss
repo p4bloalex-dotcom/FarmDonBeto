@@ -1,0 +1,19 @@
+.inventory-grid {
+  /* icono fijo, NameMenu 3fr, Path 1fr, Status 1fr, Order 1fr */
+  grid-template-columns: 48px 3fr 1fr 1fr 1fr;
+
+  @screen sm {
+    /* icono + NameMenu + Icono extra + Estado + Orden pequeño */
+    grid-template-columns: 48px 3fr 1fr 1fr 1fr 0.5fr;
+  }
+
+  @screen md {
+    /* icono + Icono + NameMenu + Path + Estado + Orden */
+    grid-template-columns: 48px 1fr 3fr 1fr 1fr 0.5fr;
+  }
+
+  @screen lg {
+    /* más espacio para Path y Order en pantallas grandes */
+    grid-template-columns: 48px 1fr 4fr 2fr 1fr 1fr;
+  }
+}

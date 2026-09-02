@@ -1,0 +1,146 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+  <div class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+    <div class="text-3xl font-extrabold tracking-tight">Consulta de personal</div>
+    <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
+    </div>
+  </div>
+  <div class="flex justify-left w-full  px-8 py-1">
+    <form [formGroup]="dataForm" class="flex flex-col md:flex-row md:items-center md:space-x-4 w-full">
+
+      <mat-form-field class="w-1/2">
+        <mat-label>Tipo de busqueda</mat-label>
+        <mat-select [value]="" formControlName="typeSearch">
+          <mat-option [value]=""></mat-option>
+          <mat-option [value]="1">DPI</mat-option>
+          <mat-option [value]="2">Nombre</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      @if (this.dataForm.value.typeSearch == 1) {
+      <mat-form-field class="w-full">
+        <mat-label>Numero de indentificacion</mat-label>
+        <input matInput formControlName="dpi" />
+        @if (dataForm.get('dpi').hasError('required')) {
+        <mat-error>El campo es requerido</mat-error>
+        }
+      </mat-form-field>
+      }
+
+      @if (this.dataForm.value.typeSearch == 2) {
+      <mat-form-field class="w-full">
+        <mat-label>Primer nombre</mat-label>
+        <input matInput formControlName="firstName" />
+        @if (dataForm.get('firstName').hasError('required')) {
+        <mat-error>El campo es requerido</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field class="w-full">
+        <mat-label>Primer apellido</mat-label>
+        <input matInput formControlName="lastName" />
+        @if (dataForm.get('lastName').hasError('required')) {
+        <mat-error>El campo es requerido</mat-error>
+        }
+      </mat-form-field>
+      }
+
+      <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="find()"
+        class="h-12 w-1/4 mt-4 md:mt-0">
+        <span>Buscar</span>
+      </button>
+    </form>
+  </div>
+
+  <div class="flex justify-center w-full overflow-hidden py-1 px-6">
+
+    <div
+      class="w-full overflow-y-auto shadow px-4 rounded-lg border border-gray-200 bg-white w-full h-full overflow-auto shadow rounded-lg border border-gray-200 bg-white">
+      <mat-accordion [multi]="false">
+
+        @if (axData1?.personal) {
+        <mat-expansion-panel>
+          <mat-expansion-panel-header>
+            <mat-panel-title class="font-semibold text-gray-800">
+              Datos Personales
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-700">
+
+            <div class="flex justify-center">
+              <img [src]="axData1.picture" class="w-32 h-32 object-cover rounded-full" alt="Foto de perfil" />
+            </div>
+
+            <div class="space-y-2">
+              <div><strong>Nombre:</strong> {{ axData1.personal.firstName }} {{ axData1.personal.middleName }} {{
+                axData1.personal.otherNames }} {{ axData1.personal.lastName }} {{ axData1.personal.secondLastName }}
+              </div>
+              <div><strong>DPI:</strong> {{ axData1.personal.dpi }}</div>
+              <div><strong>Carnet:</strong> {{ axData1.personal.codeIntern }}</div>
+              <div><strong>Teléfono:</strong> {{ axData1.personal.phone }}</div>
+              <div><strong>Teléfono Familiar:</strong> {{ axData1.personal.familyPhone }}</div>
+              <div><strong>Dirección:</strong> {{ axData1.personal.address }}</div>
+              <div><strong>Correo:</strong> {{ axData1.personal.email }}</div>
+              <div><strong>Fecha de nacimiento:</strong> {{ axData1.personal.birthDate | date:'longDate' }}</div>
+              <div><strong>Tipo de personal:</strong> {{ axData1.personal.nameType }}</div>
+              <div><strong>Cargo de personal:</strong> {{ axData1.personal.namePosition }}</div>
+              <div><strong>Género:</strong> {{ axData1.personal.gender == 'M' ? 'Masculino' : 'Femenino' }}</div>
+              <div><strong>Estado:</strong> {{ axData1.personal.status === 'E' ? 'Activo' : 'Inactivo' }}</div>
+            </div>
+
+          </div>
+        </mat-expansion-panel>
+
+        }
+
+        @if (axData1?.documents) {
+        <mat-expansion-panel>
+          <mat-expansion-panel-header>
+            <mat-panel-title class="font-semibold text-gray-800">
+              Papeleria del personal
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            @for (item of axData1?.documents; track $index) {
+            <button class="w-56 min-h-[100px] flex flex-col items-center justify-center
+              rounded-2xl border border-red-300
+              bg-red-50 text-red-800
+              hover:bg-red-100 hover:text-red-900
+              shadow-sm hover:shadow-md
+              transition-all duration-200 ease-in-out" mat-raised-button color="primary" (click)="onGetDocument(item)">
+
+              <mat-icon class="text-5xl mb-2">description</mat-icon>
+              <span class="mt-2 text-sm text-center px-2">
+                {{ item.name }}
+              </span>
+            </button>
+            }
+          </div>
+
+        </mat-expansion-panel>
+        }
+
+        @if (axData1?.user) {
+        <mat-expansion-panel>
+          <mat-expansion-panel-header>
+            <mat-panel-title class="font-semibold text-gray-800">
+              Datos de Usuario
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="p-4 space-y-2 text-sm text-gray-700">
+            <div><strong>Usuario:</strong> {{ axData1.user.userName }}</div>
+            <div><strong>Rol:</strong> {{ axData1.user.role }}</div>
+            <div><strong>Último ingreso:</strong> {{ axData1.user.lastLogin | date:'medium' }}</div>
+            <div><strong>Estado:</strong> {{ axData1.user.status === 'E' ? 'Activo' : 'Inactivo' }}</div>
+          </div>
+        </mat-expansion-panel>
+        }
+
+      </mat-accordion>
+    </div>
+  </div>
+
+
+</div>

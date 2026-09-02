@@ -1,0 +1,131 @@
+<form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+    <div class="px-4 py-1 border-b">
+        <h2 class="text-2xl font-semibold">
+            @if (actionDialog ==1) {Crear registro}
+            @else if( actionDialog==2 ) {Editar registro}
+            @else if ( actionDialog == 3 ){Cambiar estado}
+            @else if (actionDialog == 4){Eliminar registro}
+            @else if (actionDialog == 7){Información del registro}
+            @else {Accion desconocida}
+        </h2>
+    </div>
+
+    <div class="m-4">
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            <mat-form-field class="w-full">
+                <mat-label>Categoria</mat-label>
+                <mat-select [value]="" formControlName="idInveCategory">
+                    <mat-option [value]=""></mat-option>
+                    @for ( item of aData2; track trackByFn($index, item)) {
+                    <mat-option [value]="item.idInveCategory">{{item.name}}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-1/2">
+                <mat-label>Unidad de media</mat-label>
+                <mat-select [value]="" formControlName="id_unit">
+                    <mat-option [value]=""></mat-option>
+                    @for ( item of aData4; track trackByFn($index, item)) {
+                    <mat-option [value]="item.id_unit">{{item.name}}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+        </div>
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+            <mat-form-field class="w-full">
+                <mat-label>Nombre</mat-label>
+                <input id="nameDonor" matInput formControlName="name" autocomplete="off" />
+                @if (dataForm.get('name').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Stock minimo</mat-label>
+                <input id="stockMin" matInput formControlName="stockMin" autocomplete="off" />
+                @if (dataForm.get('stockMin').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+        </div>
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+            <mat-form-field class="w-full">
+                <mat-label>Detalle</mat-label>
+                <input id="description" matInput formControlName="description" autocomplete="off" />
+                @if (dataForm.get('description').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+        </div>
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            <!-- <div class="flex items-center space-x-2 w-1/5">
+                <label class="font-medium">¿Es expirable?</label>
+                <mat-checkbox formControlName="isExpirable"></mat-checkbox>
+            </div> -->
+            <div class="flex items-center space-x-2 w-1/5">
+                <label class="font-medium">¿Es consumible?</label>
+                <mat-checkbox formControlName="isConsumable"></mat-checkbox>
+            </div>
+            <div class="flex items-center space-x-2 w-1/5">
+                <label class="font-medium">¿Es asignable?</label>
+                <mat-checkbox formControlName="canAssign"></mat-checkbox>
+            </div>
+            <div class="flex items-center space-x-2 w-1/5">
+                <label class="font-medium">¿Prestable interno?</label>
+                <mat-checkbox formControlName="canLoanInternal"></mat-checkbox>
+            </div>
+            <div class="flex items-center space-x-2 w-1/5">
+                <label class="font-medium">¿Prestable externo?</label>
+                <mat-checkbox formControlName="canLoanExternal"></mat-checkbox>
+            </div>
+        </div>
+
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            <div>
+                <label for="image-file-input" class="flex items-center justify-center
+                        w-18 h-10
+                        px-4 text-sm font-medium text-gray-700
+                        bg-white border border-gray-300 rounded-md shadow-sm
+                        cursor-pointer hover:bg-gray-50">
+                    <mat-icon svgIcon="heroicons_outline:photo" class="mr-2"></mat-icon>
+                </label>
+
+                <input id="image-file-input" type="file" class="hidden" [multiple]="false"
+                    [accept]="'image/jpeg, image/png, image/jpg'" (change)="uploadImage($event.target.files)"
+                    #imageFileInput />
+                @if (dataForm.get('picture')?.value) {
+                <img class="w-24 h-24 object-cover rounded-md mt-2" [src]="dataForm.get('picture').value"
+                    alt="Vista previa de la imagen" />
+                }
+            </div>
+        </div>
+
+
+        <div class="mt-4 flex justify-end space-x-4">
+            <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+            <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()"
+                class="relative flex items-center justify-center">
+                @if (!dataForm.invalid) {
+                <span>
+                    @if (actionDialog ==1) {Crear}
+                    @else if( actionDialog==2 ) {Guardar}
+                    @else if ( actionDialog == 3 ){Guardar}
+                    @else if (actionDialog == 4){Eliminar}
+                    @else if (actionDialog == 7){Cerrar}
+                    @else {Accion desconocida}
+                </span>
+                }
+            </button>
+        </div>
+
+    </div>
+</form>

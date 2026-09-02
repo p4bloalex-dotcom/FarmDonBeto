@@ -1,0 +1,53 @@
+<mat-dialog-content class="p-4 flex flex-col items-center space-y-6">
+    <form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+        <div class="px-4 py-1 border-b">
+            <h2 class="text-2xl font-semibold">Subir documento</h2>
+        </div>
+
+          <div class="m-4">
+        <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Tipo de documento</mat-label>
+            <mat-select [value]="" formControlName="idTypeDocument">
+                <mat-option [value]=""></mat-option>
+                @for ( item of aData; track trackByFn($index, item)) {
+                <mat-option [value]="item.idTypeDocument">{{item.name}}</mat-option>
+                }
+            </mat-select>
+        </mat-form-field>
+
+        <div class="w-40 h-40 rounded-lg border border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-gray-500 transition"
+            (click)="fileInput.click()">
+
+            @if (!selectedFile)
+            {
+            <mat-icon svgIcon="heroicons_outline:document" class="text-5xl"></mat-icon>
+            <span class="mt-2 text-sm text-gray-600">Selecciona un archivo</span>
+            }
+
+            @if (selectedFile)
+            {
+            @if (isImage(selectedFile))
+            {
+            <img [src]="filePreview" class="w-full h-full object-cover rounded" alt="Vista previa" />
+            }
+            @else
+            {
+            <mat-icon svgIcon="heroicons_outline:document" class="text-5xl"></mat-icon>
+            <span class="mt-2 text-sm">{{ selectedFile.name }}</span>
+            }
+            }
+        </div>
+
+        <input #fileInput type="file" accept=".pdf,image/*" class="hidden" (change)="onFileChange($event)" />
+        </div>
+    </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="p-4">
+    <div class="mt-4 flex justify-end space-x-4">
+        <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+        <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="submit()">
+            Guardar
+        </button>
+    </div>
+</mat-dialog-actions>

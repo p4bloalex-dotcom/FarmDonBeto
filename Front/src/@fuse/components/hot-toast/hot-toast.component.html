@@ -1,0 +1,35 @@
+<div
+  class="hot-toast-wrapper"
+  [ngClass]="(toasts$ | async)?.[0]?.config.position || 'top-right'"
+  aria-live="polite"
+>
+  <ng-container *ngFor="let t of toasts$ | async; trackBy: trackById" >
+    <div
+      class="hot-toast hot-toast--{{ t.type }} {{ t.config.class }}"
+      [ngStyle]="t.config.style"
+      (mouseenter)="pauseToast(t.id)"
+      (mouseleave)="resumeToast(t.id)"
+    >
+      <div class="hot-toast__icon-wrapper">
+        <div class="hot-toast__icon-circle">
+          <ng-container [ngSwitch]="t.type">
+            <mat-icon *ngSwitchCase="'success'" svgIcon="feather:check-circle"></mat-icon>
+            <mat-icon *ngSwitchCase="'error'" svgIcon="mat_outline:error"></mat-icon>
+            <mat-icon *ngSwitchCase="'warning'" svgIcon="warning"></mat-icon>
+            <mat-icon *ngSwitchCase="'info'" svgIcon="info"></mat-icon>
+            <mat-icon *ngSwitchDefault svgIcon="announcement"></mat-icon>
+          </ng-container>
+        </div>
+      </div>
+      <div class="hot-toast__content">
+        <div class="hot-toast__message" *ngIf="t.message">{{ t.message }}</div>
+      </div>
+      <button
+        *ngIf="t.config.dismissible !== false"
+        class="hot-toast__close"
+        aria-label="Close toast"
+        (click)="svc.remove(t.id)"
+      >×</button>
+    </div>
+  </ng-container>
+</div>

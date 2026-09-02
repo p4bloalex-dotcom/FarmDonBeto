@@ -1,0 +1,160 @@
+<mat-dialog-content class="p-0 overflow-auto max-h-[75vh]">
+
+  @if (iData1 != null) {
+    <h2 class="text-xl font-bold text-red-600 dark:text-red-400 mb-4 flex items-center gap-2">
+      {{ iData1.nameShift }}
+    </h2>
+
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <!-- Inicio -->
+      <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl">
+        <p class="text-sm text-gray-500">Inicio</p>
+        <p class="font-semibold text-gray-800 dark:text-gray-200">
+          {{ iData1.startUtc | date:'dd/MM/yyyy HH:mm' }}
+        </p>
+      </div>
+
+      <!-- Fin -->
+      <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl">
+        <p class="text-sm text-gray-500">Fin</p>
+        <p class="font-semibold text-gray-800 dark:text-gray-200">
+          {{ iData1.endUtc | date:'dd/MM/yyyy HH:mm' }}
+        </p>
+      </div>
+
+      <!-- Estado -->
+      <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl">
+        <p class="text-sm text-gray-500">Estado</p>
+        @switch (iData1.status) {
+          @case ('E') {
+            <span class="text-xs px-2 py-1 rounded-full bg-green-200 text-green-700">Activo</span>
+          }
+          @case ('S') {
+            <span class="inline-block px-3 py-1 text-sm font-medium rounded-full bg-green-200 text-green-800">Pendiente</span>
+          }
+          @case ('F') {
+            <span class="inline-block px-3 py-1 text-sm font-medium rounded-full bg-yellow-200 text-yellow-800">Finalizado</span>
+          }
+          @case ('D') {
+            <span class="inline-block px-3 py-1 text-sm font-medium rounded-full bg-red-200 text-red-800">Cancelado</span>
+          }
+          @default {
+            <span class="inline-block px-3 py-1 text-sm font-medium rounded-full bg-gray-200 text-gray-700">Desconocido</span>
+          }
+        }
+      </div>
+
+      <!-- ID Turno -->
+      <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl">
+        <p class="text-sm text-gray-500">ID Turno</p>
+        <p class="font-semibold text-gray-800 dark:text-gray-200">#{{ iData1.idShiftOccurrence }}</p>
+      </div>
+    </div>
+
+    <!-- Lista de personal -->
+    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
+      Personal asignado
+    </h3>
+<ul class="space-y-2">
+  @for (p of iData1.shiftPersonal; track p.idShiftAttendance) {
+    <li class="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-between">
+      
+      <!-- Información personal -->
+      <div class="flex flex-col">
+        <span class="font-bold text-gray-800 dark:text-gray-200">{{ p.namePersonal }}</span>
+        <div class="text-xs text-gray-600 dark:text-gray-400">
+          Llegó: <span>{{ p.arrivedAtUtc ? (p.arrivedAtUtc | date:'dd/MM/yyyy HH:mm' ) : '—' }}</span> | 
+          Salió: <span>{{ p.leftAtUtc ? (p.leftAtUtc | date:'dd/MM/yyyy HH:mm' ) : '—' }}</span>
+        </div>
+        @if (p.namePersonalReplace) {
+          <div class="text-xs text-yellow-600 dark:text-yellow-400">
+            🔄 Reemplazado por {{ p.namePersonalReplace }}
+          </div>
+        }
+      </div>
+
+      <!-- Estado + Botones -->
+      <div class="flex items-center space-x-3">
+        <!-- Estado -->
+        @if (!p.attendanceStatus) {
+          <span class="text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600">Sin asistencia</span>
+        }
+        @if (p.attendanceStatus === 'P') {
+          <span class="text-xs px-2 py-1 rounded-full bg-green-200 text-green-700">Presente</span>
+        }
+        @if (p.attendanceStatus === 'A') {
+          <span class="text-xs px-2 py-1 rounded-full bg-red-200 text-red-700">Ausente</span>
+        }
+        @if (p.attendanceStatus === 'L') {
+          <span class="text-xs px-2 py-1 rounded-full bg-orange-200 text-orange-700">Impuntual</span>
+        }
+        @if (p.attendanceStatus === 'R') {
+          <span class="text-xs px-2 py-1 rounded-full bg-yellow-200 text-yellow-700">Reemplazado</span>
+        }
+
+        <!-- Botones -->
+        <div class="flex space-x-2">
+          <button class="px-3 py-1 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700"(click)="openManualAttendance(p)">
+            Registrar
+          </button>
+          <button class="px-3 py-1 text-xs rounded-lg bg-purple-600 text-white hover:bg-purple-700" (click)="replaceShift(p)">
+            Reemplazar
+          </button>
+        </div>
+      </div>
+    </li>
+  }
+</ul>
+
+  }
+
+  @if (actionDialog == 99) {
+    <form [formGroup]="manualForm" class="flex flex-col w-full m-0 p-0">
+      <div class="px-4 py-2 border-b">
+        <h2 class="text-base font-semibold">Registrar asistencia manual</h2>
+      </div>
+
+      <div class="m-4 space-y-4">
+        <div class="w-full">
+          <label class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Hora llegada
+            @if (manualForm.get('arrivedAtUtc')?.hasError('required') ||
+            manualForm.get('arrivedAtUtc')?.validator) {*}
+          </label>
+          <input type="datetime-local" id="arrivedAtUtc" formControlName="arrivedAtUtc" step="60"
+            class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+        </div>
+
+        <!-- <mat-form-field class="w-full">
+          <mat-label>Hora salida</mat-label>
+          <input type="datetime-local" matInput formControlName="leftAtUtc" />
+        </mat-form-field> -->
+
+        <div class="w-full">
+          <label class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Hora salida
+            @if (manualForm.get('leftAtUtc')?.hasError('required') ||
+            manualForm.get('leftAtUtc')?.validator) {*}
+          </label>
+          <input type="datetime-local" id="leftAtUtc" formControlName="leftAtUtc" step="60"
+            class="block w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+        </div>
+
+        <mat-form-field class="w-full">
+          <mat-label>Comentario</mat-label>
+          <textarea matInput formControlName="comment" rows="1"></textarea>
+        </mat-form-field>
+      </div>
+    </form>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <div class="mt-4 flex justify-end space-x-4 w-full">
+    <button mat-flat-button matDialogClose (click)="cancelManualAttendance()">Cancelar</button>
+    <button mat-flat-button color="primary"
+            type="button"
+            [disabled]="manualForm?.invalid"
+            (click)="saveManualAttendance()">
+      Guardar
+    </button>
+  </div>
+</mat-dialog-actions>

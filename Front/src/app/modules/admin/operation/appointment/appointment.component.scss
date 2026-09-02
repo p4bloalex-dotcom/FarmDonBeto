@@ -1,0 +1,37 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.mobile-agenda {
+  padding-bottom: 1rem;
+}
+
+.appointment-card {
+  min-height: 148px;
+}
+
+.appointment-card:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 2px;
+}
+
+::ng-deep .appointment-calendar .fc-toolbar {
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  ::ng-deep .appointment-calendar .fc-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  ::ng-deep .appointment-calendar .fc-toolbar-chunk {
+    display: flex;
+    justify-content: center;
+  }
+
+  ::ng-deep .appointment-calendar .fc-toolbar-title {
+    font-size: 1.15rem;
+  }
+}

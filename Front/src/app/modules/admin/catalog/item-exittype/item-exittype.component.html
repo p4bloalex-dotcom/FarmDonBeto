@@ -1,0 +1,33 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+    <div class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+        <div class="text-3xl font-extrabold tracking-tight">Tipo de salida inventario</div>
+        <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
+            <!-- Search -->
+            <mat-form-field class="fuse-mat-dense fuse-mat-rounded min-w-64" [subscriptSizing]="'dynamic'">
+                <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
+                <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar'" />
+            </mat-form-field>
+
+            <button class="ml-4" mat-flat-button [color]="'primary'" (click)="openDialog(null, 1)">
+                <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                <span class="ml-2 mr-1">Crear</span>
+            </button>
+
+        </div>
+    </div>
+    <div class="flex flex-auto overflow-hidden">
+        <div class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto">
+            <app-table
+            [columns]="columns"
+            [data]="pagedData"
+            [actions]="actions"
+            actionColumnWidth="1fr"
+            [length]="totalItems"
+            (pageChange)="onPageChange($event)"
+            (rowAction)="handleRowAction($event)"
+            ></app-table>
+        </div>
+    </div>
+
+</div>
+

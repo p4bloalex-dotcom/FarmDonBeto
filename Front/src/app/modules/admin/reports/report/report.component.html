@@ -1,0 +1,82 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+  <div class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+
+    <div class="text-3xl font-extrabold tracking-tight">
+      Generación de Reportes
+    </div>
+  </div>
+
+  <div class="flex flex-auto overflow-hidden">
+    <div class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto p-6 md:p-8">
+
+      <form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+          <mat-form-field class="w-full">
+            <mat-label>Tipo de reporte</mat-label>
+            <mat-select formControlName="reportType" required>
+              <mat-option value="">Seleccione un reporte</mat-option>
+              <mat-option value="1">Asistencias finalizadas</mat-option>
+              <mat-option value="2">Donaciones</mat-option>
+              <mat-option value="3">Asignaciones</mat-option>
+              <mat-option value="4">Prestamos</mat-option>
+            </mat-select>
+            @if (dataForm.get('reportType').hasError('required')) {
+            <mat-error>El campo es requerido</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field class="w-full md:w-1/2">
+            <mat-label>Desde</mat-label>
+            <input matInput [matDatepicker]="pickerStart" formControlName="startDate" readonly
+              (focus)="pickerStart.open()" />
+            <mat-datepicker-toggle matSuffix [for]="pickerStart"></mat-datepicker-toggle>
+            <mat-datepicker #pickerStart></mat-datepicker>
+
+            @if (dataForm.get('startDate').hasError('required')) {
+            <mat-error>El campo es requerido</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field class="w-full md:w-1/2">
+            <mat-label>Hasta</mat-label>
+            <input matInput [matDatepicker]="pickerEnd" formControlName="endDate" readonly (focus)="pickerEnd.open()" />
+            <mat-datepicker-toggle matSuffix [for]="pickerEnd"></mat-datepicker-toggle>
+            <mat-datepicker #pickerEnd></mat-datepicker>
+
+            @if (dataForm.get('endDate').hasError('required')) {
+            <mat-error>El campo es requerido</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+          @if (dataForm.get('reportType')?.value === '1')
+          {
+          <mat-form-field appearance="outline" class="w-1/4">
+            <mat-label>Estado</mat-label>
+            <mat-select formControlName="status" required>
+              <mat-option value="T">Todo</mat-option>
+              <mat-option value="P">Presente</mat-option>
+              <mat-option value="A">Ausente</mat-option>
+              <mat-option value="L">Impuntual</mat-option>
+              <mat-option value="R">Remplazo</mat-option>
+            </mat-select>
+          </mat-form-field>
+          }
+        </div>
+
+        <div class="mt-6 flex justify-end">
+          <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()"
+            class="relative flex items-center justify-center">
+            @if (!dataForm.invalid) {
+            <span>
+              Generar reporte
+            </span>
+            }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

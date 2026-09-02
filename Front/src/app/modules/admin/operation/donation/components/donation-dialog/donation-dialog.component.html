@@ -1,0 +1,131 @@
+<form [formGroup]="dataForm" class="flex flex-col w-full m-0 p-0">
+    <div class="px-4 py-1 border-b">
+        <h2 class="text-2xl font-semibold">
+            @if (actionDialog ==1) {Crear registro}
+            @else if( actionDialog==2 ) {Editar registro}
+            @else if ( actionDialog == 3 ){Cambiar estado}
+            @else if (actionDialog == 4){Eliminar registro}
+            @else if (actionDialog == 7){Información del registro}
+            @else {Accion desconocida}
+        </h2>
+    </div>
+
+    <div class="m-4">
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            <mat-form-field class="w-full">
+                <mat-label>Tipo</mat-label>
+                <mat-select [value]="" formControlName="idDonationType">
+                    <mat-option [value]=""></mat-option>
+                    @for ( item of aData1; track trackByFn($index, item)) {
+                    <mat-option [value]="item.idDonationType">{{item.name}}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Tipo de contribuyente</mat-label>
+                <mat-select [value]="" formControlName="idDonorsType">
+                    <mat-option [value]=""></mat-option>
+                    @for ( item of aData2; track trackByFn($index, item)) {
+                    <mat-option [value]="item.idDonorsType">{{item.name}}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            @if (isIdDonationType == true)
+            {
+            <mat-form-field class="w-full">
+                <mat-label>Monto</mat-label>
+                <input id="amount" matInput formControlName="amount" autocomplete="off" />
+                @if (dataForm.get('amount').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+            }
+
+        </div>
+
+        @if (isIdDonationType == false)
+        {
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+            <mat-form-field class="w-full">
+                <mat-label>Descripcion</mat-label>
+                <textarea id="description" matInput formControlName="description" autocomplete="off"
+                    rows="3"></textarea>
+                @if (dataForm.get('description').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+        </div>
+        }
+
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+            <mat-form-field class="w-full">
+                <mat-label>Nombre del contribuyente</mat-label>
+                <input id="nameDonor" matInput formControlName="nameDonor" autocomplete="off" />
+                @if (dataForm.get('nameDonor').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+
+            <mat-form-field class="w-1/2">
+                <mat-label>Numero de telefono</mat-label>
+                <input id="phoneNumber" matInput formControlName="phoneNumber" autocomplete="off" />
+                @if (dataForm.get('phoneNumber').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Direccion</mat-label>
+                <input id="address" matInput formControlName="address" autocomplete="off" />
+                @if (dataForm.get('address').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+
+            <div class="flex items-center space-x-2 w-1/5">
+                <label class="font-medium">¿Permitir registro en inventario?</label>
+                <mat-checkbox formControlName="allowInventory"></mat-checkbox>
+            </div>
+        </div>
+
+        <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+
+            <mat-form-field class="w-1/4">
+                <mat-label>Estado</mat-label>
+                <mat-select id="status" [value]="" formControlName="status">
+                <mat-option [value]="'E'">Activo</mat-option>
+                <mat-option [value]="'D'">Cancelar</mat-option>
+                </mat-select>
+                @if (dataForm.get('status').hasError('required')) {
+                <mat-error>El campo es requerido</mat-error>
+                }
+            </mat-form-field>
+
+        </div>
+
+
+
+        <div class="mt-4 flex justify-end space-x-4">
+            <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+            <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()"
+                class="relative flex items-center justify-center">
+                @if (!dataForm.invalid) {
+                <span>
+                    @if (actionDialog ==1) {Crear}
+                    @else if( actionDialog==2 ) {Guardar}
+                    @else if ( actionDialog == 3 ){Guardar}
+                    @else if (actionDialog == 4){Eliminar}
+                    @else if (actionDialog == 7){Cerrar}
+                    @else {Accion desconocida}
+                </span>
+                }
+            </button>
+        </div>
+
+    </div>
+</form>
