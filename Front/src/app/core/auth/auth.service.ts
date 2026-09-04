@@ -33,7 +33,7 @@ export class AuthService {
 
 
     resetPassword(id: any): Observable<any> {
-        return this._httpClient.post(`${environment.apiUrl}/auth/reset-password`, id);
+        return this._httpClient.post(`${environment.apiUrl}/security/users/reset-password`, id);
     }
 
 

@@ -12,6 +12,7 @@ export const roleRoutes = Router();
 const permissions = registerScreen({
   category: 'Security',
   controller: 'Role',
+  routePath: 'role',
   title: 'Roles',
   icon: 'heroicons_solid:user-group',
   actions: crudActions()

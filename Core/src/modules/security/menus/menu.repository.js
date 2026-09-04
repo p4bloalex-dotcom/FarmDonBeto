@@ -3,14 +3,56 @@ import { AppDataSource } from '../../../config/data-source.js';
 const menus = () => AppDataSource.getRepository('Menu');
 
 export const listMenus = () => menus().createQueryBuilder('menu')
+  .leftJoinAndSelect('menu.parent', 'parent')
   .where('menu.status <> :inactive', { inactive: 'I' })
   .orderBy('menu.order', 'ASC')
   .addOrderBy('menu.name', 'ASC')
   .getMany();
 
 export const getAccessMenus = async userId => {
-  const result = await AppDataSource.query('SELECT SP_GET_ACCESS_MENUS(:userId) AS JSON_RESULT FROM DUAL', [userId]);
-  return JSON.parse(result[0]?.JSON_RESULT ?? '[]');
+  const user = await AppDataSource.getRepository('User').findOneBy({ id: userId, status: 'E' });
+  if (!user) {
+    return [];
+  }
+
+  const roleMenus = await AppDataSource.getRepository('RoleMenu')
+    .createQueryBuilder('roleMenu')
+    .innerJoinAndSelect('roleMenu.menu', 'menu')
+    .where('roleMenu.idRole = :roleId', { roleId: user.idRole })
+    .andWhere('roleMenu.status = :status', { status: 'E' })
+    .andWhere('menu.status = :status', { status: 'E' })
+    .orderBy('menu.order', 'ASC')
+    .addOrderBy('menu.name', 'ASC')
+    .getMany();
+
+  const menusById = new Map(roleMenus.map(roleMenu => [roleMenu.menu.id, roleMenu.menu]));
+  const childMenus = roleMenus
+    .map(roleMenu => roleMenu.menu)
+    .filter(menu => menu.idMenuFather && menusById.has(menu.idMenuFather));
+
+  return roleMenus
+    .map(roleMenu => roleMenu.menu)
+    .filter(menu => !menu.idMenuFather)
+    .map(parent => {
+      const children = childMenus
+        .filter(child => child.idMenuFather === parent.id)
+        .map(child => ({
+          id: child.id,
+          title: child.name,
+          type: 'basic',
+          icon: child.icon,
+          link: `${parent.path.replace(/\/$/, '')}/${child.path.replace(/^\//, '')}`.toLowerCase()
+        }));
+
+      return {
+        id: parent.id,
+        title: parent.name,
+        type: children.length > 0 ? 'collapsable' : 'basic',
+        icon: parent.icon,
+        link: parent.path,
+        children
+      };
+    });
 };
 
 export const createMenu = data => menus().save(menus().create(data));

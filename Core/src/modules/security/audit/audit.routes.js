@@ -10,6 +10,7 @@ export const auditRoutes = Router();
 const permissions = registerScreen({
   category: 'Security',
   controller: 'Audit',
+  routePath: 'audit',
   title: 'Auditoria',
   icon: 'heroicons_solid:document-text',
   actions: readOnlyActions()

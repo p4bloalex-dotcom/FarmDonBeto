@@ -169,9 +169,8 @@ export class RoleComponent {
   //-----DATOS DE NECESARIOS PARA LA TABLA-------//
   columns: TableColumn[] =
     [
-      { field: 'id', header: '#', width: '50px' },
       { field: 'name', header: 'Nombre', width: '3fr' },
-      { field: 'status', header: 'Estado', width: '120px', hideAt: 'lg' },
+      { field: 'status', header: 'Estado', width: '120px' },
     ];
 
   actions: TableAction[] =

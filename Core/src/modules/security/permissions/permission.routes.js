@@ -12,6 +12,7 @@ export const permissionRoutes = Router();
 const permissions = registerScreen({
   category: 'Security',
   controller: 'Permission',
+  routePath: 'roleaction',
   title: 'Permisos',
   icon: 'heroicons_solid:key',
   actions: readEditActions()

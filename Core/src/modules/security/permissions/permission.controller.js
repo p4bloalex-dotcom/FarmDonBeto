@@ -8,6 +8,7 @@ export const getPermissionScreens = async (_req, res) => {
   const screens = getRegisteredScreens().map(screen => ({
     category: screen.category,
     controller: screen.controller,
+    routePath: screen.routePath,
     title: screen.title,
     icon: screen.icon,
     permissions: Object.values(screen.permissions)

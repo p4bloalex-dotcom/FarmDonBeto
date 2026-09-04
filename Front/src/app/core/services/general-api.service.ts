@@ -186,7 +186,12 @@ export class GeneralApiService {
       Menu: 'security/menus',
       Permission: 'security/permissions',
       RoleAction: 'security/permissions/role',
-      Audit: 'security/audit'
+      MenuRol: 'security/role-menus',
+      User: 'security/users',
+      Audit: 'security/audit',
+      Company: 'catalog/companies',
+      'Company/findByUser': 'catalog/companies/findByUser',
+      Personal: 'catalog/personals'
     };
 
     return mapEndpoints[endpoint] ?? endpoint;
@@ -229,6 +234,24 @@ export class GeneralApiService {
       }
     }
 
+    if (endpoint === 'Role') {
+      if (Array.isArray(normalized.data)) {
+        normalized.data = normalized.data.map(item => this.normalizeRole(item));
+      }
+      if (Array.isArray(normalized.data?.data)) {
+        normalized.data.data = normalized.data.data.map(item => this.normalizeRole(item));
+      }
+    }
+
+    if (endpoint === 'Personal') {
+      if (Array.isArray(normalized.data)) {
+        normalized.data = normalized.data.map(item => this.normalizePersonal(item));
+      }
+      if (Array.isArray(normalized.data?.data)) {
+        normalized.data.data = normalized.data.data.map(item => this.normalizePersonal(item));
+      }
+    }
+
     return normalized;
   }
 
@@ -237,6 +260,22 @@ export class GeneralApiService {
       ...item,
       id_menu_father: item.id_menu_father ?? item.idMenuFather ?? null,
       menu_father: item.menu_father ?? item.parent ?? null
+    };
+  }
+
+  private normalizeRole(item: any): any {
+    return {
+      ...item,
+      idRole: item.idRole ?? item.id,
+      roleName: item.roleName ?? item.name
+    };
+  }
+
+  private normalizePersonal(item: any): any {
+    return {
+      ...item,
+      idPersonal: item.idPersonal ?? item.id,
+      name: item.name ?? [item.first_name, item.last_name, item.second_lastname].filter(Boolean).join(' ')
     };
   }
 

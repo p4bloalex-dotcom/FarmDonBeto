@@ -147,11 +147,10 @@ export class MenuComponent {
   //-----DATOS DE NECESARIOS PARA LA TABLA-------//
   columns: TableColumn[] =
     [
-      { field: 'id', header: '#', width: '50px' },
       { field: 'name', header: 'Nombre', width: '3fr' },
       { field: 'icon', header: 'Icono', width: '1fr', hideAt: 'lg' },
-      { field: 'path', header: 'Ruta', width: '3fr', hideAt: 'sm' },
-      { field: 'status', header: 'Estado', width: '120px', hideAt: 'lg' },
+      { field: 'path', header: 'Ruta', width: '3fr'},
+      { field: 'status', header: 'Estado', width: '120px' },
       { field: 'order', header: 'Orden', width: '1fr', hideAt: 'lg' }
     ];
 

@@ -22,26 +22,40 @@ export const runSecuritySeeders = async () => {
       let parentMenu = await menuRepository.findOneBy({ path: category, idMenuFather: null });
       if (!parentMenu) {
         parentMenu = await menuRepository.save(menuRepository.create({
-          name: 'Sin descripcion',
+          name: category,
           icon: 'folder',
           path: category,
-          status: 'I',
+          status: 'E',
           order: 0
         }));
+      } else if (parentMenu.status !== 'E') {
+        await menuRepository.update(parentMenu.id, { status: 'E', name: category, icon: 'folder' });
+        parentMenu = { ...parentMenu, status: 'E', name: category, icon: 'folder' };
+      }
+
+      const parentRoleMenu = await roleMenuRepository.findOneBy({ idRole: adminRole.id, idMenu: parentMenu.id });
+      if (!parentRoleMenu) {
+        await roleMenuRepository.save(roleMenuRepository.create({ idRole: adminRole.id, idMenu: parentMenu.id, status: 'E' }));
       }
 
       const categoryScreens = screens.filter(screen => screen.category === category);
       for (const screen of categoryScreens) {
-        let childMenu = await menuRepository.findOneBy({ path: screen.controller, idMenuFather: parentMenu.id });
+        let childMenu = await menuRepository.findOneBy({ path: screen.routePath, idMenuFather: parentMenu.id });
+        if (!childMenu) {
+          childMenu = await menuRepository.findOneBy({ path: screen.controller, idMenuFather: parentMenu.id });
+        }
         if (!childMenu) {
           childMenu = await menuRepository.save(menuRepository.create({
             name: screen.title,
             icon: screen.icon,
-            path: screen.controller,
+            path: screen.routePath,
             idMenuFather: parentMenu.id,
-            status: 'I',
+            status: 'E',
             order: 0
           }));
+        } else if (childMenu.status !== 'E' || childMenu.path !== screen.routePath || childMenu.name !== screen.title || childMenu.icon !== screen.icon) {
+          await menuRepository.update(childMenu.id, { status: 'E', name: screen.title, icon: screen.icon, path: screen.routePath });
+          childMenu = { ...childMenu, status: 'E', name: screen.title, icon: screen.icon, path: screen.routePath };
         }
 
         const roleMenu = await roleMenuRepository.findOneBy({ idRole: adminRole.id, idMenu: childMenu.id });

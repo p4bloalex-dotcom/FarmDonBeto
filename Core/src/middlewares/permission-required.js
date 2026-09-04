@@ -7,7 +7,7 @@ export const permissionRequired = routeMetadata => async (req, res, next) => {
   }
 
   const permissionName = routeMetadata.permissionName;
-  const menuPath = routeMetadata.controller;
+  const menuPath = routeMetadata.menuPath;
   const hasAccess = await validateUserAccess(req.user.id, permissionName, menuPath);
 
   if (!hasAccess) {

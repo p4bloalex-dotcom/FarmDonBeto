@@ -12,6 +12,7 @@ export const menuRoutes = Router();
 const permissions = registerScreen({
   category: 'Security',
   controller: 'Menu',
+  routePath: 'menu',
   title: 'Menus',
   icon: 'heroicons_solid:list-bullet',
   actions: [actions.view, actions.create, actions.edit]
