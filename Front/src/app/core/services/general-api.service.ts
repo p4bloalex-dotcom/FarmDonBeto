@@ -191,7 +191,10 @@ export class GeneralApiService {
       Audit: 'security/audit',
       Company: 'catalog/companies',
       'Company/findByUser': 'catalog/companies/findByUser',
-      Personal: 'catalog/personals'
+      Personal: 'catalog/personals',
+      Branch: 'catalog/branches',
+      Department: 'catalog/departments',
+      Municipality: 'catalog/municipalities'
     };
 
     return mapEndpoints[endpoint] ?? endpoint;
@@ -252,6 +255,15 @@ export class GeneralApiService {
       }
     }
 
+    if (endpoint === 'Branch') {
+      if (Array.isArray(normalized.data)) {
+        normalized.data = normalized.data.map(item => this.normalizeBranch(item));
+      }
+      if (Array.isArray(normalized.data?.data)) {
+        normalized.data.data = normalized.data.data.map(item => this.normalizeBranch(item));
+      }
+    }
+
     return normalized;
   }
 
@@ -276,6 +288,16 @@ export class GeneralApiService {
       ...item,
       idPersonal: item.idPersonal ?? item.id,
       name: item.name ?? [item.first_name, item.last_name, item.second_lastname].filter(Boolean).join(' ')
+    };
+  }
+
+  private normalizeBranch(item: any): any {
+    return {
+      ...item,
+      idBranch: item.idBranch ?? item.id,
+      id_department: item.id_department ?? item.idDepartment ?? null,
+      id_municipality: item.id_municipality ?? item.idMunicipality ?? null,
+      company_id: item.company_id ?? item.companyId ?? null
     };
   }
 

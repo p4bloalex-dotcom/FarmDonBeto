@@ -152,12 +152,12 @@ export class PersonalComponent {
 
 
   getList(): void {
-    const endpoints = ['Company'];
+    const endpoints = ['Branch'];
     this._generalApi.comboList(endpoints)
       .subscribe({
         next: ([data1]) => {
           data1.forEach(data =>
-            this.dictData1.set(data.id, data.name)
+            this.dictData1.set(data.idBranch ?? data.id, data.name)
           )
           this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
         },
@@ -196,10 +196,10 @@ export class PersonalComponent {
 
   columns: TableColumn[] =
     [
-      { field: 'id', header: '#', width: '50px' },
-      { field: 'first_name', header: 'Primero nombre', width: '1fr', hideAt: 'lg' },
-      { field: 'last_name', header: 'Primer apellido', width: '1fr', hideAt: 'lg' },
-      { field: 'status', header: 'Estado', width: '130px', hideAt: 'lg' },
+      // { field: 'id', header: '#', width: '50px' },
+      { field: 'first_name', header: 'Primero nombre', width: '1fr', },
+      { field: 'last_name', header: 'Primer apellido', width: '1fr', },
+      { field: 'status', header: 'Estado', width: '130px', },
     ];
 
   actions: TableAction[] =

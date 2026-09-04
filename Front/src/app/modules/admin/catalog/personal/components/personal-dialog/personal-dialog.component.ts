@@ -58,7 +58,7 @@ export class PersonalDialogComponent {
       gender: ['', [Validators.required],],
       email: ['', [Validators.required, Validators.email],],
       status: ['', [Validators.required],],
-      company_id: ['', [Validators.required],]
+      branch_id: [null, []]
     });
 
     // ----Asignacion de datos extras------//
@@ -68,7 +68,6 @@ export class PersonalDialogComponent {
     this.aData1 = [...m1].map(([id, name]) => ({ id, name }));
     // this.aData2 = [...m2].map(([id, name]) => ({ id, name }));
 
-    console.log(this.aData1)
     // ----Asignacion de datos extras------//
     if (this._data.action == 1) {
       //Crear
@@ -85,12 +84,12 @@ export class PersonalDialogComponent {
       this.dataForm.get('gender').setValue(this._data.row?.gender);
       this.dataForm.get('email').setValue(this._data.row?.email);
       this.dataForm.get('status').setValue(this._data.row?.status);
-      this.dataForm.get('company_id').setValue(this._data.row?.company_id);
+      this.dataForm.get('branch_id').setValue(this._data.row?.branch_id ?? this._data.row?.branchId);
       // Asignar valores
 
       // Input Desabilitados
       this.dataForm.get('status').disable();
-      this.dataForm.get('company_id').disable();
+      this.dataForm.get('branch_id').disable();
       // Input Desabilitados
     }
     if (this._data.action == 3) {
@@ -105,7 +104,7 @@ export class PersonalDialogComponent {
       this.dataForm.get('gender').setValue(this._data.row?.gender);
       this.dataForm.get('email').setValue(this._data.row?.email);
       this.dataForm.get('status').setValue(this._data.row?.status);
-      this.dataForm.get('company_id').setValue(this._data.row?.company_id);
+      this.dataForm.get('branch_id').setValue(this._data.row?.branch_id ?? this._data.row?.branchId);
 
       // Input Desabilitados
       this.dataForm.get('first_name').disable();
@@ -117,7 +116,7 @@ export class PersonalDialogComponent {
       this.dataForm.get('gender').disable();
       this.dataForm.get('email').disable();
       this.dataForm.get('status').disable();
-      this.dataForm.get('company_id').disable();
+      this.dataForm.get('branch_id').disable();
       // Input Desabilitados
     }
     if (this._data.action == 4) {
@@ -133,7 +132,7 @@ export class PersonalDialogComponent {
       this.dataForm.get('gender').setValue(this._data.row?.gender);
       this.dataForm.get('email').setValue(this._data.row?.email);
       this.dataForm.get('status').setValue(this._data.row?.status);
-      this.dataForm.get('company_id').setValue(this._data.row?.company_id);
+      this.dataForm.get('branch_id').setValue(this._data.row?.branch_id ?? this._data.row?.branchId);
       // Asignar valores
 
       // Input Desabilitados
@@ -146,7 +145,7 @@ export class PersonalDialogComponent {
       this.dataForm.get('gender').disable();
       this.dataForm.get('email').disable();
       this.dataForm.get('status').disable();
-      this.dataForm.get('company_id').disable();
+      this.dataForm.get('branch_id').disable();
       // Input Desabilitados
     }
   }

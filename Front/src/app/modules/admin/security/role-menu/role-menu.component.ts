@@ -205,7 +205,7 @@ export class RoleMenuComponent {
   //-----DATOS DE NECESARIOS PARA LA TABLA-------//
   columns: TableColumn[] =
     [
-      { field: 'idRoleMenu', header: '#', width: '50px' },
+      // { field: 'idRoleMenu', header: '#', width: '50px' },
       { field: 'name1', header: 'Role', width: '3fr' },
       { field: 'name2', header: 'Menu', width: '3fr' },
       { field: 'status', header: 'Estado', width: '120px', hideAt: 'lg' },

@@ -10,9 +10,7 @@ const start = async () => {
 
   const app = createApp();
 
-  if (env.runSeeders) {
-    await runSecuritySeeders();
-  }
+  await runSecuritySeeders();
 
   const server = app.listen(env.port, () => {
     logger.info({ port: env.port }, 'Core API started');

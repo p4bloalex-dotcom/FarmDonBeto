@@ -28,13 +28,6 @@ export const upsertFirstCompany = async data => {
   return toDto({ ...current, ...data });
 };
 
-export const findCompanyByUser = async userId => {
-  const user = await AppDataSource.getRepository('User').findOneBy({ id: userId });
-  const company = user?.companyId
-    ? await companies().findOneBy({ id: user.companyId })
-    : await companies().findOne({ order: { id: 'ASC' } });
-
-  return toDto(company);
-};
+export const findFirstCompany = async () => toDto(await companies().findOne({ order: { id: 'ASC' } }));
 
 export const listCompanies = async () => (await companies().find({ order: { name: 'ASC' } })).map(({ id, name }) => ({ id, name }));

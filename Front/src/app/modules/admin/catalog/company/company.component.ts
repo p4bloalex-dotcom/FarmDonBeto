@@ -37,7 +37,6 @@ export class CompanyComponent {
   }
 
   ngOnInit() {
-    this.getList();
     this.dataForm = this._formBuilder.group({
       name: ['', [Validators.required],],
       id_department: ['', [Validators.required],],
@@ -47,6 +46,7 @@ export class CompanyComponent {
       email: ['', [Validators.required, Validators.email],],
       logo: ['', [Validators.required],]
     });
+    this.getList();
   }
 
   uploadImage(fileList: FileList): void {
@@ -88,14 +88,18 @@ export class CompanyComponent {
       .subscribe({
         next: ([data1, data2]) => {
           this.aData1 = data1;
-          this.dataForm.get('name').setValue(data2?.name);
-          this.dataForm.get('id_department').setValue(data2?.id_department);
-          this.dataForm.get('id_municipality').setValue(data2?.id_municipality);
-          this.dataForm.get('address').setValue(data2?.address);
-          this.dataForm.get('phone').setValue(data2?.phone);
-          this.dataForm.get('email').setValue(data2?.email);
-          this.dataForm.get('logo').setValue(data2?.logo);
-          this.onDepartmentSelected(data2?.id_department);
+          if (data2) {
+            this.dataForm.patchValue({
+              name: data2.name,
+              id_department: data2.id_department ?? data2.idDepartment,
+              id_municipality: data2.id_municipality ?? data2.idMunicipality,
+              address: data2.address,
+              phone: data2.phone,
+              email: data2.email,
+              logo: data2.logo
+            });
+            this.onDepartmentSelected(data2.id_department ?? data2.idDepartment);
+          }
         },
         error: err => {
           this._toast.error(err.message || 'Error inesperado. Intenta más tarde.');
@@ -110,6 +114,12 @@ export class CompanyComponent {
       idData = event.value as number;
     } else {
       idData = event;
+    }
+
+    if (!idData) {
+      this.aData2 = [];
+      this.dataForm.get('id_municipality').setValue('');
+      return;
     }
 
     this._generalApi.GetById("Municipality", idData).subscribe({

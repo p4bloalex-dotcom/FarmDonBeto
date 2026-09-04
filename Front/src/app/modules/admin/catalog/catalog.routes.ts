@@ -14,6 +14,7 @@ import { ItemExittypeComponent } from "./item-exittype/item-exittype.component";
 import { ShiftPatternComponent } from "./shift-pattern/shift-pattern.component";
 import { TypeFingerComponent } from "./type-finger/type-finger.component";
 import { ServiceComponent } from "./service/service.component";
+import { BranchComponent } from "./branch/branch.component";
 
 export default [
 
@@ -32,5 +33,6 @@ export default [
     {path     : 'itemexittype',component: ItemExittypeComponent,},
     {path     : 'shiftpattern',component: ShiftPatternComponent,},
     {path     : 'fingertype',component: TypeFingerComponent,},
-    {path     : 'service',component: ServiceComponent,}
+    {path     : 'service',component: ServiceComponent,},
+    {path     : 'branch',component: BranchComponent,}
 ] as Routes;

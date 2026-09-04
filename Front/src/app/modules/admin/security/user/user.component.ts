@@ -172,12 +172,11 @@ export class UserComponent {
   
     columns: TableColumn[] = 
     [
-      { field: 'idUser',   header: '#',       width: '50px'    },
       { field: 'name1', header: 'Nombre personal',  width: '2fr'     },
-      { field: 'name',   header: 'Nombre de usuario',  width: '1fr', hideAt: 'lg' },
+      { field: 'name',   header: 'Nombre de usuario',  width: '1fr', },
       { field: 'name2',   header: 'Role',  width: '1fr', hideAt: 'lg' },
-      { field: 'lastLogin',   header: 'Ultimo logeo',  width: '2fr', hideAt: 'lg' },
-      { field: 'status',   header: 'Estado',  width: '130px', hideAt: 'lg' },
+      { field: 'lastLogin',   header: 'Ultimo logeo',  width: '2fr', },
+      { field: 'status',   header: 'Estado',  width: '130px', },
     ];
     
     actions: TableAction[] = 

@@ -1,0 +1,102 @@
+import { Component, Inject } from '@angular/core';
+import { ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectChange, MatSelectModule } from '@angular/material/select';
+import { HotToastService } from '@fuse/components/hot-toast';
+import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
+import { GeneralApiService } from 'app/core/services/general-api.service';
+
+@Component({
+  selector: 'app-branch-dialog',
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatSelectModule, MatDialogModule],
+  templateUrl: './branch-dialog.component.html',
+  styleUrl: './branch-dialog.component.scss'
+})
+export class BranchDialogComponent {
+  actionDialog: number;
+  dataForm: UntypedFormGroup;
+  departments: any[] = [];
+  municipalities: any[] = [];
+  service = 'Branch';
+
+  constructor(@Inject(MAT_DIALOG_DATA) private _data, private _matDialogRef: MatDialogRef<BranchDialogComponent>, private _formBuilder: UntypedFormBuilder, private _generalApi: GeneralApiService, private _toast: HotToastService) {}
+
+  ngOnInit(): void {
+    this.actionDialog = this._data?.action;
+    this.dataForm = this._formBuilder.group({
+      name: ['', [Validators.required]],
+      phone: [''],
+      email: ['', [Validators.email]],
+      address: [''],
+      id_department: [null],
+      id_municipality: [null],
+      status: ['E', [Validators.required]]
+    });
+    this.loadDepartments();
+
+    if (this._data.action !== 1) {
+      this.dataForm.patchValue(this._data.row);
+      const departmentId = this._data.row?.id_department ?? this._data.row?.idDepartment;
+      if (departmentId) this.onDepartmentSelected(departmentId);
+    }
+    if (this._data.action === 4) this.dataForm.disable();
+  }
+
+  loadDepartments(): void {
+    this._generalApi.getList('Department').subscribe({
+      next: (resp: ApiResponse<any>) => this.departments = resp.success ? resp.data : [],
+      error: () => this._toast.error('Error inesperado. Intenta más tarde.')
+    });
+  }
+
+  onDepartmentSelected(event: MatSelectChange | number): void {
+    const idData = event instanceof MatSelectChange ? event.value : event;
+    this._generalApi.GetById('Municipality', idData).subscribe({
+      next: (resp: ApiResponse<any>) => this.municipalities = resp.success ? resp.data : [],
+      error: () => this._toast.error('Error inesperado. Intenta más tarde.')
+    });
+  }
+
+  save(): void {
+    if (this.dataForm.invalid) return;
+    if (this._data.action === 1) this.create();
+    if (this._data.action === 2) this.edit();
+    if (this._data.action === 4) this.delete();
+  }
+
+  create(): void {
+    const payload = this.dataForm.getRawValue();
+    this._generalApi.add(this.service, payload).subscribe({
+      next: (response: ApiResponse<any>) => response.success ? this._matDialogRef.close({ idAction: this._data.action, ...response.data }) : this._toast.error(response.error.detail),
+      error: () => this._toast.error('Error inesperado. Intenta más tarde.')
+    });
+  }
+
+  edit(): void {
+    const payload = this.dataForm.getRawValue();
+    const idData = this._data.row?.idBranch;
+    this._generalApi.modify(this.service, idData, payload).subscribe({
+      next: (response: ApiResponse<any>) => response.success ? this._matDialogRef.close({ idAction: this._data.action, idData, ...payload }) : this._toast.error(response.error.detail),
+      error: () => this._toast.error('Error inesperado. Intenta más tarde.')
+    });
+  }
+
+  delete(): void {
+    const idData = this._data.row?.idBranch;
+    this._generalApi.delete(this.service, idData).subscribe({
+      next: (response: ApiResponse<any>) => response.success ? this._matDialogRef.close({ idAction: this._data.action, idData }) : this._toast.error(response.error.detail),
+      error: () => this._toast.error('Error inesperado. Intenta más tarde.')
+    });
+  }
+
+  close(): void {
+    this._matDialogRef.close();
+  }
+
+  trackByFn(index: number, item: any): any {
+    return item.id || index;
+  }
+}

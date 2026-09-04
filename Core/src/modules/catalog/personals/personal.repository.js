@@ -16,7 +16,9 @@ const toDto = item => ({
   email: item.email,
   status: item.status,
   company_id: item.companyId,
-  companyId: item.companyId
+  companyId: item.companyId,
+  branch_id: item.branchId,
+  branchId: item.branchId
 });
 
 export const createPersonal = async data => toDto(await employees().save(employees().create(data)));
