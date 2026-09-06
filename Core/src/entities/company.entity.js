@@ -11,7 +11,7 @@ export const CompanyEntity = new EntitySchema({
     idMunicipality: { name: 'ID_MUNICIPALITY', type: Number },
     address: { name: 'ADDRESS', type: String, length: 100, nullable: true },
     email: { name: 'EMAIL', type: String, length: 40 },
-    logo: { name: 'LOGO', type: 'clob' },
+    logo: { name: 'LOGO', type: 'clob', nullable: true },
     status: { name: 'STATUS', type: String, length: 2, default: 'E', nullable: true },
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
     updatedAt: { name: 'UPDATED_AT', type: 'timestamp', updateDate: true, nullable: true },

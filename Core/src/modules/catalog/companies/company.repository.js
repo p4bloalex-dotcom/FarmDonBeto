@@ -18,7 +18,7 @@ const toDto = item => item && ({
 
 export const upsertFirstCompany = async data => {
   const repository = companies();
-  const current = await repository.findOne({ order: { id: 'ASC' } });
+  const current = await repository.findOne({ where: {}, order: { id: 'ASC' } });
 
   if (!current) {
     return toDto(await repository.save(repository.create(data)));
@@ -28,6 +28,6 @@ export const upsertFirstCompany = async data => {
   return toDto({ ...current, ...data });
 };
 
-export const findFirstCompany = async () => toDto(await companies().findOne({ order: { id: 'ASC' } }));
+export const findFirstCompany = async () => toDto(await companies().findOne({ where: {}, order: { id: 'ASC' } }));
 
 export const listCompanies = async () => (await companies().find({ order: { name: 'ASC' } })).map(({ id, name }) => ({ id, name }));
