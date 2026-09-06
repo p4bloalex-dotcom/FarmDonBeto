@@ -1,0 +1,31 @@
+<form [formGroup]="dataForm" class="flex max-h-[85vh] w-full flex-col overflow-hidden">
+  <div class="border-b px-4 py-3">
+    <h2 class="text-xl font-semibold sm:text-2xl">@if (actionDialog == 1) {Crear {{config?.title}}} @else if (actionDialog == 2) {Editar {{config?.title}}} @else {Eliminar {{config?.title}}}</h2>
+  </div>
+  <div class="overflow-y-auto p-4">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      @for (field of config?.fields; track field.name) {
+        <mat-form-field class="w-full" [class.md:col-span-2]="isWideField(field)">
+          <mat-label>{{field.label}}</mat-label>
+          @if (field.type === 'select') {
+            <mat-select [formControlName]="field.name">
+              <mat-option [value]="null"></mat-option>
+              @for (item of options[field.name] || []; track trackByFn($index, item)) {
+                <mat-option [value]="getOptionValue(item)">{{item.name}}</mat-option>
+              }
+            </mat-select>
+          } @else if (field.type === 'textarea') {
+            <textarea matInput rows="3" [formControlName]="field.name"></textarea>
+          } @else {
+            <input matInput [type]="field.type === 'number' ? 'number' : 'text'" [formControlName]="field.name" />
+          }
+        </mat-form-field>
+      }
+      <mat-form-field class="w-full">
+        <mat-label>Estado</mat-label>
+        <mat-select formControlName="status"><mat-option [value]="'E'">Activo</mat-option><mat-option [value]="'D'">Desactivado</mat-option></mat-select>
+      </mat-form-field>
+    </div>
+    <div class="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button mat-flat-button matDialogClose (click)="close()">Cancelar</button><button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()">@if (actionDialog == 4) {Eliminar} @else {Guardar}</button></div>
+  </div>
+</form>

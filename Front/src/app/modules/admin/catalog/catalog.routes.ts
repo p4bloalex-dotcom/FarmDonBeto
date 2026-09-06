@@ -15,6 +15,8 @@ import { ShiftPatternComponent } from "./shift-pattern/shift-pattern.component";
 import { TypeFingerComponent } from "./type-finger/type-finger.component";
 import { ServiceComponent } from "./service/service.component";
 import { BranchComponent } from "./branch/branch.component";
+import { PharmacyCatalogComponent } from "./pharmacy-catalog/pharmacy-catalog.component";
+import { pharmacyCatalogConfigs } from "./pharmacy-catalog/pharmacy-catalog.config";
 
 export default [
 
@@ -34,5 +36,12 @@ export default [
     {path     : 'shiftpattern',component: ShiftPatternComponent,},
     {path     : 'fingertype',component: TypeFingerComponent,},
     {path     : 'service',component: ServiceComponent,},
-    {path     : 'branch',component: BranchComponent,}
+    {path     : 'branch',component: BranchComponent,},
+    {path     : 'medicinecategory',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.medicineCategory }},
+    {path     : 'medicinelaboratory',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.medicineLaboratory }},
+    {path     : 'medicinepresentation',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.medicinePresentation }},
+    {path     : 'medicine',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.medicine }},
+    {path     : 'supplier',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.supplier }},
+    {path     : 'suppliermedicine',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.supplierMedicine }},
+    {path     : 'unitmeasurement',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.unitMeasurement }},
 ] as Routes;

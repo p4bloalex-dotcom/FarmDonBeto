@@ -18,6 +18,7 @@ import { FixAccessMenuFunction1725235200000 } from '../migrations/1725235200000-
 import { CatalogCompanyEmployee1725321600000 } from '../migrations/1725321600000-catalog-company-employee.js';
 import { SeedAdminScreens1725408000000 } from '../migrations/1725408000000-seed-admin-screens.js';
 import { LocationBranchSeed1725494400000 } from '../migrations/1725494400000-location-branch-seed.js';
+import { PharmacyCatalog1725580800000 } from '../migrations/1725580800000-pharmacy-catalog.js';
 import { MedicineCategoryEntity } from '../entities/medicine-category.entity.js';
 import { MedicineLaboratoryEntity } from '../entities/medicine-laboratory.entity.js';
 import { MedicinePresentationEntity } from '../entities/medicine-presentation.entity.js';
@@ -60,6 +61,7 @@ export const AppDataSource = new DataSource({
     FixAccessMenuFunction1725235200000,
     CatalogCompanyEmployee1725321600000,
     SeedAdminScreens1725408000000,
-    LocationBranchSeed1725494400000
+    LocationBranchSeed1725494400000,
+    PharmacyCatalog1725580800000
   ]
 });

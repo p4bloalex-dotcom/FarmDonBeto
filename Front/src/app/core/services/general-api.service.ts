@@ -194,7 +194,14 @@ export class GeneralApiService {
       Personal: 'catalog/personals',
       Branch: 'catalog/branches',
       Department: 'catalog/departments',
-      Municipality: 'catalog/municipalities'
+      Municipality: 'catalog/municipalities',
+      MedicineCategory: 'catalog/medicine-categories',
+      MedicineLaboratory: 'catalog/medicine-laboratories',
+      MedicinePresentation: 'catalog/medicine-presentations',
+      Medicine: 'catalog/medicines',
+      Supplier: 'catalog/suppliers',
+      SupplierMedicine: 'catalog/supplier-medicines',
+      UnitMeasurement: 'catalog/unit-measurements'
     };
 
     return mapEndpoints[endpoint] ?? endpoint;

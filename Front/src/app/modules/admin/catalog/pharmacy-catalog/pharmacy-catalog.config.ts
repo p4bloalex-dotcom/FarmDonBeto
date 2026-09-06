@@ -1,0 +1,110 @@
+import { TableColumn } from '@fuse/components/table/table-column.model';
+
+export interface PharmacyFieldConfig {
+  name: string;
+  label: string;
+  type?: 'text' | 'number' | 'textarea' | 'select';
+  required?: boolean;
+  endpoint?: string;
+}
+
+export interface PharmacyCatalogConfig {
+  title: string;
+  service: string;
+  columns: TableColumn[];
+  fields: PharmacyFieldConfig[];
+}
+
+export const pharmacyCatalogConfigs: Record<string, PharmacyCatalogConfig> = {
+  medicineCategory: {
+    title: 'Categorias de medicina',
+    service: 'MedicineCategory',
+    columns: [
+      // { field: 'id', header: '#', width: '70px' },
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'status', header: 'Estado', width: '140px', }
+    ],
+    fields: [{ name: 'name', label: 'Nombre', required: true }]
+  },
+  medicineLaboratory: {
+    title: 'Laboratorios de medicina',
+    service: 'MedicineLaboratory',
+    columns: [
+      // { field: 'id', header: '#', width: '70px' },
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'status', header: 'Estado', width: '140px'}
+    ],
+    fields: [{ name: 'name', label: 'Nombre', required: true }]
+  },
+  medicinePresentation: {
+    title: 'Presentaciones de medicina',
+    service: 'MedicinePresentation',
+    columns: [
+      // { field: 'id', header: '#', width: '70px' },
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'status', header: 'Estado', width: '140px' }
+    ],
+    fields: [{ name: 'name', label: 'Nombre', required: true }]
+  },
+  unitMeasurement: {
+    title: 'Unidades de medida',
+    service: 'UnitMeasurement',
+    columns: [
+      // { field: 'id', header: '#', width: '70px' },
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'status', header: 'Estado', width: '140px'}
+    ],
+    fields: [{ name: 'name', label: 'Nombre', required: true }]
+  },
+  supplier: {
+    title: 'Proveedores',
+    service: 'Supplier',
+    columns: [
+      // { field: 'id', header: '#', width: '70px' },
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'address', header: 'Direccion', width: '2fr'},
+      { field: 'status', header: 'Estado', width: '140px'}
+    ],
+    fields: [
+      { name: 'name', label: 'Nombre', required: true },
+      { name: 'address', label: 'Direccion', type: 'textarea' }
+    ]
+  },
+  medicine: {
+    title: 'Medicamentos',
+    service: 'Medicine',
+    columns: [
+      { field: 'code', header: 'Codigo', width: '1fr' },
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'laboratoryName', header: 'Laboratorio', width: '1.5fr'},
+      { field: 'presentationName', header: 'Presentacion', width: '1.5fr'},
+      { field: 'priceSell', header: 'Precio venta', width: '130px'},
+      { field: 'status', header: 'Estado', width: '120px'}
+    ],
+    fields: [
+      { name: 'code', label: 'Codigo', required: true },
+      { name: 'name', label: 'Nombre', required: true },
+      { name: 'laboratory_id', label: 'Laboratorio', type: 'select', required: true, endpoint: 'MedicineLaboratory' },
+      { name: 'presentation_id', label: 'Presentacion', type: 'select', required: true, endpoint: 'MedicinePresentation' },
+      { name: 'category_id', label: 'Categoria', type: 'select', required: true, endpoint: 'MedicineCategory' },
+      { name: 'unit_measurement_id', label: 'Unidad de medida', type: 'select', required: true, endpoint: 'UnitMeasurement' },
+      { name: 'price_buy', label: 'Precio compra', type: 'number' },
+      { name: 'price_sell', label: 'Precio venta', type: 'number' },
+      { name: 'description', label: 'Descripcion', type: 'textarea' }
+    ]
+  },
+  supplierMedicine: {
+    title: 'Medicamentos por proveedor',
+    service: 'SupplierMedicine',
+    columns: [
+      // { field: 'id', header: '#', width: '70px' },
+      { field: 'supplierName', header: 'Proveedor', width: '2fr' },
+      { field: 'medicineName', header: 'Medicamento', width: '2fr' },
+      { field: 'status', header: 'Estado', width: '140px'}
+    ],
+    fields: [
+      { name: 'supplier_id', label: 'Proveedor', type: 'select', required: true, endpoint: 'Supplier' },
+      { name: 'medicine_id', label: 'Medicamento', type: 'select', required: true, endpoint: 'Medicine' }
+    ]
+  }
+};

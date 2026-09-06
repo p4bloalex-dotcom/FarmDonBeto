@@ -1,0 +1,20 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+  <div class="relative flex flex-0 flex-col gap-4 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+    <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">{{config?.title}}</div>
+    <div class="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+      <mat-form-field class="fuse-mat-dense fuse-mat-rounded w-full sm:min-w-64" [subscriptSizing]="'dynamic'">
+        <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
+        <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar'" />
+      </mat-form-field>
+      <button class="w-full sm:w-auto" mat-flat-button [color]="'primary'" (click)="openDialog(null, 1)">
+        <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+        <span class="ml-2 mr-1">Crear</span>
+      </button>
+    </div>
+  </div>
+  <div class="flex flex-auto overflow-auto">
+    <div class="flex min-w-full flex-auto flex-col overflow-auto sm:mb-18">
+      <app-table [columns]="config?.columns" [data]="pagedData" [actions]="actions" actionColumnWidth="1fr" [length]="totalItems" (pageChange)="onPageChange($event)" (rowAction)="handleRowAction($event)"></app-table>
+    </div>
+  </div>
+</div>
