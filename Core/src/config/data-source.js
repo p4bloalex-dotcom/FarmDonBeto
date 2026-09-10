@@ -19,6 +19,7 @@ import { CatalogCompanyEmployee1725321600000 } from '../migrations/1725321600000
 import { SeedAdminScreens1725408000000 } from '../migrations/1725408000000-seed-admin-screens.js';
 import { LocationBranchSeed1725494400000 } from '../migrations/1725494400000-location-branch-seed.js';
 import { PharmacyCatalog1725580800000 } from '../migrations/1725580800000-pharmacy-catalog.js';
+import { BusinessOperations1725667200000 } from '../migrations/1725667200000-business-operations.js';
 import { MedicineCategoryEntity } from '../entities/medicine-category.entity.js';
 import { MedicineLaboratoryEntity } from '../entities/medicine-laboratory.entity.js';
 import { MedicinePresentationEntity } from '../entities/medicine-presentation.entity.js';
@@ -26,6 +27,18 @@ import { SupplierEntity } from '../entities/supplier.entity.js';
 import { SupplierMedicineEntity } from '../entities/supplier-medicine.entity.js';
 import { UnitMeasurementEntity } from '../entities/unit-measurement.entity.js';
 import { MedicineEntity } from '../entities/medicine.entity.js';
+import { CashMovementEntity } from '../entities/cash-movement.entity.js';
+import { CashMovementTypeEntity } from '../entities/cash-movement-type.entity.js';
+import { CashRegisterEntity } from '../entities/cash-register.entity.js';
+import { CashSessionEntity } from '../entities/cash-session.entity.js';
+import { InventoryEntity } from '../entities/inventory.entity.js';
+import { MoveInventoryEntity } from '../entities/move-inventory.entity.js';
+import { MoveInventoryDetailEntity } from '../entities/move-inventory-detail.entity.js';
+import { MovementTypeEntity } from '../entities/movement-type.entity.js';
+import { PurchaseDetailEntity } from '../entities/purchase-detail.entity.js';
+import { PurchaseEntity } from '../entities/purchase.entity.js';
+import { SaleDetailEntity } from '../entities/sale-detail.entity.js';
+import { SaleEntity } from '../entities/sale.entity.js';
 
 export const AppDataSource = new DataSource({
   type: 'oracle',
@@ -54,7 +67,20 @@ export const AppDataSource = new DataSource({
     MedicineEntity,
     SupplierEntity,
     SupplierMedicineEntity,
-    UnitMeasurementEntity
+    UnitMeasurementEntity,
+    CashMovementEntity,
+    CashMovementTypeEntity,
+    CashRegisterEntity,
+    CashSessionEntity,
+    InventoryEntity,
+    MoveInventoryDetailEntity,
+    MoveInventoryEntity,
+    MovementTypeEntity,
+    PurchaseDetailEntity,
+    PurchaseEntity,
+    SaleDetailEntity,
+    SaleEntity
+
   ],
   migrations: [
     SecurityCodeFirst1725148800000,
@@ -62,6 +88,7 @@ export const AppDataSource = new DataSource({
     CatalogCompanyEmployee1725321600000,
     SeedAdminScreens1725408000000,
     LocationBranchSeed1725494400000,
-    PharmacyCatalog1725580800000
+    PharmacyCatalog1725580800000,
+    BusinessOperations1725667200000
   ]
 });
