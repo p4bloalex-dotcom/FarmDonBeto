@@ -49,8 +49,16 @@
                             @for (permiso of menu.Permissions; track $index) {
                             <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100">
                                 <span class="text-gray-600 text-sm">{{ permiso.namePermission }}</span>
-                                <mat-checkbox [(ngModel)]="permiso.isCheck" (change)="onPermisoChange(permiso)">
-                                </mat-checkbox>
+                                <div class="flex items-center gap-4">
+                                    <label class="flex items-center gap-2 text-sm text-gray-600">
+                                        <mat-checkbox [(ngModel)]="permiso.isCheck" (change)="onPermisoChange(permiso)"></mat-checkbox>
+                                        <span>Acceso</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-gray-600">
+                                        <mat-checkbox [(ngModel)]="permiso.isGlobal" (change)="onPermisoChange(permiso)"></mat-checkbox>
+                                        <span>Global</span>
+                                    </label>
+                                </div>
                             </div>
                             }
                         </mat-expansion-panel>

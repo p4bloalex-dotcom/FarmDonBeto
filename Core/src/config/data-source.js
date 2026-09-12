@@ -20,6 +20,9 @@ import { SeedAdminScreens1725408000000 } from '../migrations/1725408000000-seed-
 import { LocationBranchSeed1725494400000 } from '../migrations/1725494400000-location-branch-seed.js';
 import { PharmacyCatalog1725580800000 } from '../migrations/1725580800000-pharmacy-catalog.js';
 import { BusinessOperations1725667200000 } from '../migrations/1725667200000-business-operations.js';
+import { AddIsGlobalRolePermission1757536440000 } from '../migrations/1757536440000-add-is-global-role-permission.js';
+import { BranchRls1757610000000 } from '../migrations/1757610000000-branch-rls.js';
+import { BranchRlsFixBranchTable1757865600000 } from '../migrations/1757865600000-branch-rls-fix-branch-table.js';
 import { MedicineCategoryEntity } from '../entities/medicine-category.entity.js';
 import { MedicineLaboratoryEntity } from '../entities/medicine-laboratory.entity.js';
 import { MedicinePresentationEntity } from '../entities/medicine-presentation.entity.js';
@@ -39,6 +42,9 @@ import { PurchaseDetailEntity } from '../entities/purchase-detail.entity.js';
 import { PurchaseEntity } from '../entities/purchase.entity.js';
 import { SaleDetailEntity } from '../entities/sale-detail.entity.js';
 import { SaleEntity } from '../entities/sale.entity.js';
+import { AuditFieldsSubscriber, installAuditHooks } from '../subscribers/audit-fields.subscriber.js';
+
+installAuditHooks();
 
 export const AppDataSource = new DataSource({
   type: 'oracle',
@@ -82,6 +88,7 @@ export const AppDataSource = new DataSource({
     SaleEntity
 
   ],
+  subscribers: [AuditFieldsSubscriber],
   migrations: [
     SecurityCodeFirst1725148800000,
     FixAccessMenuFunction1725235200000,
@@ -89,6 +96,9 @@ export const AppDataSource = new DataSource({
     SeedAdminScreens1725408000000,
     LocationBranchSeed1725494400000,
     PharmacyCatalog1725580800000,
-    BusinessOperations1725667200000
+    BusinessOperations1725667200000,
+    AddIsGlobalRolePermission1757536440000,
+    BranchRls1757610000000,
+    BranchRlsFixBranchTable1757865600000
   ]
 });

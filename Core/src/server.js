@@ -3,10 +3,14 @@ import { AppDataSource } from './config/data-source.js';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 import { runSecuritySeeders } from './seeders/security.seeder.js';
+import { installBranchRls } from './subscribers/branch-rls.subscriber.js';
 
 const start = async () => {
   await AppDataSource.initialize();
   logger.info('TypeORM data source initialized');
+
+  installBranchRls(AppDataSource);
+  logger.info('Branch RLS interceptor installed');
 
   const app = createApp();
 

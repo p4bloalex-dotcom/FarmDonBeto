@@ -81,7 +81,8 @@ export const runSecuritySeeders = async () => {
               idRole: adminRole.id,
               idPermission: permission.id,
               status: 'E',
-              isCheck: true
+              isCheck: true,
+              isGlobal: false
             }));
           }
         }

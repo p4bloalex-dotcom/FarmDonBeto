@@ -1,6 +1,6 @@
 import { AppDataSource } from '../../../config/data-source.js';
 
-const permissions = () => AppDataSource.getRepository('Permission');
+const rolePermissions = () => AppDataSource.getRepository('RolePermission');
 
 export const validateUserAccess = async (userId, permissionName, menuPath) => {
   const result = await AppDataSource.query(
@@ -10,9 +10,19 @@ export const validateUserAccess = async (userId, permissionName, menuPath) => {
   return Number(result[0]?.HAS_ACCESS) === 1;
 };
 
-export const listPermissions = () => permissions().find({ order: { category: 'ASC', name: 'ASC' } });
+export const listPermissions = () => AppDataSource.getRepository('Permission').find({ order: { category: 'ASC', name: 'ASC' } });
 
-export const updateRolePermission = ({ roleId, permissionId, isCheck }) => AppDataSource.query(
-  'BEGIN SP_UPDATE_ROLE_PERMISSION(:roleId, :permissionId, :isCheck); END;',
-  [roleId, permissionId, isCheck ? 1 : 0]
-);
+export const updateRolePermission = async ({ roleId, permissionId, isCheck, isGlobal = false }) => {
+  const repo = rolePermissions();
+  let rolePermission = await repo.findOneBy({ idRole: roleId, idPermission: permissionId });
+
+  if (!rolePermission) {
+    rolePermission = repo.create({ idRole: roleId, idPermission: permissionId, status: 'E' });
+  }
+
+  rolePermission.isCheck = isCheck;
+  rolePermission.isGlobal = isGlobal;
+
+  await repo.save(rolePermission);
+  return true;
+};

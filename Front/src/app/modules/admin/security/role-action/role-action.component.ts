@@ -60,13 +60,14 @@ export class RoleActionComponent {
     });
   }
 
-  onPermisoChange(data: any): void {
+onPermisoChange(data: any): void {
     const existingIndex = this.modifiedPermissions.findIndex(p => p.idRolePermission === data.idRolePermission);
     const newPermission: any = {
       idRolePermission: data.idRolePermission,
       roleId: data.idRole,
       permissionId: data.permissionId,
-      isCheck: data.isCheck
+      isCheck: data.isCheck,
+      isGlobal: data.isGlobal ?? false
     };
     if (existingIndex > -1) {
       this.modifiedPermissions[existingIndex] = newPermission;

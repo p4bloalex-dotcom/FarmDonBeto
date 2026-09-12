@@ -9,6 +9,7 @@ export const RolePermissionEntity = new EntitySchema({
     idPermission: { name: 'ID_PERMISSION', type: Number },
     status: { name: 'STATUS', type: String, length: 5, default: 'E' },
     isCheck: { name: 'IS_CHECK', type: Boolean, default: false },
+    isGlobal: { name: 'IS_GLOBAL', type: Boolean, default: false },
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
     updatedAt: { name: 'UPDATED_AT', type: 'timestamp', updateDate: true, nullable: true },
     createdBy: { name: 'CREATED_BY', type: Number, nullable: true },
