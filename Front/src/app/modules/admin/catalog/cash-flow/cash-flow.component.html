@@ -1,0 +1,102 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+    @if (isLoading) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+    <div class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+        <div class="text-3xl font-extrabold tracking-tight">Caja del dia</div>
+        <div class="mt-6 flex shrink-0 items-center gap-4 sm:ml-4 sm:mt-0">
+            @if (registers.length > 1) {
+                <mat-form-field class="fuse-mat-dense fuse-mat-rounded min-w-48" [subscriptSizing]="'dynamic'">
+                    <mat-label>Caja</mat-label>
+                    <mat-select [(ngModel)]="selectedRegisterId" (selectionChange)="onRegisterChange()">
+                        @for (register of registers; track register.id) {
+                            <mat-option [value]="register.id">{{ register.name }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            }
+            @else if (registers.length === 1) {
+                <div class="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary">{{ registers[0].name }}</div>
+            }
+        </div>
+    </div>
+
+    <div class="flex flex-auto overflow-hidden">
+        <div class="flex w-full flex-auto flex-col gap-6 overflow-y-auto p-6">
+            @if (openSession) {
+                <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div class="rounded-2xl border bg-card p-4 shadow-sm">
+                        <div class="text-sm font-medium text-secondary">Monto inicial</div>
+                        <div class="mt-1 text-2xl font-bold">{{ openSession.openingAmount | number: '1.2-2' }}</div>
+                    </div>
+                    <div class="rounded-2xl border bg-card p-4 shadow-sm">
+                        <div class="text-sm font-medium text-secondary">Ingresos</div>
+                        <div class="mt-1 text-2xl font-bold text-emerald-600">{{ summary.income | number: '1.2-2' }}</div>
+                    </div>
+                    <div class="rounded-2xl border bg-card p-4 shadow-sm">
+                        <div class="text-sm font-medium text-secondary">Egresos</div>
+                        <div class="mt-1 text-2xl font-bold text-red-600">{{ summary.expense | number: '1.2-2' }}</div>
+                    </div>
+                    <div class="rounded-2xl border bg-primary p-4 shadow-sm">
+                        <div class="text-sm font-medium text-on-primary">Total esperado</div>
+                        <div class="mt-1 text-2xl font-bold text-on-primary">{{ summary.expectedAmount | number: '1.2-2' }}</div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <div class="text-xl font-semibold">Movimientos de la caja abierta</div>
+                        <div class="mt-1 text-sm text-secondary">
+                            Abierta el {{ openSession.openingDate | cellFormat: 'openingDate' }} con Q {{ openSession.openingAmount | number: '1.2-2' }}
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button mat-flat-button color="primary" (click)="addMovement('income')">
+                            <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                            <span class="ml-2">Ingreso</span>
+                        </button>
+                        <button mat-flat-button color="accent" (click)="addMovement('expense')">
+                            <mat-icon [svgIcon]="'heroicons_outline:minus'"></mat-icon>
+                            <span class="ml-2">Egreso</span>
+                        </button>
+                        <button mat-flat-button color="warn" (click)="closeCashDialog()">
+                            <mat-icon [svgIcon]="'heroicons_outline:lock-closed'"></mat-icon>
+                            <span class="ml-2">Cerrar caja</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <app-table
+                        [columns]="movementColumns"
+                        [data]="movements"
+                        [actions]="movementActions"
+                        [length]="movements.length"
+                        (rowAction)="onMovementRowAction($event)"
+                    ></app-table>
+                </div>
+            }
+            @else {
+                <div class="flex flex-col items-start gap-4 rounded-2xl border bg-card p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <div class="text-2xl font-bold">Sin caja abierta</div>
+                        <div class="mt-1 text-secondary">Registra el monto inicial para comenzar el dia de trabajo.</div>
+                    </div>
+                    <button mat-flat-button color="primary" (click)="openCashDialog()">
+                        <mat-icon [svgIcon]="'heroicons_outline:lock-open'"></mat-icon>
+                        <span class="ml-2">Abrir caja</span>
+                    </button>
+                </div>
+            }
+
+            <div>
+                <div class="mb-3 text-xl font-semibold">Cierres anteriores</div>
+                <app-table
+                    [columns]="historyColumns"
+                    [data]="closedSessions"
+                    [length]="closedSessions.length"
+                ></app-table>
+            </div>
+        </div>
+    </div>
+</div>

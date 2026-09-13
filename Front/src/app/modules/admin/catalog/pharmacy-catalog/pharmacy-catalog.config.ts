@@ -3,9 +3,11 @@ import { TableColumn } from '@fuse/components/table/table-column.model';
 export interface PharmacyFieldConfig {
   name: string;
   label: string;
-  type?: 'text' | 'number' | 'textarea' | 'select';
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'date' | 'datetime';
   required?: boolean;
   endpoint?: string;
+  optionLabel?: string;
+  options?: { value: string; label: string }[];
 }
 
 export interface PharmacyCatalogConfig {
@@ -105,6 +107,36 @@ export const pharmacyCatalogConfigs: Record<string, PharmacyCatalogConfig> = {
     fields: [
       { name: 'supplier_id', label: 'Proveedor', type: 'select', required: true, endpoint: 'Supplier' },
       { name: 'medicine_id', label: 'Medicamento', type: 'select', required: true, endpoint: 'Medicine' }
+    ]
+  },
+  cashMovementType: {
+    title: 'Tipos de movimiento de caja',
+    service: 'CashMovementType',
+    columns: [
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'operation', header: 'Operacion', width: '1fr' },
+      { field: 'code', header: 'Codigo', width: '1fr', hideAt: 'sm' },
+      { field: 'status', header: 'Estado', width: '130px' }
+    ],
+    fields: [
+      { name: 'name', label: 'Nombre', required: true },
+      { name: 'code', label: 'Codigo', required: true },
+      { name: 'operation', label: 'Operacion', type: 'select', required: true, options: [{ value: 'I', label: 'Ingreso' }, { value: 'E', label: 'Egreso' }] }
+    ]
+  },
+  cashRegister: {
+    title: 'Cajas',
+    service: 'CashRegister',
+    columns: [
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'code', header: 'Codigo', width: '1fr', hideAt: 'sm' },
+      { field: 'branchName', header: 'Sucursal', width: '1.5fr', hideAt: 'sm' },
+      { field: 'status', header: 'Estado', width: '130px' }
+    ],
+    fields: [
+      { name: 'branch_id', label: 'Sucursal', type: 'select', required: true, endpoint: 'Branch' },
+      { name: 'name', label: 'Nombre', required: true },
+      { name: 'code', label: 'Codigo', required: true }
     ]
   }
 };

@@ -10,12 +10,14 @@
           @if (field.type === 'select') {
             <mat-select [formControlName]="field.name">
               <mat-option [value]="null"></mat-option>
-              @for (item of options[field.name] || []; track trackByFn($index, item)) {
-                <mat-option [value]="getOptionValue(item)">{{item.name}}</mat-option>
+              @for (option of field.options || options[field.name] || []; track $index) {
+                <mat-option [value]="field.options ? option.value : getOptionValue(option)">{{ field.options ? option.label : getOptionLabel(field, option) }}</mat-option>
               }
             </mat-select>
           } @else if (field.type === 'textarea') {
             <textarea matInput rows="3" [formControlName]="field.name"></textarea>
+          } @else if (field.type === 'datetime' || field.type === 'date') {
+            <input matInput [type]="field.type === 'date' ? 'date' : 'datetime-local'" [formControlName]="field.name" />
           } @else {
             <input matInput [type]="field.type === 'number' ? 'number' : 'text'" [formControlName]="field.name" />
           }

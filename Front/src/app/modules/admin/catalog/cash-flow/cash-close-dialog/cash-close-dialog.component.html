@@ -1,0 +1,30 @@
+<form [formGroup]="dataForm" class="flex max-h-[85vh] w-full flex-col overflow-hidden">
+    <div class="border-b px-4 py-3">
+        <h2 class="text-xl font-semibold">Cerrar caja</h2>
+    </div>
+    <div class="overflow-y-auto p-4">
+        <div class="mb-4 rounded-xl border bg-card p-4">
+            <div class="flex items-center justify-between text-sm text-secondary">
+                <span>Total esperado por la caja</span>
+                <span class="text-base font-bold text-foreground">Q {{ expectedAmount | number: '1.2-2' }}</span>
+            </div>
+        </div>
+        <p class="mb-4 text-secondary">Cuenta el dinero fisico y escribe el monto total que hay en la caja.</p>
+        <mat-form-field class="w-full">
+            <mat-label>Monto contado</mat-label>
+            <input matInput type="number" min="0" step="0.01" formControlName="closingAmount" />
+        </mat-form-field>
+        <div class="rounded-xl border bg-card p-4" [class.border-t]="false">
+            <div class="flex items-center justify-between text-sm text-secondary">
+                <span>Diferencia</span>
+                <span class="text-base font-bold" [class.text-emerald-600]="difference >= 0" [class.text-red-600]="difference < 0">
+                    {{ difference >= 0 ? '+' : '' }}{{ difference | number: '1.2-2' }}
+                </span>
+            </div>
+        </div>
+        <div class="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+            <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()">Cerrar caja</button>
+        </div>
+    </div>
+</form>

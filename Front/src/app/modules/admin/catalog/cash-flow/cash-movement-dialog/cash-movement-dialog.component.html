@@ -1,0 +1,36 @@
+<form [formGroup]="dataForm" class="flex max-h-[85vh] w-full flex-col overflow-hidden">
+    <div class="border-b px-4 py-3">
+        <h2 class="text-xl font-semibold">Registrar {{ operationLabel }}</h2>
+    </div>
+    <div class="overflow-y-auto p-4">
+        @if (hasTypes) {
+            <div class="grid grid-cols-1 gap-4">
+                <mat-form-field class="w-full">
+                    <mat-label>Tipo de {{ operationLabel | lowercase }}</mat-label>
+                    <mat-select formControlName="movementTypeId">
+                        @for (type of movementTypes; track type.id) {
+                            <mat-option [value]="type.id">{{ type.name }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field class="w-full">
+                    <mat-label>Monto</mat-label>
+                    <input matInput type="number" min="0.01" step="0.01" formControlName="amount" />
+                </mat-form-field>
+                <mat-form-field class="w-full">
+                    <mat-label>Detalle (opcional)</mat-label>
+                    <textarea matInput rows="2" formControlName="description"></textarea>
+                </mat-form-field>
+            </div>
+        }
+        @else {
+            <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                No hay tipos de {{ operationLabel | lowercase }} configurados. Crea uno en el modulo &quot;Tipos de movimiento de caja&quot;.
+            </div>
+        }
+        <div class="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
+            <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()">Guardar</button>
+        </div>
+    </div>
+</form>

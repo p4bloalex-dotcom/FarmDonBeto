@@ -11,9 +11,31 @@ export class GeneralApiService {
   private _httpClient = inject(HttpClient);
   constructor() { }
 
-  getList(endpoint: string) {
+getList(endpoint: string) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}`)
       .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
+  }
+
+  getSessions(status?: string) {
+    const params = status ? new HttpParams().set('status', status) : undefined;
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath('CashSession')}`, { params })
+      .pipe(map(resp => this.normalizeResponse('CashSession', resp)));
+  }
+
+  getSessionBalance(sessionId: number) {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath('CashSession')}/${sessionId}/balance`)
+      .pipe(map(resp => this.normalizeResponse('CashSession', resp)));
+  }
+
+  closeSession(sessionId: number, data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath('CashSession')}/${sessionId}/close`, data)
+      .pipe(map(resp => this.normalizeResponse('CashSession', resp)));
+  }
+
+  getMovementsBySession(sessionId: number) {
+    const params = new HttpParams().set('sessionId', sessionId);
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath('CashMovement')}`, { params })
+      .pipe(map(resp => this.normalizeResponse('CashMovement', resp)));
   }
 
   modify(endpoint: string, id: any, data: any) {
@@ -199,9 +221,13 @@ export class GeneralApiService {
       MedicineLaboratory: 'catalog/medicine-laboratories',
       MedicinePresentation: 'catalog/medicine-presentations',
       Medicine: 'catalog/medicines',
-      Supplier: 'catalog/suppliers',
+Supplier: 'catalog/suppliers',
       SupplierMedicine: 'catalog/supplier-medicines',
-      UnitMeasurement: 'catalog/unit-measurements'
+      UnitMeasurement: 'catalog/unit-measurements',
+      CashMovementType: 'catalog/cash-movement-types',
+      CashRegister: 'catalog/cash-registers',
+      CashSession: 'catalog/cash-sessions',
+      CashMovement: 'catalog/cash-movements'
     };
 
     return mapEndpoints[endpoint] ?? endpoint;

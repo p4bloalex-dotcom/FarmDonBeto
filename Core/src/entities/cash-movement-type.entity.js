@@ -14,6 +14,8 @@ export const CashMovementTypeEntity = new EntitySchema({
 
     code: { name: 'CODE', type: String, length: 30, unique: true },
 
+    operation: { name: 'OPERATION', type: String, length: 1, default: 'E' },
+
     status: { name: 'STATUS', type: String, length: 2, default: 'E' },
 
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },

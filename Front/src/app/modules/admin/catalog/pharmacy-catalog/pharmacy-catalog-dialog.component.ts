@@ -35,7 +35,13 @@ export class PharmacyCatalogDialogComponent {
     this.loadOptions();
 
     if (this.actionDialog !== 1) {
-      this.dataForm.patchValue(this._data.row);
+      const row = { ...this._data.row };
+      this.config.fields.forEach(field => {
+        if ((field.type === 'datetime' || field.type === 'date') && row[field.name]) {
+          row[field.name] = this.toLocalInput(row[field.name]);
+        }
+      });
+      this.dataForm.patchValue(row);
     }
     if (this.actionDialog === 4) this.dataForm.disable();
   }
@@ -58,6 +64,11 @@ export class PharmacyCatalogDialogComponent {
 
   create(): void {
     const payload = this.dataForm.getRawValue();
+    this.config.fields.forEach(field => {
+      if ((field.type === 'datetime' || field.type === 'date') && !payload[field.name]) {
+        payload[field.name] = this.toLocalInput(new Date());
+      }
+    });
     this._generalApi.add(this.config.service, payload).subscribe({
       next: (response: ApiResponse<any>) => response.success ? this._matDialogRef.close({ idAction: this.actionDialog, ...this.buildRow({ ...payload, ...response.data }) }) : this._toast.error(response.error.detail),
       error: () => this._toast.error('Error inesperado. Intenta más tarde.')
@@ -93,8 +104,22 @@ export class PharmacyCatalogDialogComponent {
     return item.id ?? item.idData;
   }
 
+  getOptionLabel(field: PharmacyFieldConfig, item: any): any {
+    if (field.optionLabel && item?.[field.optionLabel] != null) {
+      return item[field.optionLabel];
+    }
+    return item?.name ?? `# ${item?.id ?? ''}`;
+  }
+
   isWideField(field: PharmacyFieldConfig): boolean {
     return field.type === 'textarea' || field.name === 'description';
+  }
+
+  private toLocalInput(value: any): string {
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) return '';
+    const pad = (num: number) => String(num).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
   private buildRow(row: any): any {
@@ -104,13 +129,16 @@ export class PharmacyCatalogDialogComponent {
       category_id: 'categoryName',
       unit_measurement_id: 'unitMeasurementName',
       supplier_id: 'supplierName',
-      medicine_id: 'medicineName'
+      medicine_id: 'medicineName',
+      branch_id: 'branchName',
+      cash_register_id: 'cashRegisterName',
+      movement_type_id: 'movementTypeName'
     };
 
     this.config.fields.filter(field => field.type === 'select').forEach(field => {
       const selected = (this.options[field.name] || []).find(item => this.getOptionValue(item) === row[field.name]);
       if (selected && relationNames[field.name]) {
-        row[relationNames[field.name]] = selected.name;
+        row[relationNames[field.name]] = this.getOptionLabel(field, selected);
       }
     });
 

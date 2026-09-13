@@ -23,6 +23,7 @@ import { BusinessOperations1725667200000 } from '../migrations/1725667200000-bus
 import { AddIsGlobalRolePermission1757536440000 } from '../migrations/1757536440000-add-is-global-role-permission.js';
 import { BranchRls1757610000000 } from '../migrations/1757610000000-branch-rls.js';
 import { BranchRlsFixBranchTable1757865600000 } from '../migrations/1757865600000-branch-rls-fix-branch-table.js';
+import { CashBusinessRules1790000000000 } from '../migrations/1790000000000-cash-business-rules.js';
 import { MedicineCategoryEntity } from '../entities/medicine-category.entity.js';
 import { MedicineLaboratoryEntity } from '../entities/medicine-laboratory.entity.js';
 import { MedicinePresentationEntity } from '../entities/medicine-presentation.entity.js';
@@ -99,6 +100,7 @@ export const AppDataSource = new DataSource({
     BusinessOperations1725667200000,
     AddIsGlobalRolePermission1757536440000,
     BranchRls1757610000000,
-    BranchRlsFixBranchTable1757865600000
+    BranchRlsFixBranchTable1757865600000,
+    CashBusinessRules1790000000000
   ]
 });

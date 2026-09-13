@@ -12,11 +12,19 @@ export class CellFormatPipe implements PipeTransform {
 
       if (value === 'E') return 'Activo';
       if (value === 'D') return 'Desactivado';
+      if (value === 'A') return 'Abierta';
+      if (value === 'C') return 'Cerrada';
       if (value == '2') return 'Retorno';
       if (value == '8') return 'Sin retorno';
       if (value == '9') return 'Sin retorno';
       if (value == true) return 'SI'
       if (value == false) return 'NO'
+      return value?.toString() ?? '';
+    }
+
+    if (field === 'operation') {
+      if (value === 'I') return 'Ingreso';
+      if (value === 'E') return 'Egreso';
       return value?.toString() ?? '';
     }
 

@@ -6,7 +6,7 @@ import { validate } from '../../../middlewares/validate.js';
 import { registerScreen } from '../../../routes/route-registry.js';
 import { crudActions } from '../../security/permissions/permission-actions.js';
 import { addItem, editItem, getItems, getPagedItems, removeItem, updateItemStatus } from './catalog-crud.controller.js';
-import { medicineSchema, nameSchema, statusSchema, supplierMedicineSchema, supplierSchema } from './catalog-crud.validation.js';
+import { cashMovementTypeSchema, medicineSchema, nameSchema, statusSchema, supplierMedicineSchema, supplierSchema } from './catalog-crud.validation.js';
 
 export const createCatalogCrudRoutes = ({ entityName, controller, routePath, title, icon, schema }) => {
   const routes = Router();
@@ -37,3 +37,4 @@ export const unitMeasurementRoutes = createCatalogCrudRoutes({ entityName: 'Unit
 export const supplierRoutes = createCatalogCrudRoutes({ entityName: 'Supplier', controller: 'Supplier', routePath: 'supplier', title: 'Proveedores', icon: 'heroicons_solid:truck', schema: supplierSchema });
 export const medicineRoutes = createCatalogCrudRoutes({ entityName: 'Medicine', controller: 'Medicine', routePath: 'medicine', title: 'Medicamentos', icon: 'heroicons_solid:archive-box', schema: medicineSchema });
 export const supplierMedicineRoutes = createCatalogCrudRoutes({ entityName: 'SupplierMedicine', controller: 'SupplierMedicine', routePath: 'suppliermedicine', title: 'Medicamentos por proveedor', icon: 'heroicons_solid:clipboard-document-list', schema: supplierMedicineSchema });
+export const cashMovementTypeRoutes = createCatalogCrudRoutes({ entityName: 'CashMovementType', controller: 'CashMovementType', routePath: 'cashmovementtype', title: 'Tipos de movimiento de caja', icon: 'heroicons_solid:arrows-right-left', schema: cashMovementTypeSchema });

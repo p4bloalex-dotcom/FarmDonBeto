@@ -6,6 +6,7 @@ const selectFields = {
   Medicine: ['item.id', 'item.laboratoryId', 'item.presentationId', 'item.categoryId', 'item.unitMeasurementId', 'item.code', 'item.name', 'item.description', 'item.priceBuy', 'item.priceSell', 'item.status'],
   Supplier: ['item.id', 'item.name', 'item.address', 'item.status'],
   SupplierMedicine: ['item.id', 'item.supplierId', 'item.medicineId', 'item.status'],
+  CashMovementType: ['item.id', 'item.name', 'item.code', 'item.operation', 'item.status'],
   default: ['item.id', 'item.name', 'item.status']
 };
 
@@ -20,6 +21,11 @@ const relationFields = {
     ['item.supplier', 'supplier'],
     ['item.medicine', 'medicine']
   ]
+};
+
+const listOrder = {
+  SupplierMedicine: ['item.id', 'DESC'],
+  default: ['item.name', 'ASC']
 };
 
 const dtoMappers = {
@@ -55,6 +61,13 @@ const dtoMappers = {
     medicine_id: item.medicineId,
     medicineName: item.medicine?.name ?? null,
     status: item.status
+  }),
+  CashMovementType: item => ({
+    id: item.id,
+    name: item.name,
+    code: item.code,
+    operation: item.operation,
+    status: item.status
   })
 };
 
@@ -70,7 +83,8 @@ const toDto = (entityName, item) => (dtoMappers[entityName] ?? defaultToDto)(ite
 const queryItems = entityName => {
   const query = repository(entityName).createQueryBuilder('item').select(selectFields[entityName] ?? selectFields.default);
   (relationFields[entityName] ?? []).forEach(([relation, alias]) => {
-    query.leftJoin(relation, alias).addSelect([`${alias}.id`, `${alias}.name`]);
+    const columns = relationSelects[entityName]?.[alias] ?? [`${alias}.id`, `${alias}.name`];
+    query.leftJoin(relation, alias).addSelect(columns);
   });
   return query;
 };
@@ -83,11 +97,8 @@ export const createItem = async (entityName, data) => {
 
 export const listItems = async entityName => {
   const query = queryItems(entityName).where('item.status = :status', { status: 'E' });
-  if (entityName === 'SupplierMedicine') {
-    query.orderBy('item.id', 'DESC');
-  } else {
-    query.orderBy('item.name', 'ASC');
-  }
+  const [column, direction] = listOrder[entityName] ?? listOrder.default;
+  query.orderBy(column, direction);
   return (await query.getMany()).map(item => toDto(entityName, item));
 };
 

@@ -81,3 +81,15 @@ export const supplierMedicineSchema = Joi.object({
     status: value.status ?? 'E'
   };
 });
+
+export const cashMovementTypeSchema = Joi.object({
+  name: Joi.string().max(150).required(),
+  code: Joi.string().max(30).required(),
+  operation: Joi.string().valid('I', 'E').default('E'),
+  status: Joi.string().valid('E', 'D', 'I').default('E')
+}).custom(value => ({
+  name: value.name,
+  code: value.code,
+  operation: value.operation ?? 'E',
+  status: value.status ?? 'E'
+}));

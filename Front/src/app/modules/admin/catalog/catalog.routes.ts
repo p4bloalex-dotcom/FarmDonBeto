@@ -16,6 +16,7 @@ import { TypeFingerComponent } from "./type-finger/type-finger.component";
 import { ServiceComponent } from "./service/service.component";
 import { BranchComponent } from "./branch/branch.component";
 import { PharmacyCatalogComponent } from "./pharmacy-catalog/pharmacy-catalog.component";
+import { CashFlowComponent } from "./cash-flow/cash-flow.component";
 import { pharmacyCatalogConfigs } from "./pharmacy-catalog/pharmacy-catalog.config";
 
 export default [
@@ -42,6 +43,9 @@ export default [
     {path     : 'medicinepresentation',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.medicinePresentation }},
     {path     : 'medicine',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.medicine }},
     {path     : 'supplier',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.supplier }},
-    {path     : 'suppliermedicine',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.supplierMedicine }},
+{path     : 'suppliermedicine',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.supplierMedicine }},
     {path     : 'unitmeasurement',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.unitMeasurement }},
+    {path     : 'cashmovementtype',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.cashMovementType }},
+    {path     : 'cashregister',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.cashRegister }},
+    {path     : 'cashsession',component: CashFlowComponent},
 ] as Routes;

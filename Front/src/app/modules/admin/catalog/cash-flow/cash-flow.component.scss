@@ -1,0 +1,10 @@
+:host {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.text-on-primary {
+    color: var(--mat-sys-on-primary, #ffffff);
+}

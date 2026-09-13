@@ -18,6 +18,7 @@ export const runSecuritySeeders = async () => {
     }
 
     const categories = [...new Set(screens.map(screen => screen.category))];
+    const validPaths = new Set(screens.map(screen => screen.routePath));
     for (const category of categories) {
       let parentMenu = await menuRepository.findOneBy({ path: category, idMenuFather: null });
       if (!parentMenu) {
@@ -85,6 +86,16 @@ export const runSecuritySeeders = async () => {
               isGlobal: false
             }));
           }
+        }
+
+        const orphanMenus = await manager.getRepository('Menu')
+          .createQueryBuilder('item')
+          .where('item.idMenuFather = :parentId', { parentId: parentMenu.id })
+          .andWhere('item.status = :active', { active: 'E' })
+          .andWhere('item.path NOT IN (:...paths)', { paths: [...validPaths] })
+          .getMany();
+        for (const orphan of orphanMenus) {
+          await menuRepository.update(orphan.id, { status: 'D' });
         }
       }
     }
