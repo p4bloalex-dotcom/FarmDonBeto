@@ -1,0 +1,24 @@
+<form [formGroup]="dataForm" class="flex w-full flex-col">
+    <div class="border-b px-4 py-3">
+        <h2 class="text-xl font-semibold">Configurar inventario</h2>
+        <div class="text-sm text-secondary">{{ data.row.branchName }} - {{ data.row.medicineName }}</div>
+    </div>
+    <div class="grid grid-cols-1 gap-4 p-4 sm:grid-cols-3">
+        <mat-form-field class="w-full">
+            <mat-label>Reserva</mat-label>
+            <input matInput formControlName="reserve" type="number" min="0" />
+        </mat-form-field>
+        <mat-form-field class="w-full">
+            <mat-label>Stock minimo</mat-label>
+            <input matInput formControlName="stockMin" type="number" min="0" />
+        </mat-form-field>
+        <mat-form-field class="w-full">
+            <mat-label>Stock maximo</mat-label>
+            <input matInput formControlName="stockMax" type="number" min="0" />
+        </mat-form-field>
+    </div>
+    <div class="flex flex-col-reverse gap-3 border-t px-4 py-3 sm:flex-row sm:justify-end">
+        <button mat-flat-button type="button" (click)="close()">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" [disabled]="dataForm.invalid" (click)="save()">Guardar</button>
+    </div>
+</form>

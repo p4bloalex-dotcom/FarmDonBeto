@@ -17,7 +17,7 @@ import { closeSessionSchema, openSessionSchema } from './cash-session.validation
 
 export const cashSessionRoutes = Router();
 export const permissions = registerScreen({
-  category: 'Catalog',
+  category: 'Operation',
   controller: 'CashSession',
   routePath: 'cashsession',
   title: 'Caja del dia',

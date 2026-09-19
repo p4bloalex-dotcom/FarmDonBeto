@@ -4,7 +4,6 @@ import { MenuComponent } from "./menu/menu.component";
 import { RoleMenuComponent } from "./role-menu/role-menu.component";
 import { RoleActionComponent } from "./role-action/role-action.component";
 import { UserComponent } from "./user/user.component";
-import { AuditComponent } from "./audit/audit.component";
 
 export default [
 
@@ -14,5 +13,5 @@ export default [
     {path     : 'menurol',component: RoleMenuComponent,},
     {path     : 'roleaction', component: RoleActionComponent},
     {path     : 'user', component: UserComponent},
-    {path     : 'audit', component: AuditComponent}
+    {path     : 'audit', redirectTo: '/audit/audit', pathMatch: 'full'}
 ] as Routes;

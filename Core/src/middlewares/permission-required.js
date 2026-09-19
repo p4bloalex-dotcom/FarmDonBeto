@@ -1,10 +1,14 @@
 import { validateUserAccess } from '../modules/security/permissions/permission.repository.js';
-import { forbidden, unauthorized } from '../utils/api-response.js';
+import { forbidden, serverError, unauthorized } from '../utils/api-response.js';
 import { getRequestContext } from '../utils/request-context.js';
 
 export const permissionRequired = routeMetadata => async (req, res, next) => {
   if (!req.user?.id) {
     return unauthorized(res);
+  }
+
+  if (!routeMetadata?.permissionName) {
+    return serverError(res, 'Permiso de ruta no configurado.');
   }
 
   const permissionName = routeMetadata.permissionName;

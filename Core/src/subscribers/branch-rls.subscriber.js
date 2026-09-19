@@ -1,5 +1,4 @@
 import { getRequestContext } from '../utils/request-context.js';
-import { logger } from '../utils/logger.js';
 
 const TENANT_TABLES = [
   'TB_INVENTORY',
@@ -9,6 +8,12 @@ const TENANT_TABLES = [
   'TB_CASH_REGISTER',
   'TB_CASH_SESSION',
   'TB_CASH_MOVEMENT',
+  'TB_MOVE_INVENTORY',
+  'TB_DELIVERY_REQUEST',
+  'TB_DELIVERY_REQUEST_DETAIL',
+  'TB_FIXED_ASSET',
+  'TB_CUSTOMER_ORDER',
+  'TB_CUSTOMER_ORDER_DETAIL',
   'TB_BRANCH'
 ];
 

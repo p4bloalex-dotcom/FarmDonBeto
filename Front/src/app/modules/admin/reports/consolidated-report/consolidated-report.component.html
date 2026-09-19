@@ -1,0 +1,19 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+    @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
+    <div class="border-b px-4 py-4 md:px-8">
+        <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Reportes consolidados</div>
+        <div class="text-sm text-secondary">Caja, inventario/kardex, traspasos, activos fijos y nomina.</div>
+    </div>
+    <div class="space-y-4 overflow-auto p-4 md:p-8">
+        <div class="grid gap-3 rounded-2xl border p-4 shadow-sm md:grid-cols-5">
+            <mat-form-field><mat-label>Reporte</mat-label><mat-select [(ngModel)]="selectedReport"><mat-option *ngFor="let report of reports" [value]="report.value">{{ report.label }}</mat-option></mat-select></mat-form-field>
+            <mat-form-field><mat-label>Sucursal</mat-label><mat-select [(ngModel)]="filters.branchId"><mat-option value="">Todas</mat-option><mat-option *ngFor="let branch of branches" [value]="branch.id">{{ branch.name }}</mat-option></mat-select></mat-form-field>
+            <mat-form-field><mat-label>Desde</mat-label><input matInput type="date" [(ngModel)]="filters.startDate" /></mat-form-field>
+            <mat-form-field><mat-label>Hasta</mat-label><input matInput type="date" [(ngModel)]="filters.endDate" /></mat-form-field>
+            <div class="flex items-center"><button mat-flat-button color="primary" type="button" (click)="loadReport()">Consultar</button></div>
+        </div>
+        <div class="rounded-2xl border p-4 shadow-sm">
+            <app-table [columns]="columns" [data]="rows"></app-table>
+        </div>
+    </div>
+</div>

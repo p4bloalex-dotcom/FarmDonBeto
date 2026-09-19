@@ -2,6 +2,15 @@ import { AppDataSource } from '../config/data-source.js';
 import { getRegisteredScreens } from '../routes/route-registry.js';
 import { logger } from '../utils/logger.js';
 
+const categoryConfig = {
+  Security: { name: 'Seguridad', icon: 'heroicons_solid:shield-check', order: 1 },
+  Catalog: { name: 'Catalogo', icon: 'heroicons_solid:squares-2x2', order: 2 },
+  Operation: { name: 'Operaciones', icon: 'heroicons_solid:briefcase', order: 3 },
+  Configuration: { name: 'Configuraciones', icon: 'heroicons_solid:cog-6-tooth', order: 4 },
+  Reports: { name: 'Reporte', icon: 'heroicons_solid:chart-bar-square', order: 5 },
+  Audit: { name: 'Auditoria', icon: 'heroicons_solid:document-magnifying-glass', order: 6 }
+};
+
 export const runSecuritySeeders = async () => {
   const screens = getRegisteredScreens();
 
@@ -20,18 +29,19 @@ export const runSecuritySeeders = async () => {
     const categories = [...new Set(screens.map(screen => screen.category))];
     const validPaths = new Set(screens.map(screen => screen.routePath));
     for (const category of categories) {
+      const config = categoryConfig[category] ?? { name: category, icon: 'folder', order: 0 };
       let parentMenu = await menuRepository.findOneBy({ path: category, idMenuFather: null });
       if (!parentMenu) {
         parentMenu = await menuRepository.save(menuRepository.create({
-          name: category,
-          icon: 'folder',
+          name: config.name,
+          icon: config.icon,
           path: category,
           status: 'E',
-          order: 0
+          order: config.order
         }));
-      } else if (parentMenu.status !== 'E') {
-        await menuRepository.update(parentMenu.id, { status: 'E', name: category, icon: 'folder' });
-        parentMenu = { ...parentMenu, status: 'E', name: category, icon: 'folder' };
+      } else if (parentMenu.status !== 'E' || parentMenu.name !== config.name || parentMenu.icon !== config.icon || parentMenu.order !== config.order) {
+        await menuRepository.update(parentMenu.id, { status: 'E', name: config.name, icon: config.icon, order: config.order });
+        parentMenu = { ...parentMenu, status: 'E', name: config.name, icon: config.icon, order: config.order };
       }
 
       const parentRoleMenu = await roleMenuRepository.findOneBy({ idRole: adminRole.id, idMenu: parentMenu.id });
@@ -46,6 +56,9 @@ export const runSecuritySeeders = async () => {
           childMenu = await menuRepository.findOneBy({ path: screen.controller, idMenuFather: parentMenu.id });
         }
         if (!childMenu) {
+          childMenu = await menuRepository.findOneBy({ path: screen.routePath, status: 'E' });
+        }
+        if (!childMenu) {
           childMenu = await menuRepository.save(menuRepository.create({
             name: screen.title,
             icon: screen.icon,
@@ -54,9 +67,9 @@ export const runSecuritySeeders = async () => {
             status: 'E',
             order: 0
           }));
-        } else if (childMenu.status !== 'E' || childMenu.path !== screen.routePath || childMenu.name !== screen.title || childMenu.icon !== screen.icon) {
-          await menuRepository.update(childMenu.id, { status: 'E', name: screen.title, icon: screen.icon, path: screen.routePath });
-          childMenu = { ...childMenu, status: 'E', name: screen.title, icon: screen.icon, path: screen.routePath };
+        } else if (childMenu.status !== 'E' || childMenu.path !== screen.routePath || childMenu.name !== screen.title || childMenu.icon !== screen.icon || childMenu.idMenuFather !== parentMenu.id) {
+          await menuRepository.update(childMenu.id, { status: 'E', name: screen.title, icon: screen.icon, path: screen.routePath, idMenuFather: parentMenu.id });
+          childMenu = { ...childMenu, status: 'E', name: screen.title, icon: screen.icon, path: screen.routePath, idMenuFather: parentMenu.id };
         }
 
         const roleMenu = await roleMenuRepository.findOneBy({ idRole: adminRole.id, idMenu: childMenu.id });

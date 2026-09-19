@@ -53,7 +53,7 @@ export class BranchComponent {
     this._generalApi.getPaged(this.service, this.pageIndex + 1, this.pageSize).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         if (resp.success) {
-          this.filteredData = resp.data.data;
+          this.filteredData = (resp.data.data ?? []).map(item => this.decorate(item));
           this.totalItems = resp.data.meta.totalItemCount;
           this.pagedData = this.filteredData;
         } else {
@@ -64,21 +64,26 @@ export class BranchComponent {
     });
   }
 
+  private decorate(item: any): any {
+    return { ...item, isMainLabel: Number(item.isMain ?? item.is_main) === 1 ? 'Matriz' : '' };
+  }
+
   openDialog(row: any, action: number): void {
     const dialogRef = this._matDialog.open(BranchDialogComponent, { autoFocus: false, data: { row, action }, width: '80vw', maxWidth: '1100px', height: 'auto', disableClose: true });
     dialogRef.afterClosed().subscribe(updated => {
       if (!updated) return;
       const { idAction, ...payload } = updated;
-      if (idAction === 1) this.filteredData = [payload, ...this.filteredData];
+      if (idAction === 1) this.filteredData = [this.decorate(payload), ...this.filteredData];
       if (idAction === 2) this.filteredData = this.filteredData.map(item => item.idBranch === payload.idData ? { ...item, ...payload } : item);
       if (idAction === 4) this.filteredData = this.filteredData.filter(item => item.idBranch !== payload.idData);
-      this.pagedData = this.filteredData;
+      this.pagedData = this.filteredData.map(item => this.decorate(item));
       this._toast.success('Operación exitosa');
     });
   }
 
   columns: TableColumn[] = [
     { field: 'name', header: 'Nombre', width: '2fr' ,},
+    { field: 'isMainLabel', header: 'Tipo', width: '1fr', },
     { field: 'phone', header: 'Telefono', width: '1fr', },
     { field: 'status', header: 'Estado', width: '120px', }
   ];

@@ -14,11 +14,11 @@ export const PurchaseDetailEntity = new EntitySchema({
 
     medicineId: { name: 'MEDICINE_ID', type: Number },
 
-    quantity: { name: 'QUANTITY', type: Number },
+    quantity: { name: 'QUANTITY', type: 'decimal', precision: 12, scale: 2 },
 
-    unitPrice: { name: 'UNIT_PRICE', type: Number },
+    unitPrice: { name: 'UNIT_PRICE', type: 'decimal', precision: 12, scale: 2 },
 
-    subtotal: { name: 'SUBTOTAL', type: Number },
+    subtotal: { name: 'SUBTOTAL', type: 'decimal', precision: 12, scale: 2 },
 
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
 

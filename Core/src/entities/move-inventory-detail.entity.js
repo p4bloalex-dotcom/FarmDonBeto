@@ -14,9 +14,9 @@ export const MoveInventoryDetailEntity = new EntitySchema({
 
     medicineId: { name: 'MEDICINE_ID', type: Number },
 
-    quantity: { name: 'QUANTITY', type: Number },
+    quantity: { name: 'QUANTITY', type: 'decimal', precision: 12, scale: 2 },
 
-    unitCost: { name: 'UNIT_COST', type: Number },
+    unitCost: { name: 'UNIT_COST', type: 'decimal', precision: 12, scale: 2 },
 
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
 

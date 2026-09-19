@@ -8,7 +8,7 @@ import { getAuditLogs } from './audit.controller.js';
 
 export const auditRoutes = Router();
 const permissions = registerScreen({
-  category: 'Security',
+  category: 'Audit',
   controller: 'Audit',
   routePath: 'audit',
   title: 'Auditoria',

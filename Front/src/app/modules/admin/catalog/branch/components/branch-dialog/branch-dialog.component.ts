@@ -1,6 +1,7 @@
 import { Component, Inject } from '@angular/core';
 import { ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -11,7 +12,7 @@ import { GeneralApiService } from 'app/core/services/general-api.service';
 
 @Component({
   selector: 'app-branch-dialog',
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatSelectModule, MatDialogModule],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatSelectModule, MatDialogModule, MatCheckboxModule],
   templateUrl: './branch-dialog.component.html',
   styleUrl: './branch-dialog.component.scss'
 })
@@ -22,7 +23,7 @@ export class BranchDialogComponent {
   municipalities: any[] = [];
   service = 'Branch';
 
-  constructor(@Inject(MAT_DIALOG_DATA) private _data, private _matDialogRef: MatDialogRef<BranchDialogComponent>, private _formBuilder: UntypedFormBuilder, private _generalApi: GeneralApiService, private _toast: HotToastService) {}
+  constructor(@Inject(MAT_DIALOG_DATA) public _data: any, private _matDialogRef: MatDialogRef<BranchDialogComponent>, private _formBuilder: UntypedFormBuilder, private _generalApi: GeneralApiService, private _toast: HotToastService) {}
 
   ngOnInit(): void {
     this.actionDialog = this._data?.action;
@@ -33,12 +34,18 @@ export class BranchDialogComponent {
       address: [''],
       id_department: [null],
       id_municipality: [null],
-      status: ['E', [Validators.required]]
+      status: ['E', [Validators.required]],
+      is_main: [false],
+      latitude: [null],
+      longitude: [null],
+      coverageRadiusKm: [8],
+      averageDeliveryMinutes: [25]
     });
     this.loadDepartments();
 
     if (this._data.action !== 1) {
       this.dataForm.patchValue(this._data.row);
+      this.dataForm.get('is_main').patchValue(Number(this._data.row?.isMain ?? this._data.row?.is_main) === 1);
       const departmentId = this._data.row?.id_department ?? this._data.row?.idDepartment;
       if (departmentId) this.onDepartmentSelected(departmentId);
     }
@@ -68,7 +75,8 @@ export class BranchDialogComponent {
   }
 
   create(): void {
-    const payload = this.dataForm.getRawValue();
+    const payload = { ...this.dataForm.getRawValue(), isMain: this.dataForm.get('is_main').value ? 1 : 0 };
+    delete payload.is_main;
     this._generalApi.add(this.service, payload).subscribe({
       next: (response: ApiResponse<any>) => response.success ? this._matDialogRef.close({ idAction: this._data.action, ...response.data }) : this._toast.error(response.error.detail),
       error: () => this._toast.error('Error inesperado. Intenta más tarde.')
@@ -76,7 +84,8 @@ export class BranchDialogComponent {
   }
 
   edit(): void {
-    const payload = this.dataForm.getRawValue();
+    const payload = { ...this.dataForm.getRawValue(), isMain: this.dataForm.get('is_main').value ? 1 : 0 };
+    delete payload.is_main;
     const idData = this._data.row?.idBranch;
     this._generalApi.modify(this.service, idData, payload).subscribe({
       next: (response: ApiResponse<any>) => response.success ? this._matDialogRef.close({ idAction: this._data.action, idData, ...payload }) : this._toast.error(response.error.detail),

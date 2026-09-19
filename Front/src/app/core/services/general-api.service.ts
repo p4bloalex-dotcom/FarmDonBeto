@@ -38,13 +38,31 @@ getList(endpoint: string) {
       .pipe(map(resp => this.normalizeResponse('CashMovement', resp)));
   }
 
+  postAction(endpoint: string, id: any, action: string, data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}/${action}`, data)
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
+  }
+
+  customerOrderAvailability(data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath('CustomerOrder')}/availability`, data)
+      .pipe(map(resp => this.normalizeResponse('CustomerOrder', resp)));
+  }
+
+  getConsolidatedReport(report: string, filters: any = {}) {
+    let params = new HttpParams();
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') params = params.set(key, filters[key]);
+    });
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/reports/consolidated/${report}`, { params });
+  }
+
   modify(endpoint: string, id: any, data: any) {
     return this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`, this.toNodePayload(endpoint, data))
       .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
   changeStatus(endpoint: string, id: any, data: any) {
-    if (endpoint === 'Menu') {
+    if (endpoint === 'Menu' || endpoint === 'DeliveryRequest' || endpoint === 'CustomerOrder') {
       return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}/status`, { status: data.status })
         .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
     }
@@ -227,7 +245,14 @@ Supplier: 'catalog/suppliers',
       CashMovementType: 'catalog/cash-movement-types',
       CashRegister: 'catalog/cash-registers',
       CashSession: 'catalog/cash-sessions',
-      CashMovement: 'catalog/cash-movements'
+      CashMovement: 'catalog/cash-movements',
+      Purchase: 'catalog/purchases',
+      StockTransfer: 'catalog/stock-transfers',
+      DeliveryRequest: 'catalog/delivery-requests',
+      Inventory: 'catalog/inventory',
+      FixedAsset: 'catalog/fixed-assets',
+      CustomerOrder: 'catalog/customer-orders',
+      Sale: 'catalog/sales'
     };
 
     return mapEndpoints[endpoint] ?? endpoint;

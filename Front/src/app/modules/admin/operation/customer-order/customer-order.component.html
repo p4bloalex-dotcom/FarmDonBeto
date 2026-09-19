@@ -1,0 +1,55 @@
+<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+    @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
+    <div class="border-b px-4 py-4 md:px-8">
+        <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Ordenes de cliente</div>
+        <div class="text-sm text-secondary">Call center, promesa de entrega y reserva de inventario.</div>
+    </div>
+    <div class="grid gap-4 overflow-auto p-4 md:grid-cols-[420px_1fr] md:p-8">
+        <form [formGroup]="form" class="rounded-2xl border p-4 shadow-sm">
+            <div class="mb-3 text-lg font-semibold">Nueva orden</div>
+            <mat-form-field class="w-full"><mat-label>Cliente</mat-label><input matInput formControlName="customerName" /></mat-form-field>
+            <mat-form-field class="w-full"><mat-label>Telefono</mat-label><input matInput formControlName="customerPhone" /></mat-form-field>
+            <mat-form-field class="w-full"><mat-label>Direccion entrega</mat-label><input matInput formControlName="deliveryAddress" /></mat-form-field>
+            <div class="grid grid-cols-2 gap-2">
+                <mat-form-field><mat-label>Latitud entrega</mat-label><input matInput type="number" formControlName="deliveryLatitude" /></mat-form-field>
+                <mat-form-field><mat-label>Longitud entrega</mat-label><input matInput type="number" formControlName="deliveryLongitude" /></mat-form-field>
+            </div>
+            <mat-form-field class="w-full"><mat-label>Referencia</mat-label><input matInput formControlName="deliveryReference" /></mat-form-field>
+            <div formArrayName="items" class="space-y-3">
+                @for (item of items.controls; track $index) {
+                    <div [formGroupName]="$index" class="grid grid-cols-[1fr_90px_40px] gap-2">
+                        <mat-form-field><mat-label>Medicamento</mat-label><mat-select formControlName="medicineId">@for (med of medicines; track med.id) { <mat-option [value]="med.id">{{ med.name }}</mat-option> }</mat-select></mat-form-field>
+                        <mat-form-field><mat-label>Cant.</mat-label><input matInput type="number" formControlName="quantity" /></mat-form-field>
+                        <button mat-icon-button type="button" (click)="removeItem($index)"><mat-icon svgIcon="heroicons_outline:trash"></mat-icon></button>
+                    </div>
+                }
+            </div>
+            <button mat-button type="button" (click)="addItem()"><mat-icon svgIcon="heroicons_outline:plus"></mat-icon>Agregar medicamento</button>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+                <mat-form-field><mat-label>Pago</mat-label><mat-select formControlName="paymentMethod"><mat-option value="COD">Contra entrega</mat-option><mat-option value="CASH">Efectivo</mat-option><mat-option value="CARD">Tarjeta</mat-option><mat-option value="TRANSFER">Transferencia</mat-option></mat-select></mat-form-field>
+                <mat-form-field><mat-label>Envio</mat-label><input matInput type="number" formControlName="deliveryFee" /></mat-form-field>
+                <mat-form-field><mat-label>ETA minutos</mat-label><input matInput type="number" formControlName="estimatedDeliveryMinutes" /></mat-form-field>
+            </div>
+            <mat-form-field class="w-full"><mat-label>Notas</mat-label><input matInput formControlName="notes" /></mat-form-field>
+            <div class="flex gap-2">
+                <button mat-stroked-button type="button" (click)="checkAvailability()">Consultar disponibilidad</button>
+                <button mat-flat-button color="primary" type="button" (click)="createOrder()">Crear orden</button>
+            </div>
+            @if (availability.length) {
+                <div class="mt-4 space-y-2">
+                    <div class="font-semibold">Sucursal sugerida</div>
+                    @for (option of availability; track option.branchId) {
+                        <button class="w-full rounded-xl border px-3 py-2 text-left" type="button" [class.border-primary]="selectedBranchId === option.branchId" [disabled]="!option.canFulfill" (click)="selectedBranchId = option.branchId">
+                            <div class="font-medium">{{ option.branchName }}</div>
+                            <div class="text-sm" [class.text-green-600]="option.canFulfill" [class.text-red-600]="!option.canFulfill">{{ option.canFulfill ? 'Disponible ahora' : (option.insideCoverage ? 'Stock insuficiente' : 'Fuera de cobertura') }}</div>
+                            <div class="text-xs text-secondary"><span *ngIf="option.distanceKm !== null">{{ option.distanceKm }} km · </span>ETA {{ option.estimatedDeliveryMinutes || '-' }} min · Radio {{ option.coverageRadiusKm }} km</div>
+                        </button>
+                    }
+                </div>
+            }
+        </form>
+        <div class="min-w-0 rounded-2xl border p-4 shadow-sm">
+            <app-table [columns]="columns" [data]="rows" [actions]="actions" [length]="totalItems" (pageChange)="loadOrders($event)" (rowAction)="handleRowAction($event)"></app-table>
+        </div>
+    </div>
+</div>

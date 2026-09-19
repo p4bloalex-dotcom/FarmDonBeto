@@ -11,7 +11,15 @@ export const branchSchema = Joi.object({
   id_municipality: Joi.number().integer().allow(null),
   companyId: Joi.number().integer().allow(null),
   company_id: Joi.number().integer().allow(null),
-  status: Joi.string().valid('E', 'D', 'I').default('E')
+  status: Joi.string().valid('E', 'D', 'I').default('E'),
+  isMain: Joi.number().integer().valid(0, 1).allow(null).default(0),
+  is_main: Joi.number().integer().valid(0, 1).allow(null),
+  latitude: Joi.number().min(-90).max(90).allow(null),
+  longitude: Joi.number().min(-180).max(180).allow(null),
+  coverageRadiusKm: Joi.number().precision(2).min(0).max(500).allow(null),
+  coverage_radius_km: Joi.number().precision(2).min(0).max(500).allow(null),
+  averageDeliveryMinutes: Joi.number().integer().min(5).max(480).allow(null),
+  average_delivery_minutes: Joi.number().integer().min(5).max(480).allow(null)
 }).custom(value => ({
   name: value.name,
   phone: value.phone || null,
@@ -20,7 +28,12 @@ export const branchSchema = Joi.object({
   idDepartment: value.idDepartment ?? value.id_department ?? null,
   idMunicipality: value.idMunicipality ?? value.id_municipality ?? null,
   companyId: value.companyId ?? value.company_id ?? null,
-  status: value.status ?? 'E'
+  status: value.status ?? 'E',
+  isMain: value.isMain ?? value.is_main ?? 0,
+  latitude: value.latitude ?? null,
+  longitude: value.longitude ?? null,
+  coverageRadiusKm: value.coverageRadiusKm ?? value.coverage_radius_km ?? 8,
+  averageDeliveryMinutes: value.averageDeliveryMinutes ?? value.average_delivery_minutes ?? 25
 }));
 
 export const branchStatusSchema = Joi.object({ status: Joi.string().valid('E', 'D', 'I').required() }).unknown(true);

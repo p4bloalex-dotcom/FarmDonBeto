@@ -20,6 +20,8 @@ export const MoveInventoryEntity = new EntitySchema({
 
     description: { name: 'DESCRIPTION', type: String, length: 255, nullable: true },
 
+    status: { name: 'STATUS', type: String, length: 2, default: 'E' },
+
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
 
     updatedAt: { name: 'UPDATED_AT', type: 'timestamp', updateDate: true, nullable: true },

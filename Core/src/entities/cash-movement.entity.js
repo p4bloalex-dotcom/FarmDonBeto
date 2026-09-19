@@ -16,7 +16,7 @@ export const CashMovementEntity = new EntitySchema({
 
     movementTypeId: { name: 'MOVEMENT_TYPE_ID', type: Number },
 
-    amount: { name: 'AMOUNT', type: Number },
+    amount: { name: 'AMOUNT', type: 'decimal', precision: 12, scale: 2 },
 
     description: { name: 'DESCRIPTION', type: String, length: 255, nullable: true },
 

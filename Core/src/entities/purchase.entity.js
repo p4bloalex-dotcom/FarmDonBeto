@@ -18,11 +18,13 @@ export const PurchaseEntity = new EntitySchema({
 
     invoiceNumber: { name: 'INVOICE_NUMBER', type: String, length: 50 },
 
-    subtotal: { name: 'SUBTOTAL', type: Number },
+    subtotal: { name: 'SUBTOTAL', type: 'decimal', precision: 12, scale: 2 },
 
-    tax: { name: 'TAX', type: Number },
+    tax: { name: 'TAX', type: 'decimal', precision: 12, scale: 2 },
 
-    total: { name: 'TOTAL', type: Number },
+    total: { name: 'TOTAL', type: 'decimal', precision: 12, scale: 2 },
+
+    status: { name: 'STATUS', type: String, length: 2, default: 'E' },
 
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
 

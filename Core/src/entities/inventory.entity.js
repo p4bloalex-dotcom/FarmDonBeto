@@ -14,13 +14,13 @@ export const InventoryEntity = new EntitySchema({
 
     branchId: { name: 'BRANCH_ID', type: Number },
 
-    stockAvailable: { name: 'STOCK_AVAILABLE', type: Number, default: 0 },
+    stockAvailable: { name: 'STOCK_AVAILABLE', type: 'decimal', precision: 12, scale: 2, default: 0 },
 
-    reserve: { name: 'RESERVE', type: Number, default: 0 },
+    reserve: { name: 'RESERVE', type: 'decimal', precision: 12, scale: 2, default: 0 },
 
-    stockMin: { name: 'STOCK_MIN', type: Number, default: 0 },
+    stockMin: { name: 'STOCK_MIN', type: 'decimal', precision: 12, scale: 2, default: 0 },
 
-    stockMax: { name: 'STOCK_MAX', type: Number, default: 0 },
+    stockMax: { name: 'STOCK_MAX', type: 'decimal', precision: 12, scale: 2, default: 0 },
 
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
 

@@ -80,6 +80,8 @@ const defaultToDto = item => ({
 
 const toDto = (entityName, item) => (dtoMappers[entityName] ?? defaultToDto)(item);
 
+const relationSelects = {};
+
 const queryItems = entityName => {
   const query = repository(entityName).createQueryBuilder('item').select(selectFields[entityName] ?? selectFields.default);
   (relationFields[entityName] ?? []).forEach(([relation, alias]) => {
