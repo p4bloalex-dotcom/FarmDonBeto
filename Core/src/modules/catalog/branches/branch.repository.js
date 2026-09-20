@@ -10,6 +10,8 @@ const toDto = item => ({
   phone: item.phone,
   email: item.email,
   address: item.address,
+  branchType: item.branchType,
+  branch_type: item.branchType,
   idDepartment: item.idDepartment,
   id_department: item.idDepartment,
   idMunicipality: item.idMunicipality,
@@ -29,7 +31,7 @@ const toDto = item => ({
 
 export const createBranch = async data => {
   if (data.isMain === 1) {
-    await branches().update({}, { isMain: 0 });
+    await branches().createQueryBuilder().update().set({ isMain: 0 }).execute();
   }
   return toDto(await branches().save(branches().create(data)));
 };
@@ -43,7 +45,7 @@ export const paginateBranches = async ({ offset, pageSize }) => {
 
 export const updateBranch = async (id, data) => {
   if (data.isMain === 1) {
-    await branches().update({}, { isMain: 0 });
+    await branches().createQueryBuilder().update().set({ isMain: 0 }).execute();
   } else {
     delete data.isMain;
     const current = await branches().findOne({ where: { id } });

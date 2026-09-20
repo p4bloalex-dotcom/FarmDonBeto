@@ -9,6 +9,14 @@
       <mat-form-field class="w-full"><mat-label>Correo</mat-label><input matInput formControlName="email" /></mat-form-field>
       <mat-form-field class="w-full"><mat-label>Direccion</mat-label><input matInput formControlName="address" /></mat-form-field>
     </div>
+    <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <mat-form-field class="w-full">
+        <mat-label>Tipo de sucursal</mat-label>
+        <mat-select formControlName="branchType">
+          @for (item of branchTypes; track item.value) { <mat-option [value]="item.value">{{item.label}}</mat-option> }
+        </mat-select>
+      </mat-form-field>
+    </div>
     <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
       <mat-form-field class="w-full">
         <mat-label>Departamento</mat-label>
@@ -35,7 +43,7 @@
       <mat-form-field class="w-full"><mat-label>Radio km</mat-label><input matInput type="number" formControlName="coverageRadiusKm" /></mat-form-field>
       <mat-form-field class="w-full"><mat-label>Min. base entrega</mat-label><input matInput type="number" formControlName="averageDeliveryMinutes" /></mat-form-field>
     </div>
-    <mat-checkbox class="mt-4" formControlName="is_main" [class.!pointer-events-none]="actionDialog == 2 && _data.row?.isMain === 1">Es la sucursal matriz (compra centralizada)</mat-checkbox>
+    <mat-checkbox class="mt-4" formControlName="is_main" [class.!pointer-events-none]="actionDialog == 2 && _data.row?.isMain === 1">Es la sucursal matriz</mat-checkbox>
     <div class="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button mat-flat-button matDialogClose (click)="close()">Cancelar</button><button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()">@if (actionDialog == 4) {Eliminar} @else {Guardar}</button></div>
   </div>
 </form>

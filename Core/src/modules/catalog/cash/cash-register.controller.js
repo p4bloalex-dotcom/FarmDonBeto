@@ -1,4 +1,5 @@
 import { badRequest, conflict, created, notFound, ok } from '../../../utils/api-response.js';
+import { getForeignKeyConflictMessage, isForeignKeyViolation } from '../../../utils/database-errors.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
 import {
   changeRegisterStatus,
@@ -13,8 +14,6 @@ import {
   paginateRegisters,
   updateRegister
 } from './cash-register.repository.js';
-
-const isForeignKeyViolation = error => error.errorNum === 2292;
 
 export const addRegister = async (req, res) => {
   const { branchId, name, code } = req.body;
@@ -93,7 +92,7 @@ export const removeRegister = async (req, res) => {
     return deleted ? ok(res, null, 'Registro eliminado correctamente.') : notFound(res);
   } catch (error) {
     if (isForeignKeyViolation(error)) {
-      return conflict(res, 'La caja tiene historial de sesiones o movimientos asociados.');
+      return conflict(res, getForeignKeyConflictMessage(error));
     }
     throw error;
   }

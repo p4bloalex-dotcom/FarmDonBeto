@@ -9,6 +9,7 @@ export const BranchEntity = new EntitySchema({
     phone: { name: 'PHONE', type: String, length: 20, nullable: true },
     email: { name: 'EMAIL', type: String, length: 120, nullable: true },
     address: { name: 'ADDRESS', type: String, length: 150, nullable: true },
+    branchType: { name: 'BRANCH_TYPE', type: String, length: 30, default: 'CENTRO_COMERCIAL' },
     idDepartment: { name: 'ID_DEPARTMENT', type: Number, nullable: true },
     idMunicipality: { name: 'ID_MUNICIPALITY', type: Number, nullable: true },
     companyId: { name: 'COMPANY_ID', type: Number, nullable: true },

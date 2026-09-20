@@ -25,16 +25,16 @@ import { HOT_TOAST_CONFIG, HotToastConfig } from '@fuse/components/hot-toast/hot
 
 export const MY_DATE_FORMATS = {
   parse: {
-    dateInput: 'l',
-    timeInput: 'HH:mm',
+    dateInput: { day: '2-digit', month: '2-digit', year: 'numeric' },
+    timeInput: { hour: '2-digit', minute: '2-digit' },
   },
   display: {
-    dateInput: 'dd/MM/yyyy',
-    timeInput: 'HH:mm',        // 👈 solo hora:minutos
-    timeOptionLabel: 'HH:mm',  // 👈 opciones en el dropdown
-    monthYearLabel: 'MMM yyyy',
-    dateA11yLabel: 'LL',
-    monthYearA11yLabel: 'MMMM yyyy',
+    dateInput: { day: '2-digit', month: '2-digit', year: 'numeric' },
+    timeInput: { hour: '2-digit', minute: '2-digit' },
+    timeOptionLabel: { hour: '2-digit', minute: '2-digit' },
+    monthYearLabel: { month: 'short', year: 'numeric' },
+    dateA11yLabel: { day: '2-digit', month: 'long', year: 'numeric' },
+    monthYearA11yLabel: { month: 'long', year: 'numeric' },
   },
 };
 

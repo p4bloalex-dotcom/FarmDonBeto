@@ -168,6 +168,17 @@ getList(endpoint: string) {
       .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
+  getRoleMenus(idRole: number) {
+    const params = new HttpParams().set('idRole', idRole);
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/security/role-menus`, { params })
+      .pipe(map(resp => this.normalizeResponse('MenuRol', resp)));
+  }
+
+  saveRoleMenus(idRole: number, menus: any[]) {
+    return this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/security/role-menus/bulk`, { idRole, menus })
+      .pipe(map(resp => this.normalizeResponse('MenuRol', resp)));
+  }
+
   delete(endpoint: string, id: any): any {
     return this._httpClient.delete<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`)
       .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
@@ -302,7 +313,8 @@ Supplier: 'catalog/suppliers',
 
     return {
       ...data,
-      idMenuFather: data.idMenuFather ?? data.id_menu_father ?? null
+      idMenuFather: data.idMenuFather ?? data.id_menu_father ?? null,
+      order: Number(data.order ?? 0)
     };
   }
 
@@ -390,6 +402,8 @@ Supplier: 'catalog/suppliers',
     return {
       ...item,
       idBranch: item.idBranch ?? item.id,
+      branchType: item.branchType ?? item.branch_type ?? 'CENTRO_COMERCIAL',
+      branch_type: item.branch_type ?? item.branchType ?? 'CENTRO_COMERCIAL',
       id_department: item.id_department ?? item.idDepartment ?? null,
       id_municipality: item.id_municipality ?? item.idMunicipality ?? null,
       company_id: item.company_id ?? item.companyId ?? null
@@ -435,7 +449,7 @@ Supplier: 'catalog/suppliers',
 
           return {
             idRole: roleId,
-            permissionId: persisted?.id,
+            permissionId: permission.id ?? persisted?.idPermission ?? persisted?.id,
             idRolePermission: `${roleId}-${persisted?.id ?? permission.permissionName}`,
             namePermission: permission.action,
             permissionName: permission.permissionName,

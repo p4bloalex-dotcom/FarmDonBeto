@@ -2,6 +2,7 @@
   class="hot-toast-wrapper"
   [ngClass]="(toasts$ | async)?.[0]?.config.position || 'top-right'"
   aria-live="polite"
+  aria-atomic="true"
 >
   <ng-container *ngFor="let t of toasts$ | async; trackBy: trackById" >
     <div
@@ -27,7 +28,7 @@
       <button
         *ngIf="t.config.dismissible !== false"
         class="hot-toast__close"
-        aria-label="Close toast"
+        aria-label="Cerrar notificacion"
         (click)="svc.remove(t.id)"
       >×</button>
     </div>

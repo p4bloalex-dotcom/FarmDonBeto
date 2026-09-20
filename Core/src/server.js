@@ -4,10 +4,13 @@ import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 import { runSecuritySeeders } from './seeders/security.seeder.js';
 import { installBranchRls } from './subscribers/branch-rls.subscriber.js';
+import { cacheService } from './services/cache.service.js';
 
 const start = async () => {
   await AppDataSource.initialize();
   logger.info('TypeORM data source initialized');
+
+  await cacheService.connect();
 
   installBranchRls(AppDataSource);
   logger.info('Branch RLS interceptor installed');
@@ -23,6 +26,7 @@ const start = async () => {
   const shutdown = async signal => {
     logger.info({ signal }, 'Shutting down Core API');
     server.close(async () => {
+      await cacheService.disconnect();
       await AppDataSource.destroy();
       process.exit(0);
     });

@@ -1,6 +1,6 @@
 import { conflict, created, notFound, ok } from '../../../utils/api-response.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
-import { createRoleMenu, deleteRoleMenu, paginateRoleMenus, updateRoleMenu } from './role-menu.repository.js';
+import { createRoleMenu, deleteRoleMenu, listRoleMenusByRole, paginateRoleMenus, updateRoleMenu, updateRoleMenusBulk } from './role-menu.repository.js';
 
 const isUniqueViolation = error => error.errorNum === 1;
 const isForeignKeyViolation = error => error.errorNum === 2291 || error.errorNum === 2292;
@@ -23,6 +23,13 @@ export const getPagedRoleMenus = async (req, res) => {
   const meta = paginationMeta({ ...pagination, total });
   res.setHeader('X-Pagination', JSON.stringify(meta));
   return ok(res, { data: rows, meta });
+};
+
+export const getRoleMenus = async (req, res) => ok(res, await listRoleMenusByRole(Number(req.query.idRole ?? 0)));
+
+export const saveRoleMenusBulk = async (req, res) => {
+  await updateRoleMenusBulk(req.body);
+  return ok(res, null, 'Menus actualizados correctamente.');
 };
 
 export const editRoleMenu = async (req, res) => {

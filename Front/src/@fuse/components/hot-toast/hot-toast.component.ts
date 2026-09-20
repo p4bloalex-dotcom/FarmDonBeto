@@ -17,4 +17,8 @@ export class HotToastComponent {
   constructor(public svc: HotToastService) {
   }
    trackById(_: number, t: HotToast) { return t.id; }
+
+   pauseToast(id: number) { this.svc.pause(id); }
+
+   resumeToast(id: number) { this.svc.resume(id); }
 }

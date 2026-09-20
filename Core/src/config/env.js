@@ -3,6 +3,12 @@ import Joi from 'joi';
 
 dotenv.config();
 
+const normalizedEnv = {
+  ...process.env,
+  SMTP_PORT: process.env.SMTP_PORT?.trim() || undefined,
+  SMTP_SECURE: process.env.SMTP_SECURE?.trim() || undefined
+};
+
 const schema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
   PORT: Joi.number().port().default(5246),
@@ -25,10 +31,19 @@ const schema = Joi.object({
   DEFAULT_PAGE_SIZE: Joi.number().integer().min(1).default(10),
   MAX_PAGE_SIZE: Joi.number().integer().min(1).default(50),
   RUN_SEEDERS: Joi.boolean().truthy('true').falsy('false').default(false),
+  REDIS_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).default('redis://localhost:6379'),
+  REDIS_DEFAULT_TTL_SECONDS: Joi.number().integer().min(1).default(60),
+  SMTP_HOST: Joi.string().allow('').default(''),
+  SMTP_PORT: Joi.number().port().empty('').default(587),
+  SMTP_SECURE: Joi.boolean().truthy('true').falsy('false').empty('').default(false),
+  SMTP_USER: Joi.string().allow('').default(''),
+  SMTP_PASSWORD: Joi.string().allow('').default(''),
+  MAIL_FROM: Joi.string().allow('').default(''),
   LOG_LEVEL: Joi.string().default('info')
 }).unknown(true);
 
-const { value, error } = schema.validate(process.env, { abortEarly: false });
+const { value, error } = schema.validate(normalizedEnv, { abortEarly: false });
 
 if (error) {
   throw new Error(`Invalid environment configuration: ${error.message}`);
@@ -64,5 +79,18 @@ export const env = {
     maxPageSize: value.MAX_PAGE_SIZE
   },
   runSeeders: value.RUN_SEEDERS,
+  redis: {
+    enabled: value.REDIS_ENABLED,
+    url: value.REDIS_URL,
+    defaultTtlSeconds: value.REDIS_DEFAULT_TTL_SECONDS
+  },
+  mail: {
+    host: value.SMTP_HOST,
+    port: value.SMTP_PORT,
+    secure: value.SMTP_SECURE,
+    user: value.SMTP_USER,
+    password: value.SMTP_PASSWORD,
+    from: value.MAIL_FROM || value.SMTP_USER
+  },
   logLevel: value.LOG_LEVEL
 };

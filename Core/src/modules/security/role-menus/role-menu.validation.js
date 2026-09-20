@@ -16,3 +16,11 @@ export const roleMenuSchema = Joi.object({
 
   return { idRole, idMenu, status: value.status ?? 'E' };
 });
+
+export const roleMenuBulkSchema = Joi.object({
+  idRole: Joi.number().integer().required(),
+  menus: Joi.array().items(Joi.object({
+    idMenu: Joi.number().integer().required(),
+    isCheck: Joi.boolean().required()
+  })).required()
+});

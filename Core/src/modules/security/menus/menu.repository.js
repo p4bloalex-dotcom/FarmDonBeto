@@ -4,7 +4,7 @@ const menus = () => AppDataSource.getRepository('Menu');
 
 export const listMenus = () => menus().createQueryBuilder('menu')
   .leftJoinAndSelect('menu.parent', 'parent')
-  .where('menu.status <> :inactive', { inactive: 'I' })
+  .where('menu.status = :status', { status: 'E' })
   .orderBy('menu.order', 'ASC')
   .addOrderBy('menu.name', 'ASC')
   .getMany();

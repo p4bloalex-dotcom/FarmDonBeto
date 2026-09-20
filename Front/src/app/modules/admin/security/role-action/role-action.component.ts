@@ -31,6 +31,7 @@ export class RoleActionComponent {
   axData1: any[] = [];
   aPermission:any[]= [];
   modifiedPermissions: any[] = [];
+  pendingChanges = 0;
 
   constructor(private _formBuilder: UntypedFormBuilder,
     private _generalApi: GeneralApiService,
@@ -46,6 +47,8 @@ export class RoleActionComponent {
 
   find() {
     const payload = this.dataForm.getRawValue();
+    this.modifiedPermissions = [];
+    this.pendingChanges = 0;
     this._generalApi.GetById("Role", payload.idRole).subscribe({
       next: (response: ApiResponse<any>) => {
         if (response.success) {
@@ -74,6 +77,14 @@ onPermisoChange(data: any): void {
     } else {
       this.modifiedPermissions.push(newPermission);
     }
+    this.pendingChanges = this.modifiedPermissions.length;
+  }
+
+  toggleMenuPermissions(menu: any, isCheck: boolean): void {
+    for (const permiso of menu.Permissions) {
+      permiso.isCheck = isCheck;
+      this.onPermisoChange(permiso);
+    }
   }
 
   getList(): void {
@@ -95,6 +106,7 @@ onPermisoChange(data: any): void {
         if (response.success) {
             this._toast.success(response.data);
             this.modifiedPermissions = [];
+            this.pendingChanges = 0;
         } else {
           this._toast.error(response.error.detail);
         }

@@ -5,7 +5,7 @@ import { permissionRequired } from '../../../middlewares/permission-required.js'
 import { validate } from '../../../middlewares/validate.js';
 import { readEditActions } from './permission-actions.js';
 import { registerScreen } from '../../../routes/route-registry.js';
-import { getPermissionScreens, getPermissions, setRolePermission } from './permission.controller.js';
+import { checkAccess, getPermissionScreens, getPermissions, setRolePermission } from './permission.controller.js';
 import { updateRolePermissionSchema } from './permission.validation.js';
 
 export const permissionRoutes = Router();
@@ -19,6 +19,7 @@ const permissions = registerScreen({
 });
 
 permissionRoutes.use(authenticate);
+permissionRoutes.get('/access', asyncHandler(checkAccess));
 permissionRoutes.get('/', permissionRequired(permissions.view), asyncHandler(getPermissions));
 permissionRoutes.get('/screens', permissionRequired(permissions.view), asyncHandler(getPermissionScreens));
 permissionRoutes.put('/role', permissionRequired(permissions.edit), validate(updateRolePermissionSchema), asyncHandler(setRolePermission));

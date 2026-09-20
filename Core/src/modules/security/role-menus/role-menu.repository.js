@@ -11,6 +11,24 @@ const toDto = item => ({
 
 export const createRoleMenu = async data => toDto(await roleMenus().save(roleMenus().create(data)));
 
+export const listRoleMenusByRole = async idRole => (await roleMenus().find({ where: { idRole } })).map(toDto);
+
+export const updateRoleMenusBulk = async ({ idRole, menus }) => AppDataSource.transaction(async manager => {
+  const repo = manager.getRepository('RoleMenu');
+
+  for (const item of menus) {
+    let roleMenu = await repo.findOneBy({ idRole, idMenu: item.idMenu });
+    if (!roleMenu) {
+      roleMenu = repo.create({ idRole, idMenu: item.idMenu });
+    }
+
+    roleMenu.status = item.isCheck ? 'E' : 'D';
+    await repo.save(roleMenu);
+  }
+
+  return true;
+});
+
 export const paginateRoleMenus = async ({ offset, pageSize }, idRole) => {
   const where = idRole ? { idRole } : {};
   const [rows, total] = await roleMenus().findAndCount({

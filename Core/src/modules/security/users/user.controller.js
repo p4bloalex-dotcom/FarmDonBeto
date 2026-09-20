@@ -1,4 +1,6 @@
 import { badRequest, conflict, created, notFound, ok } from '../../../utils/api-response.js';
+import { sendUserCredentialsEmail } from '../../../services/mail.service.js';
+import { logger } from '../../../utils/logger.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
 import { createUser, deleteUser, listUsers, paginateUsers, resetUserPassword, updateUser } from './user.repository.js';
 
@@ -13,6 +15,11 @@ export const addUser = async (req, res) => {
     }
     if (createdUser.deactivated) {
       return badRequest(res, 'El personal o rol esta desactivado.');
+    }
+    try {
+      await sendUserCredentialsEmail({ to: createdUser.email, userName: createdUser.name, password: createdUser.generatedPassword });
+    } catch (error) {
+      logger.error({ err: error, userId: createdUser.idUser }, 'Failed to send user credentials email.');
     }
     return created(res, createdUser);
   } catch (error) {
@@ -53,5 +60,12 @@ export const removeUser = async (req, res) => {
 export const resetPassword = async (req, res) => {
   const userId = Number(req.body?.id ?? req.body ?? 0);
   const result = await resetUserPassword(userId);
+  if (result) {
+    try {
+      await sendUserCredentialsEmail({ to: result.email, userName: result.userName, password: result.generatedPassword, isReset: true });
+    } catch (error) {
+      logger.error({ err: error, userId }, 'Failed to send reset password email.');
+    }
+  }
   return result ? ok(res, result, 'Contrasena reseteada correctamente.') : notFound(res, 'Usuario no encontrado.');
 };

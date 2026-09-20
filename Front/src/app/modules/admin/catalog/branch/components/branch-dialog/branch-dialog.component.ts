@@ -22,6 +22,10 @@ export class BranchDialogComponent {
   departments: any[] = [];
   municipalities: any[] = [];
   service = 'Branch';
+  branchTypes = [
+    { value: 'CENTRO_COMERCIAL', label: 'Centro comercial' },
+    { value: 'STAND_GASOLINERA', label: 'Stand en gasolinera' }
+  ];
 
   constructor(@Inject(MAT_DIALOG_DATA) public _data: any, private _matDialogRef: MatDialogRef<BranchDialogComponent>, private _formBuilder: UntypedFormBuilder, private _generalApi: GeneralApiService, private _toast: HotToastService) {}
 
@@ -32,6 +36,7 @@ export class BranchDialogComponent {
       phone: [''],
       email: ['', [Validators.email]],
       address: [''],
+      branchType: ['CENTRO_COMERCIAL', [Validators.required]],
       id_department: [null],
       id_municipality: [null],
       status: ['E', [Validators.required]],

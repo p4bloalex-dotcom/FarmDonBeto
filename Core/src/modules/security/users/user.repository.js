@@ -14,6 +14,10 @@ const toDto = item => ({
   company_id: item.companyId
 });
 
+const fullName = employee => [employee.firstName, employee.middleName, employee.lastName, employee.secondLastname]
+  .filter(Boolean)
+  .join(' ');
+
 const normalizeNamePart = value => (value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
 const buildBaseUserName = employee => {
@@ -60,7 +64,7 @@ export const createUser = async data => AppDataSource.transaction(async manager 
     status: data.status ?? 'E'
   }));
 
-  return { ...toDto(user), generatedPassword: plainPassword };
+  return { ...toDto(user), generatedPassword: plainPassword, email: employee.email, fullName: fullName(employee) };
 });
 
 export const listUsers = async () => (await users().find({ order: { name: 'ASC' } })).map(item => ({
@@ -93,6 +97,7 @@ export const resetUserPassword = async id => AppDataSource.transaction(async man
   const plainPassword = generateRandomPassword();
   const { password, salt } = createHashedPassword(plainPassword);
   await repository.update(id, { password, salt, hasChangedPass: false });
+  const employee = user.idPersonal ? await manager.getRepository('Employee').findOneBy({ id: user.idPersonal }) : null;
 
-  return { idUser: id, userName: user.name, generatedPassword: plainPassword };
+  return { idUser: id, userName: user.name, generatedPassword: plainPassword, email: employee?.email ?? null, fullName: employee ? fullName(employee) : null };
 });

@@ -1,17 +1,20 @@
 <div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
     <div
         class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
-        <div class="text-3xl font-extrabold tracking-tight">Accesos menus</div>
+        <div>
+            <div class="text-3xl font-extrabold tracking-tight">Asignar menus</div>
+            <div class="text-secondary mt-1">Marca los menus que el rol puede ver en la navegacion.</div>
+        </div>
         <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
             <!-- Search -->
             <mat-form-field class="fuse-mat-dense fuse-mat-rounded min-w-64" [subscriptSizing]="'dynamic'">
                 <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
                 <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar'" />
             </mat-form-field>
-            @if (!dataForm.invalid) {
-            <button class="ml-4" mat-flat-button [color]="'primary'" (click)="openDialog(null, 1)">
-                <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                <span class="ml-2 mr-1">Crear</span>
+            @if (modifiedMenus.size > 0) {
+            <button class="ml-4" mat-flat-button [color]="'primary'" (click)="saveMenus()">
+                <mat-icon [svgIcon]="'heroicons_outline:check'"></mat-icon>
+                <span class="ml-2 mr-1">Guardar cambios</span>
             </button>
             }
 
@@ -31,18 +34,27 @@
                 </mat-select>
             </mat-form-field>
 
-            <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="find()"
+            <button mat-flat-button color="primary" type="button" [disabled]="dataForm.invalid" (click)="find()"
                 class="h-12 w-32 mt-4 md:mt-0">
                 <span>Buscar</span>
             </button>
         </form>
     </div>
 
-    <div class="flex flex-auto overflow-hidden">
-        <div class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto">
-            <app-table [columns]="columns" [data]="pagedData" [actions]="actions" actionColumnWidth="1fr"
-                [length]="totalItems" (pageChange)="onPageChange($event)"
-                (rowAction)="handleRowAction($event)"></app-table>
+    <div class="flex flex-auto overflow-hidden p-4 pt-0">
+        <div class="grid w-full grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2 xl:grid-cols-3">
+            @for (menu of menuAssignments; track menu.id) {
+            <div class="rounded-xl border bg-white p-4 shadow-sm dark:bg-transparent">
+                <mat-checkbox [(ngModel)]="menu.isCheck" (change)="onMenuChange(menu)">
+                    <span class="font-medium">{{ menu.fullName }}</span>
+                </mat-checkbox>
+                <div class="text-secondary mt-1 pl-10 text-sm">{{ menu.path }}</div>
+            </div>
+            } @empty {
+            <div class="text-secondary col-span-full rounded-xl border border-dashed p-8 text-center">
+                Selecciona un rol y presiona Buscar para cargar sus menus.
+            </div>
+            }
         </div>
     </div>
 

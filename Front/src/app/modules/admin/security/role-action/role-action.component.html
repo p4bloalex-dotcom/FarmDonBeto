@@ -1,7 +1,10 @@
 <div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
     <div
         class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
-        <div class="text-3xl font-extrabold tracking-tight">Accesos a acciones</div>
+        <div>
+            <div class="text-3xl font-extrabold tracking-tight">Asignar permisos</div>
+            <div class="text-secondary mt-1">Activa las acciones permitidas por rol y menu.</div>
+        </div>
         <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
         </div>
     </div>
@@ -27,8 +30,8 @@
 
 
     <div class="flex justify-center w-full overflow-hidden p-4">
-        <div class="w-full max-w-3xl max-h-[70vh] overflow-y-auto shadow rounded-lg border border-gray-200 bg-white">
-            <mat-accordion [multi]="false">
+        <div class="w-full max-w-5xl max-h-[70vh] overflow-y-auto shadow rounded-lg border border-gray-200 bg-white">
+            <mat-accordion [multi]="true">
                 @for (categoria of aPermission; track $index) {
                 <mat-expansion-panel>
                     <mat-expansion-panel-header>
@@ -37,7 +40,7 @@
                         </mat-panel-title>
                     </mat-expansion-panel-header>
 
-                    <mat-accordion [multi]="false">
+                    <mat-accordion [multi]="true">
                         @for (menu of categoria.menus; track $index) {
                         <mat-expansion-panel>
                             <mat-expansion-panel-header>
@@ -45,6 +48,11 @@
                                     {{ menu.nameMenu }}
                                 </mat-panel-title>
                             </mat-expansion-panel-header>
+
+                            <div class="flex justify-end gap-2 border-b border-gray-100 px-4 py-2">
+                                <button mat-button type="button" (click)="toggleMenuPermissions(menu, true)">Marcar todo</button>
+                                <button mat-button type="button" (click)="toggleMenuPermissions(menu, false)">Desmarcar todo</button>
+                            </div>
 
                             @for (permiso of menu.Permissions; track $index) {
                             <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100">
@@ -73,7 +81,7 @@
     <div class="flex justify-center w-full overflow-hidden p-4">
         <button mat-flat-button color="primary" [disabled]="modifiedPermissions.length < 1" (click)="savePermission()"
             class="h-12 w-32 mt-4 mb-4  md:mt-0 pz-4">
-            <span>Guardar</span>
+            <span>Guardar @if (pendingChanges > 0) {({{ pendingChanges }})}</span>
         </button>
     </div>
 

@@ -9,7 +9,6 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSortModule } from '@angular/material/sort';
 import { HotToastService } from '@fuse/components/hot-toast';
-import { TableComponent } from '@fuse/components/table/table.component';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { DataPagination } from '@fuse/services/config/config.DataPagination';
 import { GeneralApiService } from 'app/core/services/general-api.service';
@@ -17,6 +16,7 @@ import { debounceTime, distinctUntilChanged, startWith, Subject, takeUntil } fro
 import { RolemenuDialogComponent } from './components/rolemenu-dialog/rolemenu-dialog.component';
 import { TableAction, TableColumn } from '@fuse/components/table/table-column.model';
 import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 
 @Component({
   selector: 'app-role-menu',
@@ -25,12 +25,13 @@ import { MatSelectModule } from '@angular/material/select';
     MatFormFieldModule,
     MatInputModule,
     MatIconModule,
+    FormsModule,
     ReactiveFormsModule,
     MatButtonModule,
     MatPaginatorModule,
     MatSortModule,
-    TableComponent,
     MatSelectModule,
+    MatCheckboxModule,
   ],
   templateUrl: './role-menu.component.html',
   styleUrl: './role-menu.component.scss'
@@ -52,6 +53,8 @@ export class RoleMenuComponent {
 
   private dictData1 = new Map<number, string>();
   private dictData2 = new Map<number, string>();
+  menuAssignments: any[] = [];
+  modifiedMenus = new Map<number, boolean>();
 
 
   //-------MENTODOS AUTOMATICOS----------//
@@ -168,6 +171,7 @@ export class RoleMenuComponent {
       .subscribe({
         next: ([data1, data2]) => {
           this.axData1 = data1
+          this.axData2 = data2
           data1.forEach(data =>
             this.dictData1.set(data.id, data.name)
           )
@@ -184,7 +188,47 @@ export class RoleMenuComponent {
 
 
   find() {
-    this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
+    const idRole = this.dataForm.value.idRole;
+    this._generalApi.getRoleMenus(idRole)
+      .pipe(takeUntil(this._unsubscribeAll))
+      .subscribe({
+        next: (resp: ApiResponse<any>) => {
+          if (!resp.success) {
+            this._toast.error(resp.error.detail);
+            return;
+          }
+
+          const assigned = new Map((resp.data ?? []).map((item: any) => [item.idMenu, item.status === 'E']));
+          this.menuAssignments = this.axData2.map((menu: any) => ({
+            ...menu,
+            fullName: this.dictData2.get(menu.id) ?? menu.name,
+            isCheck: assigned.get(menu.id) ?? false
+          }));
+          this.modifiedMenus.clear();
+        },
+        error: () => this._toast.error('Error inesperado. Intenta más tarde.')
+      });
+  }
+
+  onMenuChange(menu: any): void {
+    this.modifiedMenus.set(menu.id, menu.isCheck);
+  }
+
+  saveMenus(): void {
+    const idRole = this.dataForm.value.idRole;
+    const menus = [...this.modifiedMenus].map(([idMenu, isCheck]) => ({ idMenu, isCheck }));
+
+    this._generalApi.saveRoleMenus(idRole, menus).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        if (resp.success) {
+          this.modifiedMenus.clear();
+          this._toast.success('Menus actualizados correctamente.');
+        } else {
+          this._toast.error(resp.error.detail);
+        }
+      },
+      error: () => this._toast.error('Error inesperado. Intenta más tarde.')
+    });
   }
 
   updateListPaged() {

@@ -1,18 +1,16 @@
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 
+import { AsyncPipe } from '@angular/common';
 import {
     Component,
     inject,
     Input,
     OnChanges,
-    OnDestroy,
-    OnInit,
     SimpleChanges,
     ViewEncapsulation,
 } from '@angular/core';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FuseLoadingService } from '@fuse/services/loading';
-import { Subject, takeUntil } from 'rxjs';
 
 @Component({
     selector: 'fuse-loading-bar',
@@ -20,16 +18,15 @@ import { Subject, takeUntil } from 'rxjs';
     styleUrls: ['./loading-bar.component.scss'],
     encapsulation: ViewEncapsulation.None,
     exportAs: 'fuseLoadingBar',
-    imports: [MatProgressBarModule]
+    imports: [AsyncPipe, MatProgressBarModule]
 })
-export class FuseLoadingBarComponent implements OnChanges, OnInit, OnDestroy {
+export class FuseLoadingBarComponent implements OnChanges {
     private _fuseLoadingService = inject(FuseLoadingService);
 
     @Input() autoMode: boolean = true;
-    mode: 'determinate' | 'indeterminate';
-    progress: number = 0;
-    show: boolean = false;
-    private _unsubscribeAll: Subject<any> = new Subject<any>();
+    mode$ = this._fuseLoadingService.mode$;
+    progress$ = this._fuseLoadingService.progress$;
+    show$ = this._fuseLoadingService.show$;
 
     // -----------------------------------------------------------------------------------------------------
     // @ Lifecycle hooks
@@ -50,36 +47,4 @@ export class FuseLoadingBarComponent implements OnChanges, OnInit, OnDestroy {
         }
     }
 
-    /**
-     * On init
-     */
-    ngOnInit(): void {
-        // Subscribe to the service
-        this._fuseLoadingService.mode$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((value) => {
-                this.mode = value;
-            });
-
-        this._fuseLoadingService.progress$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((value) => {
-                this.progress = value;
-            });
-
-        this._fuseLoadingService.show$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((value) => {
-                this.show = value;
-            });
-    }
-
-    /**
-     * On destroy
-     */
-    ngOnDestroy(): void {
-        // Unsubscribe from all subscriptions
-        this._unsubscribeAll.next(null);
-        this._unsubscribeAll.complete();
-    }
 }

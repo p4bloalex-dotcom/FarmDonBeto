@@ -1,4 +1,5 @@
 import { getRequestContext } from '../utils/request-context.js';
+import { cacheService } from '../services/cache.service.js';
 
 const TENANT_TABLES = [
   'TB_INVENTORY',
@@ -19,19 +20,17 @@ const TENANT_TABLES = [
 
 const CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch); END;';
 
-const permissionCache = new Map();
-const rolePermissionCache = new Map();
-const CACHE_TTL_MS = 60 * 1000;
+const CACHE_TTL_SECONDS = 60;
+const CACHE_PREFIX = 'branch-rls:';
 
-const cached = (cache, key, loader) => {
-  const entry = cache.get(key);
-  if (entry && Date.now() - entry.at < CACHE_TTL_MS) {
-    return Promise.resolve(entry.value);
-  }
-  return Promise.resolve(loader()).then(value => {
-    cache.set(key, { value, at: Date.now() });
-    return value;
-  });
+const cached = async (key, loader) => {
+  const cacheKey = `${CACHE_PREFIX}${key}`;
+  const entry = await cacheService.get(cacheKey);
+  if (entry !== null) return entry;
+
+  const value = await loader();
+  await cacheService.set(cacheKey, value, CACHE_TTL_SECONDS);
+  return value;
 };
 
 const touchesTenantTable = query => {
@@ -49,12 +48,12 @@ const resolveBranchScope = dataSource => async () => {
   let isGlobal = false;
 
   if (store.permissionName && user.role) {
-    const permission = await cached(permissionCache, store.permissionName, () =>
+    const permission = await cached(`permission:${store.permissionName}`, () =>
       dataSource.getRepository('Permission').findOneBy({ name: store.permissionName })
     );
 
     if (permission) {
-      isGlobal = await cached(rolePermissionCache, `${user.role}:${store.permissionName}`, () =>
+      isGlobal = await cached(`role-permission:${user.role}:${store.permissionName}`, () =>
         dataSource.getRepository('RolePermission').findOneBy({ idRole: user.role, idPermission: permission.id })
           .then(rolePermission => rolePermission?.isGlobal ?? false)
       );
@@ -66,9 +65,8 @@ const resolveBranchScope = dataSource => async () => {
   return store.__rlsScope;
 };
 
-export const clearBranchRlsCache = () => {
-  permissionCache.clear();
-  rolePermissionCache.clear();
+export const clearBranchRlsCache = async () => {
+  await cacheService.delByPrefix(CACHE_PREFIX);
 };
 
 export const installBranchRls = dataSource => {

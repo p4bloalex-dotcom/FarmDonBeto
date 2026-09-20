@@ -5,9 +5,11 @@ import {
     HttpRequest,
 } from '@angular/common/http';
 import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { HotToastService } from '@fuse/components/hot-toast';
 import { AuthService } from 'app/core/auth/auth.service';
 import { AuthUtils } from 'app/core/auth/auth.utils';
-import { Observable, catchError, throwError } from 'rxjs';
+import { EMPTY, Observable, catchError, throwError } from 'rxjs';
 
 /**
  * Intercept
@@ -20,6 +22,8 @@ export const authInterceptor = (
     next: HttpHandlerFn
 ): Observable<HttpEvent<unknown>> => {
     const authService = inject(AuthService);
+    const router = inject(Router);
+    const toast = inject(HotToastService);
 
     // Clone the request object
     let newReq = req.clone();
@@ -54,6 +58,17 @@ export const authInterceptor = (
 
                 // Reload the app
                 location.reload();
+            }
+
+            if (error instanceof HttpErrorResponse && error.status === 403 && newReq.method === 'GET') {
+                toast.error(error.error?.message ?? 'No tienes permiso para ver esta pantalla.');
+                router.navigateByUrl('/home');
+                return EMPTY;
+            }
+
+            if (error instanceof HttpErrorResponse && error.status === 409 && newReq.method === 'DELETE') {
+                toast.warning(error.error?.message ?? 'No se puede eliminar el registro porque esta siendo utilizado.');
+                return EMPTY;
             }
 
             return throwError(() => error);

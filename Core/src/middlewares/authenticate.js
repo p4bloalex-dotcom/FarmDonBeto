@@ -5,7 +5,7 @@ import { runWithRequestContext } from '../utils/request-context.js';
 
 export const authenticate = async (req, res, next) => {
   const header = req.headers.authorization;
-
+  
   if (!header?.startsWith('Bearer ')) {
     return unauthorized(res);
   }
@@ -33,7 +33,9 @@ export const authenticate = async (req, res, next) => {
       const employee = await AppDataSource.getRepository('Employee').findOneBy({ id: user.idPersonal });
       branchId = employee?.branchId ?? null;
     }
+
     companyId = user?.companyId ?? null;
+    
   } catch (error) {
     return next(error);
   }

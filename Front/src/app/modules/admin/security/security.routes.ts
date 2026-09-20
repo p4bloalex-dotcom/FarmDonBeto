@@ -7,7 +7,7 @@ import { UserComponent } from "./user/user.component";
 
 export default [
 
-    {path: '', pathMatch : 'full', redirectTo: 'Role'},
+    {path: '', pathMatch : 'full', redirectTo: 'role'},
     {path     : 'role',component: RoleComponent,},
     {path     : 'menu',component: MenuComponent,},
     {path     : 'menurol',component: RoleMenuComponent,},

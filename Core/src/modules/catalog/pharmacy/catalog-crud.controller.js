@@ -1,8 +1,7 @@
 import { conflict, created, notFound, ok } from '../../../utils/api-response.js';
+import { getForeignKeyConflictMessage, isForeignKeyViolation } from '../../../utils/database-errors.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
 import { changeStatus, createItem, deleteItem, listItems, paginateItems, updateItem } from './catalog-crud.repository.js';
-
-const isForeignKeyViolation = error => error.errorNum === 2292;
 
 export const addItem = entityName => async (req, res) => created(res, await createItem(entityName, req.body));
 
@@ -32,7 +31,7 @@ export const removeItem = entityName => async (req, res) => {
     return deleted ? ok(res, null, 'Registro eliminado correctamente.') : notFound(res);
   } catch (error) {
     if (isForeignKeyViolation(error)) {
-      return conflict(res, 'El registro tiene relaciones activas.');
+      return conflict(res, getForeignKeyConflictMessage(error));
     }
     throw error;
   }

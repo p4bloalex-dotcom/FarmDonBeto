@@ -65,7 +65,13 @@ export class BranchComponent {
   }
 
   private decorate(item: any): any {
-    return { ...item, isMainLabel: Number(item.isMain ?? item.is_main) === 1 ? 'Matriz' : '' };
+    const branchType = item.branchType ?? item.branch_type ?? 'CENTRO_COMERCIAL';
+    return {
+      ...item,
+      branchType,
+      branchTypeLabel: branchType === 'STAND_GASOLINERA' ? 'Stand en gasolinera' : 'Centro comercial',
+      isMainLabel: Number(item.isMain ?? item.is_main) === 1 ? 'Matriz' : ''
+    };
   }
 
   openDialog(row: any, action: number): void {
@@ -83,7 +89,8 @@ export class BranchComponent {
 
   columns: TableColumn[] = [
     { field: 'name', header: 'Nombre', width: '2fr' ,},
-    { field: 'isMainLabel', header: 'Tipo', width: '1fr', },
+    { field: 'branchTypeLabel', header: 'Tipo de sucursal', width: '1.3fr', },
+    { field: 'isMainLabel', header: 'Matriz', width: '1fr', },
     { field: 'phone', header: 'Telefono', width: '1fr', },
     { field: 'status', header: 'Estado', width: '120px', }
   ];

@@ -10,6 +10,8 @@ export const validateUserAccess = async (userId, permissionName, menuPath) => {
   return Number(result[0]?.HAS_ACCESS) === 1;
 };
 
+export const validateCurrentUserAccess = ({ userId, menuPath, action = 'Ver' }) => validateUserAccess(userId, `${menuPath}.${action}`, menuPath);
+
 export const listPermissions = () => AppDataSource.getRepository('Permission').find({ order: { category: 'ASC', name: 'ASC' } });
 
 export const updateRolePermission = async ({ roleId, permissionId, isCheck, isGlobal = false }) => {

@@ -44,7 +44,7 @@
         <mat-select [value]="" formControlName="id_menu_father">
           <mat-option [value]=""></mat-option>
           @for ( item of aData1; track trackByFn($index, item)) {
-          <mat-option [value]="item.idMenu">{{getFieldValue(aData1,item.id,'name', 'id')}}</mat-option>
+          <mat-option [value]="item.id">{{getFieldValue(aData1,item.id,'name', 'id')}}</mat-option>
           }
         </mat-select>
       </mat-form-field>
