@@ -1,5 +1,6 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { getRequestContext } from '../../../utils/request-context.js';
+import { registerKardex } from '../inventory/inventory-kardex.service.js';
 
 const stockTransfers = () => AppDataSource.getRepository('MoveInventory');
 const details = () => AppDataSource.getRepository('MoveInventoryDetail');
@@ -139,8 +140,8 @@ const adjustStock = async (manager, medicineId, branchId, delta, subject) => {
     if (delta < 0) {
       throw new BusinessRuleError(`No se encontro inventario del medicamento ${medicineId} en la sucursal ${subject}.`);
     }
-    await createInventory(manager, medicineId, branchId, delta);
-    return;
+    const created = await createInventory(manager, medicineId, branchId, delta);
+    return Number(created.stockAvailable ?? 0);
   }
   const nextStock = Number(stock.stockAvailable ?? 0) + delta;
   if (nextStock < 0) {
@@ -148,6 +149,7 @@ const adjustStock = async (manager, medicineId, branchId, delta, subject) => {
   }
   stock.stockAvailable = nextStock;
   await repo.save(stock);
+  return nextStock;
 };
 
 export const createStockTransferWithDetails = async (headerData, detailData, movementTypeId) =>
@@ -161,8 +163,10 @@ export const createStockTransferWithDetails = async (headerData, detailData, mov
     await detailRepo.save(rows);
 
     for (const detail of detailData) {
-      await adjustStock(manager, detail.medicineId, headerData.branchOriginId, -Number(detail.quantity), 'de origen');
-      await adjustStock(manager, detail.medicineId, headerData.branchDestinationId, Number(detail.quantity), 'de destino');
+      const originBalance = await adjustStock(manager, detail.medicineId, headerData.branchOriginId, -Number(detail.quantity), 'de origen');
+      const destinationBalance = await adjustStock(manager, detail.medicineId, headerData.branchDestinationId, Number(detail.quantity), 'de destino');
+      await registerKardex(manager, { branchId: headerData.branchOriginId, medicineId: detail.medicineId, movementType: 'TRANSFER_OUT', quantityOut: Number(detail.quantity), balanceAfter: originBalance, unitCost: detail.unitCost, referenceType: 'STOCK_TRANSFER', referenceId: saved.id });
+      await registerKardex(manager, { branchId: headerData.branchDestinationId, medicineId: detail.medicineId, movementType: 'TRANSFER_IN', quantityIn: Number(detail.quantity), balanceAfter: destinationBalance, unitCost: detail.unitCost, referenceType: 'STOCK_TRANSFER', referenceId: saved.id });
     }
 
     return saved.id;
@@ -181,11 +185,15 @@ export const updateStockTransferWithDetails = async (id, headerData, movementTyp
       if (delta === 0) continue;
 
       if (delta > 0) {
-        await adjustStock(manager, medicineId, headerData.branchOriginId, -delta, 'de origen');
-        await adjustStock(manager, medicineId, headerData.branchDestinationId, delta, 'de destino');
+        const originBalance = await adjustStock(manager, medicineId, headerData.branchOriginId, -delta, 'de origen');
+        const destinationBalance = await adjustStock(manager, medicineId, headerData.branchDestinationId, delta, 'de destino');
+        await registerKardex(manager, { branchId: headerData.branchOriginId, medicineId, movementType: 'TRANSFER_EDIT_OUT', quantityOut: delta, balanceAfter: originBalance, referenceType: 'STOCK_TRANSFER', referenceId: id });
+        await registerKardex(manager, { branchId: headerData.branchDestinationId, medicineId, movementType: 'TRANSFER_EDIT_IN', quantityIn: delta, balanceAfter: destinationBalance, referenceType: 'STOCK_TRANSFER', referenceId: id });
       } else {
-        await adjustStock(manager, medicineId, headerData.branchDestinationId, delta, 'de destino');
-        await adjustStock(manager, medicineId, headerData.branchOriginId, -delta, 'de origen');
+        const destinationBalance = await adjustStock(manager, medicineId, headerData.branchDestinationId, delta, 'de destino');
+        const originBalance = await adjustStock(manager, medicineId, headerData.branchOriginId, -delta, 'de origen');
+        await registerKardex(manager, { branchId: headerData.branchDestinationId, medicineId, movementType: 'TRANSFER_EDIT_REVERSE_OUT', quantityOut: Math.abs(delta), balanceAfter: destinationBalance, referenceType: 'STOCK_TRANSFER', referenceId: id });
+        await registerKardex(manager, { branchId: headerData.branchOriginId, medicineId, movementType: 'TRANSFER_EDIT_REVERSE_IN', quantityIn: Math.abs(delta), balanceAfter: originBalance, referenceType: 'STOCK_TRANSFER', referenceId: id });
       }
     }
 
@@ -203,8 +211,10 @@ export const deleteStockTransferWithDetails = async (id, headerData) =>
 
     for (const detail of existingDetails) {
       const qty = Number(detail.quantity ?? 0);
-      await adjustStock(manager, detail.medicineId, headerData.branchDestinationId, -qty, 'de destino');
-      await adjustStock(manager, detail.medicineId, headerData.branchOriginId, qty, 'de origen');
+      const destinationBalance = await adjustStock(manager, detail.medicineId, headerData.branchDestinationId, -qty, 'de destino');
+      const originBalance = await adjustStock(manager, detail.medicineId, headerData.branchOriginId, qty, 'de origen');
+      await registerKardex(manager, { branchId: headerData.branchDestinationId, medicineId: detail.medicineId, movementType: 'TRANSFER_DELETE_OUT', quantityOut: qty, balanceAfter: destinationBalance, referenceType: 'STOCK_TRANSFER', referenceId: id, reason: 'Reversa por eliminacion de traspaso' });
+      await registerKardex(manager, { branchId: headerData.branchOriginId, medicineId: detail.medicineId, movementType: 'TRANSFER_DELETE_IN', quantityIn: qty, balanceAfter: originBalance, referenceType: 'STOCK_TRANSFER', referenceId: id, reason: 'Reversa por eliminacion de traspaso' });
     }
 
     await detailRepo.delete({ movementId: id });

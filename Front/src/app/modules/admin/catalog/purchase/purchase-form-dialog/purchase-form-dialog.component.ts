@@ -116,7 +116,9 @@ export class PurchaseFormDialogComponent implements OnInit {
     const group = this._formBuilder.group({
       medicineId: [{ value: row?.medicineId ?? '', disabled: this.isViewMode }, Validators.required],
       quantity: [{ value: row?.quantity ?? 1, disabled: this.isViewMode }, [Validators.required, Validators.min(0.001)]],
-      unitPrice: [{ value: row?.unitPrice ?? 0, disabled: this.isViewMode }, [Validators.required, Validators.min(0)]]
+      unitPrice: [{ value: row?.unitPrice ?? 0, disabled: this.isViewMode }, [Validators.required, Validators.min(0)]],
+      lotNumber: [{ value: row?.lotNumber ?? '', disabled: this.isViewMode }],
+      expirationDate: [{ value: row?.expirationDate ? this.toDateInput(row.expirationDate) : '', disabled: this.isViewMode }]
     });
 
     const control = group.get('medicineId');
@@ -160,7 +162,9 @@ export class PurchaseFormDialogComponent implements OnInit {
       return {
         medicineId: Number(raw.medicineId),
         quantity: Number(raw.quantity),
-        unitPrice: Number(raw.unitPrice)
+        unitPrice: Number(raw.unitPrice),
+        lotNumber: raw.lotNumber || null,
+        expirationDate: raw.expirationDate || null
       };
     });
 
@@ -207,5 +211,11 @@ export class PurchaseFormDialogComponent implements OnInit {
     if (isNaN(date.getTime())) return '';
     const offset = date.getTimezoneOffset();
     return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+  }
+
+  private toDateInput(value: any): string {
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
   }
 }

@@ -64,7 +64,7 @@
         <div class="flex flex-col gap-3" formArrayName="details">
             @for (row of detailRows.controls; track $index) {
                 <div class="grid grid-cols-12 items-start gap-3 rounded-xl border bg-card p-3" [formGroupName]="$index">
-                    <mat-form-field class="col-span-12 sm:col-span-5">
+                    <mat-form-field class="col-span-12 sm:col-span-4">
                         <mat-label>Medicamento</mat-label>
                         <mat-select formControlName="medicineId">
                             @for (option of medicines; track option.id) {
@@ -72,7 +72,7 @@
                             }
                         </mat-select>
                     </mat-form-field>
-                    <mat-form-field class="col-span-4 sm:col-span-2">
+                    <mat-form-field class="col-span-4 sm:col-span-1">
                         <mat-label>Cantidad</mat-label>
                         <input matInput formControlName="quantity" type="number" min="0" (input)="recalculate()" />
                     </mat-form-field>
@@ -80,7 +80,15 @@
                         <mat-label>P. unitario</mat-label>
                         <input matInput formControlName="unitPrice" type="number" min="0" (input)="recalculate()" />
                     </mat-form-field>
-                    <div class="col-span-3 flex h-14 items-center justify-end font-semibold sm:col-span-2">
+                    <mat-form-field class="col-span-6 sm:col-span-2">
+                        <mat-label>Lote</mat-label>
+                        <input matInput formControlName="lotNumber" />
+                    </mat-form-field>
+                    <mat-form-field class="col-span-6 sm:col-span-2">
+                        <mat-label>Vencimiento</mat-label>
+                        <input matInput formControlName="expirationDate" type="date" />
+                    </mat-form-field>
+                    <div class="col-span-3 flex h-14 items-center justify-end font-semibold sm:col-span-1">
                         Q {{ (row.get('quantity').value * row.get('unitPrice').value) | number: '1.2-2' }}
                     </div>
                     <div class="col-span-1 flex h-14 items-center justify-end">

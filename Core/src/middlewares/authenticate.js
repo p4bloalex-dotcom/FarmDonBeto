@@ -25,6 +25,10 @@ export const authenticate = async (req, res, next) => {
 
   try {
     user = await AppDataSource.getRepository('User').findOneBy({ id: userId });
+    if (!user || user.status !== 'E') {
+      return unauthorized(res);
+    }
+
     if (user?.idPersonal) {
       const employee = await AppDataSource.getRepository('Employee').findOneBy({ id: user.idPersonal });
       branchId = employee?.branchId ?? null;
@@ -34,7 +38,7 @@ export const authenticate = async (req, res, next) => {
     return next(error);
   }
 
-  req.user = { id: userId, role: user?.idRole ?? payload.role ?? null, branchId, companyId };
+  req.user = { id: userId, role: user.idRole ?? payload.role ?? null, branchId, companyId };
 
   return runWithRequestContext({ user: req.user }, () => next());
 };

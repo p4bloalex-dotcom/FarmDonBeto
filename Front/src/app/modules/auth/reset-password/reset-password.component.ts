@@ -129,14 +129,14 @@ ngOnInit(): void {
                         this._router.navigateByUrl(redirectURL)
                     }
                     else {
-                        this._toast.error(response.error.detail);
+                        this._toast.error(response.message ?? 'No se pudo actualizar la contrasena.');
                         this.resetPasswordForm.enable();
                         this.resetPasswordNgForm.resetForm();
                         this.showAlert = true;
                     }
                 },
                 error: (error) => {
-                    this._toast.error('Error inesperado. Intenta más tarde.');
+                    this._toast.error(error?.error?.message ?? 'Error inesperado. Intenta mas tarde.');
                     this.resetPasswordForm.enable();
                     this.resetPasswordNgForm.resetForm();
                 }

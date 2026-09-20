@@ -1,4 +1,6 @@
 import { AppDataSource } from '../../../config/data-source.js';
+import { registerKardex } from '../inventory/inventory-kardex.service.js';
+import { addLotStock } from '../inventory/inventory-lot.service.js';
 
 const purchases = () => AppDataSource.getRepository('Purchase');
 const details = () => AppDataSource.getRepository('PurchaseDetail');
@@ -22,7 +24,9 @@ const toDetailDto = item => ({
   quantity: Number(item.quantity ?? 0),
   unitPrice: Number(item.unitPrice ?? 0),
   unit_price: Number(item.unitPrice ?? 0),
-  subtotal: Number(item.subtotal ?? 0)
+  subtotal: Number(item.subtotal ?? 0),
+  lotNumber: item.lotNumber ?? null,
+  expirationDate: item.expirationDate ?? null
 });
 
 const toDto = item => ({
@@ -134,6 +138,8 @@ export const createPurchaseWithDetails = async (headerData, detailData, movement
       stock.stockAvailable = Number(stock.stockAvailable ?? 0) + detail.quantity;
     }
     await inventoryRepo.save(stock);
+    await addLotStock(manager, { branchId: headerData.branchId, medicineId: detail.medicineId, lotNumber: detail.lotNumber, expirationDate: detail.expirationDate, quantity: detail.quantity, userId: headerData.createdBy ?? null });
+    await registerKardex(manager, { branchId: headerData.branchId, medicineId: detail.medicineId, movementType: 'PURCHASE', quantityIn: detail.quantity, balanceAfter: Number(stock.stockAvailable ?? 0), unitCost: detail.unitPrice, referenceType: 'PURCHASE', referenceId: saved.id });
   }
 
   if (movement) {
@@ -178,6 +184,7 @@ export const updatePurchaseWithDetails = async (id, headerData, detailData) => A
     }
     stock.stockAvailable = nextStock;
     await inventoryRepo.save(stock);
+    await registerKardex(manager, { branchId: headerData.branchId, medicineId, movementType: 'PURCHASE_EDIT', quantityIn: delta > 0 ? delta : 0, quantityOut: delta < 0 ? Math.abs(delta) : 0, balanceAfter: nextStock, referenceType: 'PURCHASE', referenceId: id });
   }
 
   await detailRepo.delete({ purchaseId: id });
@@ -204,6 +211,7 @@ export const deletePurchaseWithDetails = async (id, branchId) => AppDataSource.t
     }
     stock.stockAvailable = nextStock;
     await inventoryRepo.save(stock);
+    await registerKardex(manager, { branchId, medicineId: detail.medicineId, movementType: 'PURCHASE_DELETE', quantityOut: Number(detail.quantity ?? 0), balanceAfter: nextStock, referenceType: 'PURCHASE', referenceId: id, reason: 'Reversa por eliminacion de compra' });
   }
 
   await detailRepo.delete({ purchaseId: id });

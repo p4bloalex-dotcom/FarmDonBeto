@@ -20,6 +20,10 @@ export const PurchaseDetailEntity = new EntitySchema({
 
     subtotal: { name: 'SUBTOTAL', type: 'decimal', precision: 12, scale: 2 },
 
+    lotNumber: { name: 'LOT_NUMBER', type: String, length: 60, nullable: true },
+
+    expirationDate: { name: 'EXPIRATION_DATE', type: 'timestamp', nullable: true },
+
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
 
     updatedAt: { name: 'UPDATED_AT', type: 'timestamp', updateDate: true, nullable: true },

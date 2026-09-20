@@ -17,6 +17,7 @@ import { fixedAssetRoutes } from '../modules/catalog/fixed-assets/fixed-asset.ro
 import { customerOrderRoutes } from '../modules/catalog/customer-orders/customer-order.routes.js';
 import { saleRoutes } from '../modules/catalog/sales/sale.routes.js';
 import { consolidatedReportRoutes } from '../modules/reports/consolidated-report.routes.js';
+import { payrollRoutes } from '../modules/catalog/payroll/payroll.routes.js';
 import { menuRoutes } from '../modules/security/menus/menu.routes.js';
 import { permissionRoutes } from '../modules/security/permissions/permission.routes.js';
 import { roleMenuRoutes } from '../modules/security/role-menus/role-menu.routes.js';
@@ -56,4 +57,5 @@ routes.use('/catalog/inventory', inventoryRoutes);
 routes.use('/catalog/fixed-assets', fixedAssetRoutes);
 routes.use('/catalog/customer-orders', customerOrderRoutes);
 routes.use('/catalog/sales', saleRoutes);
+routes.use('/catalog/payroll', payrollRoutes);
 routes.use('/reports/consolidated', consolidatedReportRoutes);

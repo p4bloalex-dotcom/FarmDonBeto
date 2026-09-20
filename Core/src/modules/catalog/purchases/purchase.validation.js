@@ -13,18 +13,30 @@ const detailSchema = Joi.object({
   medicine_id: Joi.number().integer(),
   quantity: Joi.number().precision(3).min(0.001).required(),
   unitPrice: Joi.number().precision(2).min(0),
-  unit_price: Joi.number().precision(2).min(0)
+  unit_price: Joi.number().precision(2).min(0),
+  lotNumber: Joi.string().trim().max(60).allow('', null),
+  lot_number: Joi.string().trim().max(60).allow('', null),
+  expirationDate: Joi.alternatives().try(Joi.date(), Joi.string()).allow('', null),
+  expiration_date: Joi.alternatives().try(Joi.date(), Joi.string()).allow('', null)
 }).custom((value, helpers) => {
   const medicineId = value.medicineId ?? value.medicine_id;
   const quantity = Number(value.quantity);
   const unitPrice = Number(value.unitPrice ?? value.unit_price ?? 0);
+  const lotNumber = value.lotNumber ?? value.lot_number ?? null;
+  const expirationRaw = value.expirationDate ?? value.expiration_date ?? null;
+  const expirationDate = expirationRaw ? new Date(expirationRaw) : null;
 
   if (!medicineId) {
     return helpers.error('any.required', { label: 'Medicamento' });
   }
 
+  if ((lotNumber && !expirationDate) || (!lotNumber && expirationDate)) {
+    return helpers.error('any.custom', { message: 'Debe ingresar lote y vencimiento juntos.' });
+  }
+  if (expirationDate && isNaN(expirationDate.getTime())) return helpers.error('date.base');
+
   const subtotal = round2(quantity * unitPrice);
-  return { medicineId, quantity, unitPrice, subtotal };
+  return { medicineId, quantity, unitPrice, subtotal, lotNumber: lotNumber || null, expirationDate };
 });
 
 export const purchaseSchema = Joi.object({
@@ -56,11 +68,13 @@ export const purchaseSchema = Joi.object({
     const quantity = Number(detail.quantity);
     const unitPrice = Number(detail.unitPrice);
     return {
-      medicineId: detail.medicineId,
-      quantity,
-      unitPrice,
-      subtotal: round2(quantity * unitPrice)
-    };
+        medicineId: detail.medicineId,
+        quantity,
+        unitPrice,
+        subtotal: round2(quantity * unitPrice),
+        lotNumber: detail.lotNumber,
+        expirationDate: detail.expirationDate
+      };
   });
 
   const subtotal = round2(details.reduce((acc, detail) => acc + detail.subtotal, 0));

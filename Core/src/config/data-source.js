@@ -62,6 +62,15 @@ import { CustomerOrderDetailEntity } from '../entities/customer-order-detail.ent
 import { PayrollPaymentEntity } from '../entities/payroll-payment.entity.js';
 import { SalesReportsPayroll1801000000000 } from '../migrations/1801000000000-sales-reports-payroll.js';
 import { BranchDeliveryGeo1802000000000 } from '../migrations/1802000000000-branch-delivery-geo.js';
+import { InventoryKardexEntity } from '../entities/inventory-kardex.entity.js';
+import { InventoryLotEntity } from '../entities/inventory-lot.entity.js';
+import { InventoryAdjustmentEntity } from '../entities/inventory-adjustment.entity.js';
+import { AdvancedInventory1803000000000 } from '../migrations/1803000000000-advanced-inventory.js';
+import { PayrollPositionEntity } from '../entities/payroll-position.entity.js';
+import { EmployeeSalaryEntity } from '../entities/employee-salary.entity.js';
+import { FullPayroll1804000000000 } from '../migrations/1804000000000-full-payroll.js';
+import { PayrollAdjustmentEntity } from '../entities/payroll-adjustment.entity.js';
+import { LotPayrollAdjustmentsCash1805000000000 } from '../migrations/1805000000000-lot-payroll-adjustments-cash.js';
 import { AuditFieldsSubscriber, installAuditHooks } from '../subscribers/audit-fields.subscriber.js';
 
 installAuditHooks();
@@ -112,7 +121,13 @@ export const AppDataSource = new DataSource({
     FixedAssetHistoryEntity,
     CustomerOrderEntity,
     CustomerOrderDetailEntity,
-    PayrollPaymentEntity
+    PayrollPaymentEntity,
+    InventoryKardexEntity,
+    InventoryLotEntity,
+    InventoryAdjustmentEntity,
+    PayrollPositionEntity,
+    EmployeeSalaryEntity,
+    PayrollAdjustmentEntity
 
   ],
   subscribers: [AuditFieldsSubscriber],
@@ -139,6 +154,9 @@ export const AppDataSource = new DataSource({
     FixedAssetBusinessFlow1799000000000,
     CustomerOrderBusinessRules1800000000000,
     SalesReportsPayroll1801000000000,
-    BranchDeliveryGeo1802000000000
+    BranchDeliveryGeo1802000000000,
+    AdvancedInventory1803000000000,
+    FullPayroll1804000000000,
+    LotPayrollAdjustmentsCash1805000000000
   ]
 });

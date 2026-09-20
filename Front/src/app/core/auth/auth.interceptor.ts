@@ -56,7 +56,7 @@ export const authInterceptor = (
                 location.reload();
             }
 
-            return throwError(error);
+            return throwError(() => error);
         })
     );
 };

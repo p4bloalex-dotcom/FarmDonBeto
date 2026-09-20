@@ -24,47 +24,18 @@ export const cashFlowReport = async filters => {
 };
 
 export const inventoryKardexReport = async filters => {
-  const rows = [];
-  const purchases = AppDataSource.getRepository('PurchaseDetail').createQueryBuilder('d')
-    .leftJoin('d.purchase', 'h').leftJoin('d.medicine', 'medicine').leftJoin('h.branch', 'branch')
-    .select("'PURCHASE'", 'source').addSelect('h.id', 'sourceId').addSelect('h.purchaseDate', 'movementDate')
-    .addSelect('h.branchId', 'branchId').addSelect('branch.name', 'branchName').addSelect('d.medicineId', 'medicineId')
-    .addSelect('medicine.name', 'medicineName').addSelect('d.quantity', 'quantityIn').addSelect('0', 'quantityOut')
-    .where('1 = 1');
-  const sales = AppDataSource.getRepository('SaleDetail').createQueryBuilder('d')
-    .leftJoin('d.sale', 'h').leftJoin('d.medicine', 'medicine').leftJoin('h.branch', 'branch')
-    .select("'SALE'", 'source').addSelect('h.id', 'sourceId').addSelect('h.saleDate', 'movementDate')
-    .addSelect('h.branchId', 'branchId').addSelect('branch.name', 'branchName').addSelect('d.medicineId', 'medicineId')
-    .addSelect('medicine.name', 'medicineName').addSelect('0', 'quantityIn').addSelect('d.quantity', 'quantityOut')
-    .where('h.status = :status', { status: 'E' });
-  const transferIn = AppDataSource.getRepository('MoveInventoryDetail').createQueryBuilder('d')
-    .leftJoin('d.movement', 'h').leftJoin('d.medicine', 'medicine').leftJoin('h.branchDestination', 'branch')
-    .select("'TRANSFER_IN'", 'source').addSelect('h.id', 'sourceId').addSelect('h.movementDate', 'movementDate')
-    .addSelect('h.branchDestinationId', 'branchId').addSelect('branch.name', 'branchName').addSelect('d.medicineId', 'medicineId')
-    .addSelect('medicine.name', 'medicineName').addSelect('d.quantity', 'quantityIn').addSelect('0', 'quantityOut')
-    .where('h.status = :status', { status: 'E' });
-  const transferOut = AppDataSource.getRepository('MoveInventoryDetail').createQueryBuilder('d')
-    .leftJoin('d.movement', 'h').leftJoin('d.medicine', 'medicine').leftJoin('h.branchOrigin', 'branch')
-    .select("'TRANSFER_OUT'", 'source').addSelect('h.id', 'sourceId').addSelect('h.movementDate', 'movementDate')
-    .addSelect('h.branchOriginId', 'branchId').addSelect('branch.name', 'branchName').addSelect('d.medicineId', 'medicineId')
-    .addSelect('medicine.name', 'medicineName').addSelect('0', 'quantityIn').addSelect('d.quantity', 'quantityOut')
-    .where('h.status = :status', { status: 'E' });
-
-  const sources = [
-    { query: purchases, dateColumn: 'h.purchaseDate', branchColumn: 'h.branchId' },
-    { query: sales, dateColumn: 'h.saleDate', branchColumn: 'h.branchId' },
-    { query: transferIn, dateColumn: 'h.movementDate', branchColumn: 'h.branchDestinationId' },
-    { query: transferOut, dateColumn: 'h.movementDate', branchColumn: 'h.branchOriginId' }
-  ];
-
-  for (const { query, dateColumn, branchColumn } of sources) {
-    if (filters.branchId) query.andWhere(`${branchColumn} = :branchId`, { branchId: Number(filters.branchId) });
-    if (filters.medicineId) query.andWhere('d.medicineId = :medicineId', { medicineId: Number(filters.medicineId) });
-    bindDates(query, filters, dateColumn);
-    rows.push(...await query.getRawMany());
-  }
-  return rows.map(row => ({ ...row, quantityIn: Number(row.quantityIn ?? 0), quantityOut: Number(row.quantityOut ?? 0) }))
-    .sort((a, b) => new Date(b.movementDate) - new Date(a.movementDate));
+  const query = AppDataSource.getRepository('InventoryKardex').createQueryBuilder('k')
+    .leftJoin('k.branch', 'branch')
+    .leftJoin('k.medicine', 'medicine')
+    .select('k.movementType', 'source').addSelect('k.referenceId', 'sourceId').addSelect('k.movementDate', 'movementDate')
+    .addSelect('k.branchId', 'branchId').addSelect('branch.name', 'branchName').addSelect('k.medicineId', 'medicineId')
+    .addSelect('medicine.name', 'medicineName').addSelect('k.quantityIn', 'quantityIn').addSelect('k.quantityOut', 'quantityOut')
+    .addSelect('k.balanceAfter', 'balanceAfter').addSelect('k.reason', 'reason')
+    .orderBy('k.movementDate', 'DESC').addOrderBy('k.id', 'DESC');
+  if (filters.branchId) query.andWhere('k.branchId = :branchId', { branchId: Number(filters.branchId) });
+  if (filters.medicineId) query.andWhere('k.medicineId = :medicineId', { medicineId: Number(filters.medicineId) });
+  bindDates(query, filters, 'k.movementDate');
+  return (await query.getRawMany()).map(row => ({ ...row, quantityIn: Number(row.quantityIn ?? 0), quantityOut: Number(row.quantityOut ?? 0), balanceAfter: Number(row.balanceAfter ?? 0) }));
 };
 
 export const transferReport = async filters => {

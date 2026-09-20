@@ -1,4 +1,6 @@
 import { AppDataSource } from '../../../config/data-source.js';
+import { registerKardex } from '../inventory/inventory-kardex.service.js';
+import { consumeLotsFefo, LotConsumptionError } from '../inventory/inventory-lot.service.js';
 
 export class BusinessRuleError extends Error {
   constructor(message) {
@@ -67,9 +69,16 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
     const stock = await inventoryRepo.findOneBy({ branchId: header.branchId, medicineId: detail.medicineId });
     const available = Number(stock?.stockAvailable ?? 0) - Number(stock?.reserve ?? 0);
     if (!stock || available < quantity) throw new BusinessRuleError(`Stock insuficiente para el medicamento ${medicine.name}.`);
+    try {
+      await consumeLotsFefo(manager, { branchId: header.branchId, medicineId: detail.medicineId, quantity, referenceType: 'SALE', userId });
+    } catch (error) {
+      if (error instanceof LotConsumptionError) throw new BusinessRuleError(error.message);
+      throw error;
+    }
     stock.stockAvailable = Number(stock.stockAvailable ?? 0) - quantity;
     await inventoryRepo.save(stock);
     normalized.push({ medicineId: detail.medicineId, quantity, unitPrice, total: Math.round(quantity * unitPrice * 100) / 100 });
+    normalized[normalized.length - 1].balanceAfter = Number(stock.stockAvailable ?? 0);
   }
 
   const subtotal = Math.round(normalized.reduce((sum, item) => sum + item.total, 0) * 100) / 100;
@@ -86,7 +95,11 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
     createdBy: userId
   }));
 
-  await manager.getRepository('SaleDetail').save(normalized.map(item => manager.getRepository('SaleDetail').create({ ...item, saleId: sale.id, status: 'E', createdBy: userId })));
+  await manager.getRepository('SaleDetail').save(normalized.map(item => manager.getRepository('SaleDetail').create({ medicineId: item.medicineId, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total, saleId: sale.id, status: 'E', createdBy: userId })));
+
+  for (const item of normalized) {
+    await registerKardex(manager, { branchId: header.branchId, medicineId: item.medicineId, movementType: 'SALE', quantityOut: item.quantity, balanceAfter: item.balanceAfter, unitCost: item.unitPrice, referenceType: 'SALE', referenceId: sale.id, userId });
+  }
 
   const movementType = await manager.getRepository('CashMovementType').findOneBy({ code: 'SALE', status: 'E' });
   if (!movementType) throw new BusinessRuleError('No existe el tipo de movimiento de caja SALE.');

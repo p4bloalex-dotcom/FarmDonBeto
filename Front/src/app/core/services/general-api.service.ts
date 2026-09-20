@@ -56,6 +56,42 @@ getList(endpoint: string) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/reports/consolidated/${report}`, { params });
   }
 
+  getInventoryKardex(filters: any = {}) {
+    let params = new HttpParams();
+    Object.keys(filters).forEach(key => { if (filters[key]) params = params.set(key, filters[key]); });
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/kardex`, { params });
+  }
+
+  getInventoryLots(filters: any = {}) {
+    let params = new HttpParams();
+    Object.keys(filters).forEach(key => { if (filters[key]) params = params.set(key, filters[key]); });
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/lots`, { params });
+  }
+
+  getLowStockAlerts() {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/alerts/low-stock`);
+  }
+
+  addInventoryAdjustment(data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/adjustments`, data);
+  }
+
+  getPayroll(path: string) {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/${path}`);
+  }
+
+  postPayroll(path: string, data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/${path}`, data);
+  }
+
+  putPayroll(path: string, id: any, data: any) {
+    return this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/${path}/${id}`, data);
+  }
+
+  voidPayrollPayment(id: any, reason: string) {
+    return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/payments/${id}/void`, { reason });
+  }
+
   modify(endpoint: string, id: any, data: any) {
     return this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`, this.toNodePayload(endpoint, data))
       .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
@@ -252,7 +288,8 @@ Supplier: 'catalog/suppliers',
       Inventory: 'catalog/inventory',
       FixedAsset: 'catalog/fixed-assets',
       CustomerOrder: 'catalog/customer-orders',
-      Sale: 'catalog/sales'
+      Sale: 'catalog/sales',
+      Payroll: 'catalog/payroll'
     };
 
     return mapEndpoints[endpoint] ?? endpoint;

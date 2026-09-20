@@ -27,6 +27,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
   searchInputControl: UntypedFormControl = new UntypedFormControl();
   pagedData: any[] = [];
   filteredData: any[] = [];
+  detailRows: any[] = [];
+  detailTitle = '';
   pageSize = 10;
   pageIndex = 0;
   totalItems = 0;
@@ -34,7 +36,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
   isLoading = false;
 
   actions: TableAction[] = [
-    { action: 'edit', label: 'Configurar', icon: 'feather:edit' }
+    { action: 'edit', label: 'Configurar', icon: 'feather:edit' },
+    { action: 'kardex', label: 'Kardex', icon: 'heroicons_outline:document-chart-bar' },
+    { action: 'lots', label: 'Lotes', icon: 'heroicons_outline:archive-box' },
+    { action: 'adjust', label: 'Ajustar', icon: 'heroicons_outline:adjustments-horizontal' }
   ];
 
   columns: TableColumn[] = [
@@ -46,6 +51,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
     { field: 'stockMaxLabel', header: 'Maximo', width: '100px' },
     { field: 'statusLabel', header: 'Estado', width: '120px' }
   ];
+
+  detailColumns: TableColumn[] = [];
 
   private _unsubscribeAll = new Subject<void>();
 
@@ -85,6 +92,82 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   handleRowAction(event: { action: string; row: any }): void {
     if (event.action === 'edit') this.openEditDialog(event.row);
+    if (event.action === 'kardex') this.loadKardex(event.row);
+    if (event.action === 'lots') this.loadLots(event.row);
+    if (event.action === 'adjust') this.adjustStock(event.row);
+  }
+
+  loadLowStockAlerts(): void {
+    this.isLoading = true;
+    this._generalApi.getLowStockAlerts().pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        this.detailTitle = 'Alertas de stock bajo';
+        this.detailColumns = this.columns;
+        this.detailRows = (resp.data ?? []).map(this.decorateRow);
+      },
+      error: () => this.finishLoad('No se pudieron cargar alertas.')
+    });
+  }
+
+  loadExpiringLots(): void {
+    this.isLoading = true;
+    this._generalApi.getInventoryLots({ expiringDays: 60 }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        this.detailTitle = 'Lotes por vencer en 60 dias';
+        this.detailColumns = this.lotColumns();
+        this.detailRows = resp.data ?? [];
+      },
+      error: () => this.finishLoad('No se pudieron cargar lotes por vencer.')
+    });
+  }
+
+  loadKardex(row: any): void {
+    this.isLoading = true;
+    this._generalApi.getInventoryKardex({ branchId: row.branchId, medicineId: row.medicineId }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        this.detailTitle = `Kardex - ${row.medicineName}`;
+        this.detailColumns = [
+          { field: 'movementDate', header: 'Fecha', width: '1fr' },
+          { field: 'movementType', header: 'Tipo', width: '120px' },
+          { field: 'quantityIn', header: 'Entrada', width: '90px' },
+          { field: 'quantityOut', header: 'Salida', width: '90px' },
+          { field: 'balanceAfter', header: 'Saldo', width: '90px' },
+          { field: 'reason', header: 'Motivo', width: '1.5fr' }
+        ];
+        this.detailRows = resp.data ?? [];
+      },
+      error: () => this.finishLoad('No se pudo cargar kardex.')
+    });
+  }
+
+  loadLots(row: any): void {
+    this.isLoading = true;
+    this._generalApi.getInventoryLots({ branchId: row.branchId, medicineId: row.medicineId }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        this.detailTitle = `Lotes - ${row.medicineName}`;
+        this.detailColumns = this.lotColumns();
+        this.detailRows = resp.data ?? [];
+      },
+      error: () => this.finishLoad('No se pudieron cargar lotes.')
+    });
+  }
+
+  adjustStock(row: any): void {
+    const rawQuantity = window.prompt(`Nuevo stock disponible para ${row.medicineName}`, row.stockAvailable);
+    if (rawQuantity === null) return;
+    const reason = window.prompt('Motivo del ajuste');
+    if (!reason) {
+      this._toast.error('El motivo es obligatorio.');
+      return;
+    }
+    this._generalApi.addInventoryAdjustment({ branchId: row.branchId, medicineId: row.medicineId, quantityAfter: Number(rawQuantity), reason }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => resp.success ? this.onPageChange({ pageIndex: this.pageIndex, pageSize: this.pageSize } as PageEvent) : this._toast.error(resp.error?.detail ?? 'No se pudo ajustar inventario.'),
+      error: () => this._toast.error('Error inesperado al ajustar inventario.')
+    });
   }
 
   openEditDialog(row: any): void {
@@ -105,6 +188,16 @@ export class InventoryComponent implements OnInit, OnDestroy {
       stockMinLabel: format(item.stockMin),
       stockMaxLabel: format(item.stockMax)
     };
+  }
+
+  private lotColumns(): TableColumn[] {
+    return [
+      { field: 'branchName', header: 'Sucursal', width: '1fr' },
+      { field: 'medicineName', header: 'Medicamento', width: '1.4fr' },
+      { field: 'lotNumber', header: 'Lote', width: '120px' },
+      { field: 'expirationDate', header: 'Vence', width: '1fr' },
+      { field: 'quantity', header: 'Cantidad', width: '100px' }
+    ];
   }
 
   private finishLoad(message?: string): void {

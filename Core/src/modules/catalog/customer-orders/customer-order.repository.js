@@ -1,4 +1,6 @@
 import { AppDataSource } from '../../../config/data-source.js';
+import { registerKardex } from '../inventory/inventory-kardex.service.js';
+import { consumeLotsFefo, LotConsumptionError } from '../inventory/inventory-lot.service.js';
 
 export class BusinessRuleError extends Error {
   constructor(message) {
@@ -167,10 +169,17 @@ export const updateOrderStatus = async (order, status, userId = null) => AppData
     for (const item of rows) {
       const stock = await inventoryRepo.findOneBy({ branchId: order.branchId, medicineId: item.medicineId });
       if (!stock || Number(stock.reserve ?? 0) < Number(item.quantity ?? 0)) throw new BusinessRuleError('La reserva de inventario no cubre la entrega.');
+      try {
+        await consumeLotsFefo(manager, { branchId: order.branchId, medicineId: item.medicineId, quantity: Number(item.quantity ?? 0), referenceType: 'CUSTOMER_ORDER', referenceId: order.id, userId });
+      } catch (error) {
+        if (error instanceof LotConsumptionError) throw new BusinessRuleError(error.message);
+        throw error;
+      }
       stock.reserve = Number(stock.reserve ?? 0) - Number(item.quantity ?? 0);
       stock.stockAvailable = Number(stock.stockAvailable ?? 0) - Number(item.quantity ?? 0);
       if (Number(stock.stockAvailable) < 0) throw new BusinessRuleError('Stock insuficiente para completar la entrega.');
       await inventoryRepo.save(stock);
+      await registerKardex(manager, { branchId: order.branchId, medicineId: item.medicineId, movementType: 'CUSTOMER_ORDER_DELIVERY', quantityOut: Number(item.quantity ?? 0), balanceAfter: Number(stock.stockAvailable ?? 0), referenceType: 'CUSTOMER_ORDER', referenceId: order.id, userId });
     }
   }
   await manager.getRepository('CustomerOrder').update(order.id, { status, updatedBy: userId });
