@@ -1,6 +1,6 @@
 import { created, notFound, ok } from '../../../utils/api-response.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
-import { createAdjustment, createLot, findInventoryById, listInventory, listKardex, listLots, lowStockAlerts, paginateInventory, toInventoryDto, updateInventory } from './inventory.repository.js';
+import { createAdjustment, createLot, findInventoryById, inventoryAlerts, listInventory, listKardex, listLots, lowStockAlerts, paginateInventory, toInventoryDto, updateInventory } from './inventory.repository.js';
 
 export const getInventory = async (_req, res) => ok(res, await listInventory());
 
@@ -33,5 +33,7 @@ export const getLots = async (req, res) => ok(res, await listLots(req.query));
 export const addLot = async (req, res) => created(res, { id: await createLot(req.body, req.user?.id ?? null) }, 'Lote registrado correctamente.');
 
 export const getLowStockAlerts = async (_req, res) => ok(res, await lowStockAlerts());
+
+export const getInventoryAlerts = async (req, res) => ok(res, await inventoryAlerts(req.query));
 
 export const adjustInventory = async (req, res) => created(res, { id: await createAdjustment(req.body, req.user?.id ?? null) }, 'Ajuste registrado y auditado correctamente.');

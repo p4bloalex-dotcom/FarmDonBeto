@@ -73,6 +73,7 @@ import { PayrollAdjustmentEntity } from '../entities/payroll-adjustment.entity.j
 import { LotPayrollAdjustmentsCash1805000000000 } from '../migrations/1805000000000-lot-payroll-adjustments-cash.js';
 import { PartitionTransactionTables1806000000000 } from '../migrations/1806000000000-partition-transaction-tables.js';
 import { BranchType1807000000000 } from '../migrations/1807000000000-branch-type.js';
+import { CustomerOrderFulfillment1808000000000 } from '../migrations/1808000000000-customer-order-fulfillment.js';
 import { AuditFieldsSubscriber, installAuditHooks } from '../subscribers/audit-fields.subscriber.js';
 
 installAuditHooks();
@@ -161,6 +162,7 @@ export const AppDataSource = new DataSource({
     FullPayroll1804000000000,
     LotPayrollAdjustmentsCash1805000000000,
     PartitionTransactionTables1806000000000,
-    BranchType1807000000000
+    BranchType1807000000000,
+    CustomerOrderFulfillment1808000000000
   ]
 });

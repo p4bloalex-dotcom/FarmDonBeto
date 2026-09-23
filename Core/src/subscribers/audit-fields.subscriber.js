@@ -6,6 +6,40 @@ const now = () => new Date();
 const currentUser = () => getRequestContext()?.user ?? null;
 
 const hasColumn = (metadata, name) => metadata.columns.some(column => column.propertyName === name || column.databaseName === name);
+const isAuditLog = metadata => metadata?.name === 'AuditTrailLog' || metadata?.tableName === 'TB_AUDIT_TRAIL_LOG';
+const ignoredProperties = new Set(['password', 'salt']);
+
+const sanitize = value => {
+  if (!value || typeof value !== 'object') return value ?? null;
+  return Object.fromEntries(Object.entries(value).filter(([key, entry]) => !ignoredProperties.has(key) && typeof entry !== 'function'));
+};
+
+const stringify = value => {
+  if (!value) return null;
+  return JSON.stringify(sanitize(value));
+};
+
+const recordId = (metadata, entity) => {
+  if (!entity) return null;
+  const primary = metadata.primaryColumns?.[0];
+  if (!primary) return entity.id == null ? null : String(entity.id);
+  const value = entity[primary.propertyName] ?? entity[primary.databaseName];
+  return value == null ? null : String(value);
+};
+
+const writeAuditLog = async (event, action, oldValues = null, newValues = null) => {
+  if (isAuditLog(event.metadata)) return;
+  const user = currentUser();
+  await event.manager.insert('AuditTrailLog', {
+    tableName: event.metadata.tableName,
+    action,
+    recordId: recordId(event.metadata, newValues ?? oldValues),
+    userId: user?.id ?? null,
+    oldValues: stringify(oldValues),
+    newValues: stringify(newValues),
+    createdAt: now()
+  });
+};
 
 const fieldsForInsert = (metadata, entity) => {
   const user = currentUser();
@@ -56,6 +90,18 @@ export class AuditFieldsSubscriber {
     if (event.entity) {
       fieldsForUpdate(event.metadata, event.entity);
     }
+  }
+
+  async afterInsert(event) {
+    await writeAuditLog(event, 'INSERT', null, event.entity);
+  }
+
+  async afterUpdate(event) {
+    await writeAuditLog(event, 'UPDATE', event.databaseEntity, event.entity);
+  }
+
+  async afterRemove(event) {
+    await writeAuditLog(event, 'DELETE', event.databaseEntity ?? event.entity, null);
   }
 }
 

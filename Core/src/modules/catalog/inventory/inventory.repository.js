@@ -112,7 +112,28 @@ export const lowStockAlerts = async () => (await queryBase()
   .andWhere('item.stockAvailable <= item.stockMin')
   .orderBy('branch.name', 'ASC')
   .addOrderBy('medicine.name', 'ASC')
-  .getMany()).map(toDto);
+    .getMany()).map(toDto);
+
+export const inventoryAlerts = async ({ expiringDays = 60 } = {}) => {
+  const lowStock = await lowStockAlerts();
+  const overStock = (await queryBase()
+    .where('item.stockMax > 0')
+    .andWhere('item.stockAvailable >= item.stockMax')
+    .orderBy('branch.name', 'ASC')
+    .addOrderBy('medicine.name', 'ASC')
+    .getMany()).map(toDto);
+  const expiringLots = await listLots({ expiringDays });
+  return {
+    summary: {
+      lowStock: lowStock.length,
+      overStock: overStock.length,
+      expiringLots: expiringLots.length
+    },
+    lowStock,
+    overStock,
+    expiringLots
+  };
+};
 
 export const createAdjustment = async (data, userId = null) => AppDataSource.transaction(async manager => {
   const repo = manager.getRepository('Inventory');

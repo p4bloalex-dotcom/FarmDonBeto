@@ -72,6 +72,16 @@ getList(endpoint: string) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/alerts/low-stock`);
   }
 
+  getInventoryAlerts(filters: any = {}) {
+    let params = new HttpParams();
+    Object.keys(filters).forEach(key => { if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') params = params.set(key, filters[key]); });
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/alerts`, { params });
+  }
+
+  getDashboardSummary() {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/dashboard/summary`);
+  }
+
   addInventoryAdjustment(data: any) {
     return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/adjustments`, data);
   }
@@ -116,6 +126,25 @@ getList(endpoint: string) {
 
     return this._httpClient.get<any>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/pagination`, { params })
       .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
+  }
+
+  getPagedFiltered(endpoint: string, pageIndex: number, pageSize: number, filters: any = {}) {
+    let params = new HttpParams()
+      .set('pageIndex', pageIndex.toString())
+      .set('pageSize', pageSize.toString());
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') params = params.set(key, filters[key]);
+    });
+    return this._httpClient.get<any>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/pagination`, { params })
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
+  }
+
+  exportAudit(filters: any = {}): Observable<HttpResponse<Blob>> {
+    let params = new HttpParams();
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') params = params.set(key, filters[key]);
+    });
+    return this._httpClient.get(`${environment.apiUrl}/security/audit/export`, { params, responseType: 'blob', observe: 'response' });
   }
 
   getPagedQuery(endpoint: string, pageIndex: number, pageSize: number, idData: number) {

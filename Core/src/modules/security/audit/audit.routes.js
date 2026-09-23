@@ -4,7 +4,7 @@ import { authenticate } from '../../../middlewares/authenticate.js';
 import { permissionRequired } from '../../../middlewares/permission-required.js';
 import { readOnlyActions } from '../permissions/permission-actions.js';
 import { registerScreen } from '../../../routes/route-registry.js';
-import { getAuditLogs } from './audit.controller.js';
+import { exportAudit, getAuditLog, getAuditLogs } from './audit.controller.js';
 
 export const auditRoutes = Router();
 const permissions = registerScreen({
@@ -18,3 +18,6 @@ const permissions = registerScreen({
 
 auditRoutes.use(authenticate);
 auditRoutes.get('/', permissionRequired(permissions.view), asyncHandler(getAuditLogs));
+auditRoutes.get('/pagination', permissionRequired(permissions.view), asyncHandler(getAuditLogs));
+auditRoutes.get('/export', permissionRequired(permissions.view), asyncHandler(exportAudit));
+auditRoutes.get('/:id', permissionRequired(permissions.view), asyncHandler(getAuditLog));

@@ -12,17 +12,25 @@ const itemSchema = Joi.object({
 
 export const availabilitySchema = Joi.object({
   deliveryAddress: Joi.string().trim().max(255).allow('', null),
-  deliveryLatitude: Joi.number().min(-90).max(90).allow(null),
+  medicineSearch: Joi.string().trim().max(120).allow('', null),
+  medicine_search: Joi.string().trim().max(120).allow('', null),
+  deliveryLatitude: Joi.number().min(-90).max(90),
   delivery_latitude: Joi.number().min(-90).max(90).allow(null),
-  deliveryLongitude: Joi.number().min(-180).max(180).allow(null),
+  deliveryLongitude: Joi.number().min(-180).max(180),
   delivery_longitude: Joi.number().min(-180).max(180).allow(null),
   items: Joi.array().items(itemSchema).min(1).required()
-}).custom(value => ({
+}).custom((value, helpers) => {
+  const deliveryLatitude = value.deliveryLatitude ?? value.delivery_latitude;
+  const deliveryLongitude = value.deliveryLongitude ?? value.delivery_longitude;
+  if (deliveryLatitude == null || deliveryLongitude == null) return helpers.error('any.required');
+  return {
   deliveryAddress: value.deliveryAddress || null,
-  deliveryLatitude: value.deliveryLatitude ?? value.delivery_latitude ?? null,
-  deliveryLongitude: value.deliveryLongitude ?? value.delivery_longitude ?? null,
+  medicineSearch: value.medicineSearch ?? value.medicine_search ?? null,
+    deliveryLatitude,
+    deliveryLongitude,
   items: value.items
-}));
+  };
+});
 
 export const customerOrderSchema = Joi.object({
   branchId: Joi.number().integer(),
@@ -31,7 +39,13 @@ export const customerOrderSchema = Joi.object({
   customerPhone: Joi.string().trim().min(6).max(30).required(),
   deliveryAddress: Joi.string().trim().min(5).max(255).required(),
   deliveryReference: Joi.string().trim().max(255).allow('', null),
+  deliveryLatitude: Joi.number().min(-90).max(90),
+  delivery_latitude: Joi.number().min(-90).max(90).allow(null),
+  deliveryLongitude: Joi.number().min(-180).max(180),
+  delivery_longitude: Joi.number().min(-180).max(180).allow(null),
   paymentMethod: Joi.string().valid('CASH', 'CARD', 'TRANSFER', 'COD').required(),
+  paymentStatus: Joi.string().valid('PENDING', 'PAID', 'FAILED', 'REFUNDED').default('PENDING'),
+  payment_status: Joi.string().valid('PENDING', 'PAID', 'FAILED', 'REFUNDED'),
   estimatedDeliveryMinutes: Joi.number().integer().min(10).max(480).required(),
   deliveryFee: Joi.number().precision(2).min(0).default(0),
   notes: Joi.string().trim().max(255).allow('', null),
@@ -39,13 +53,19 @@ export const customerOrderSchema = Joi.object({
 }).custom((value, helpers) => {
   const branchId = value.branchId ?? value.branch_id;
   if (!branchId) return helpers.error('any.required');
+  const deliveryLatitude = value.deliveryLatitude ?? value.delivery_latitude;
+  const deliveryLongitude = value.deliveryLongitude ?? value.delivery_longitude;
+  if (deliveryLatitude == null || deliveryLongitude == null) return helpers.error('any.required');
   return {
     branchId,
     customerName: value.customerName,
     customerPhone: value.customerPhone,
     deliveryAddress: value.deliveryAddress,
     deliveryReference: value.deliveryReference || null,
+    deliveryLatitude,
+    deliveryLongitude,
     paymentMethod: value.paymentMethod,
+    paymentStatus: value.paymentStatus ?? value.payment_status ?? 'PENDING',
     estimatedDeliveryMinutes: value.estimatedDeliveryMinutes,
     deliveryFee: value.deliveryFee ?? 0,
     notes: value.notes || null,

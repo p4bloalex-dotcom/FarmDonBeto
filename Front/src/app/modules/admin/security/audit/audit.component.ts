@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { ReactiveFormsModule, UntypedFormControl } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, UntypedFormControl } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { PageEvent } from '@angular/material/paginator';
 import { HotToastService } from '@fuse/components/hot-toast';
@@ -24,6 +24,7 @@ import { TableComponent } from '@fuse/components/table/table.component';
     MatFormFieldModule,
     MatInputModule,
     MatIconModule,
+    FormsModule,
     ReactiveFormsModule,
     MatButtonModule,
     MatSortModule,
@@ -42,6 +43,7 @@ export class AuditComponent {
       pageIndex = 0;
       totalItems = 0;
       service:string = 'Audit';
+      filters: any = { tableName: '', action: '', userId: '', branchId: '', recordId: '', startDate: '', endDate: '', search: '' };
   
       private dictData1 = new Map<number,string>();
       private dictData2 = new Map<number,string>();
@@ -69,7 +71,7 @@ export class AuditComponent {
         this.pageIndex = event.pageIndex;
         this.pageSize  = event.pageSize;
     
-        this._generalApi.getPaged(this.service,this.pageIndex + 1, this.pageSize)
+        this._generalApi.getPagedFiltered(this.service,this.pageIndex + 1, this.pageSize, this.filters)
           .pipe(takeUntil(this._unsubscribeAll))
           .subscribe({
             next: (resp:ApiResponse<any>) => {
@@ -151,6 +153,31 @@ export class AuditComponent {
           error: err => {
             this._toast.error(err.message || 'Error inesperado. Intenta más tarde.');
           }
+      });
+    }
+
+    applyFilters(): void {
+      this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
+    }
+
+    clearFilters(): void {
+      this.filters = { tableName: '', action: '', userId: '', branchId: '', recordId: '', startDate: '', endDate: '', search: '' };
+      this.applyFilters();
+    }
+
+    exportCsv(): void {
+      this._generalApi.exportAudit(this.filters).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+        next: response => {
+          const blob = response.body;
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'auditoria.csv';
+          link.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => this._toast.error('No se pudo exportar la auditoria.')
       });
     }
   

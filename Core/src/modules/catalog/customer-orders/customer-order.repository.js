@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { registerKardex } from '../inventory/inventory-kardex.service.js';
 import { consumeLotsFefo, LotConsumptionError } from '../inventory/inventory-lot.service.js';
+import { Like } from 'typeorm';
 
 export class BusinessRuleError extends Error {
   constructor(message) {
@@ -33,7 +34,11 @@ const toDto = item => ({
   customerPhone: item.customerPhone,
   deliveryAddress: item.deliveryAddress,
   deliveryReference: item.deliveryReference,
+  deliveryLatitude: item.deliveryLatitude == null ? null : Number(item.deliveryLatitude),
+  deliveryLongitude: item.deliveryLongitude == null ? null : Number(item.deliveryLongitude),
   paymentMethod: item.paymentMethod,
+  paymentStatus: item.paymentStatus,
+  saleId: item.saleId,
   estimatedDeliveryMinutes: item.estimatedDeliveryMinutes,
   subtotal: Number(item.subtotal ?? 0),
   deliveryFee: Number(item.deliveryFee ?? 0),
@@ -48,8 +53,11 @@ const queryBase = () => orders().createQueryBuilder('item')
   .addSelect(['branch.id', 'branch.name'])
   .addSelect(subQuery => subQuery.select('COUNT(detail.id)', 'itemsCount').from('CustomerOrderDetail', 'detail').where('detail.orderId = item.id'), 'itemsCount');
 
-export const paginateOrders = async ({ offset, pageSize }) => {
-  const [rows, total] = await queryBase().orderBy('item.orderDate', 'DESC').skip(offset).take(pageSize).getManyAndCount();
+export const paginateOrders = async ({ offset, pageSize }, filters = {}) => {
+  const query = queryBase();
+  if (filters.customerPhone) query.andWhere('item.customerPhone = :customerPhone', { customerPhone: filters.customerPhone });
+  if (filters.paymentStatus) query.andWhere('item.paymentStatus = :paymentStatus', { paymentStatus: filters.paymentStatus });
+  const [rows, total] = await query.orderBy('item.orderDate', 'DESC').skip(offset).take(pageSize).getManyAndCount();
   return { rows: rows.map(toDto), total };
 };
 
@@ -61,6 +69,12 @@ export const listOrderDetails = async orderId => (await details().createQueryBui
   .where('item.orderId = :orderId', { orderId })
   .orderBy('item.id', 'ASC')
   .getMany()).map(detailDto);
+
+export const listOrdersByPhone = async customerPhone => (await queryBase()
+  .where('item.customerPhone = :customerPhone', { customerPhone })
+  .orderBy('item.orderDate', 'DESC')
+  .take(20)
+  .getMany()).map(toDto);
 
 const availableQty = item => Number(item.stockAvailable ?? 0) - Number(item.reserve ?? 0);
 
@@ -85,7 +99,16 @@ export const getAvailability = async data => {
   const items = Array.isArray(data) ? data : data.items;
   const deliveryLatitude = Array.isArray(data) ? null : data.deliveryLatitude;
   const deliveryLongitude = Array.isArray(data) ? null : data.deliveryLongitude;
+  if (deliveryLatitude == null || deliveryLongitude == null) throw new BusinessRuleError('Debe indicar coordenadas de entrega validas. La geocodificacion automatica queda preparada para integrarse en el cliente o servicio externo.');
   const branches = await AppDataSource.getRepository('Branch').findBy({ status: 'E' });
+  const medicineFilter = data.medicineSearch ? String(data.medicineSearch).trim() : null;
+  const activeOrders = await AppDataSource.getRepository('CustomerOrder').createQueryBuilder('o')
+    .select('o.branchId', 'branchId')
+    .addSelect('COUNT(o.id)', 'activeOrders')
+    .where("o.status IN ('P','S')")
+    .groupBy('o.branchId')
+    .getRawMany();
+  const loadByBranch = new Map(activeOrders.map(row => [Number(row.branchId), Number(row.activeOrders ?? 0)]));
   const result = [];
   for (const branch of branches) {
     const availability = [];
@@ -95,15 +118,22 @@ export const getAvailability = async data => {
     const insideCoverage = distance === null || coverageRadiusKm <= 0 || distance <= coverageRadiusKm;
     for (const item of items) {
       const inventory = await AppDataSource.getRepository('Inventory').findOne({ where: { branchId: branch.id, medicineId: item.medicineId }, relations: { medicine: true } });
+      if (medicineFilter && inventory?.medicine?.name && !inventory.medicine.name.toLowerCase().includes(medicineFilter.toLowerCase()) && !String(inventory.medicine.code ?? '').toLowerCase().includes(medicineFilter.toLowerCase())) continue;
       const available = inventory ? availableQty(inventory) : 0;
       if (available < Number(item.quantity)) canFulfill = false;
       availability.push({ medicineId: item.medicineId, medicineName: inventory?.medicine?.name ?? null, requested: Number(item.quantity), available });
     }
     canFulfill = canFulfill && insideCoverage;
+    const activeLoad = loadByBranch.get(Number(branch.id)) ?? 0;
+    const stockRatio = availability.length ? availability.reduce((sum, item) => sum + Math.min(item.available / Math.max(item.requested, 1), 2), 0) / availability.length : 0;
+    const score = Math.round(((canFulfill ? 1000 : 0) + Math.min(stockRatio, 2) * 100 - Number(distance ?? 99) * 10 - activeLoad * 25 + (insideCoverage ? 100 : -300)) * 100) / 100;
     result.push({
       branchId: branch.id,
       branchName: branch.name,
       canFulfill,
+      score,
+      suggested: false,
+      activeOrders: activeLoad,
       distanceKm: distance === null ? null : Math.round(distance * 100) / 100,
       coverageRadiusKm,
       insideCoverage,
@@ -111,7 +141,9 @@ export const getAvailability = async data => {
       availability
     });
   }
-  return result.sort((a, b) => Number(b.canFulfill) - Number(a.canFulfill) || Number(a.distanceKm ?? 999999) - Number(b.distanceKm ?? 999999) || a.branchName.localeCompare(b.branchName));
+  const ordered = result.sort((a, b) => b.score - a.score || Number(b.canFulfill) - Number(a.canFulfill) || Number(a.distanceKm ?? 999999) - Number(b.distanceKm ?? 999999) || a.branchName.localeCompare(b.branchName));
+  if (ordered[0]) ordered[0].suggested = true;
+  return ordered;
 };
 
 const reserveStock = async (manager, branchId, items) => {
@@ -135,6 +167,8 @@ const releaseReserve = async (manager, branchId, detailsRows) => {
 };
 
 export const createOrder = async (data, userId = null) => AppDataSource.transaction(async manager => {
+  if (data.deliveryLatitude == null || data.deliveryLongitude == null) throw new BusinessRuleError('Debe indicar coordenadas de entrega validas.');
+  if (['CARD', 'TRANSFER'].includes(data.paymentMethod) && data.paymentStatus !== 'PAID') throw new BusinessRuleError('Las ordenes con tarjeta o transferencia deben registrarse con pago confirmado.');
   const medicineRepo = manager.getRepository('Medicine');
   const normalizedItems = [];
   for (const item of data.items) {
@@ -181,8 +215,38 @@ export const updateOrderStatus = async (order, status, userId = null) => AppData
       await inventoryRepo.save(stock);
       await registerKardex(manager, { branchId: order.branchId, medicineId: item.medicineId, movementType: 'CUSTOMER_ORDER_DELIVERY', quantityOut: Number(item.quantity ?? 0), balanceAfter: Number(stock.stockAvailable ?? 0), referenceType: 'CUSTOMER_ORDER', referenceId: order.id, userId });
     }
+    if (order.paymentMethod !== 'COD' && order.paymentStatus !== 'PAID') throw new BusinessRuleError('No se puede entregar una orden sin pago confirmado.');
+    const session = await manager.getRepository('CashSession').findOneBy({ branchId: order.branchId, status: 'A' });
+    if (!session) throw new BusinessRuleError('No hay caja abierta para convertir la orden entregada a venta.');
+    const employee = await manager.getRepository('Employee').findOneBy({ branchId: order.branchId, status: 'E' });
+    if (!employee) throw new BusinessRuleError('No hay empleado activo asociado a la sucursal para registrar la venta.');
+    const sale = await manager.getRepository('Sale').save(manager.getRepository('Sale').create({
+      branchId: order.branchId,
+      employeeId: employee.id,
+      saleDate: new Date(),
+      subtotal: Number(order.subtotal ?? 0),
+      tax: 0,
+      total: Number(order.total ?? 0),
+      paymentMethod: order.paymentMethod,
+      status: 'E',
+      createdBy: userId
+    }));
+    await manager.getRepository('SaleDetail').save(rows.map(item => manager.getRepository('SaleDetail').create({ saleId: sale.id, medicineId: item.medicineId, quantity: Number(item.quantity ?? 0), unitPrice: Number(item.unitPrice ?? 0), total: Number(item.subtotal ?? 0), status: 'E', createdBy: userId })));
+    const movementType = await manager.getRepository('CashMovementType').findOneBy({ code: 'SALE', status: 'E' });
+    if (!movementType) throw new BusinessRuleError('No existe el tipo de movimiento de caja SALE.');
+    await manager.getRepository('CashMovement').save(manager.getRepository('CashMovement').create({ cashSessionId: session.id, branchId: order.branchId, movementTypeId: movementType.id, amount: Number(order.total ?? 0), description: `Orden entregada #${order.id}`, referenceId: sale.id, referenceType: 'CUSTOMER_ORDER', movementDate: new Date(), status: 'E', createdBy: userId }));
+    order.saleId = sale.id;
   }
-  await manager.getRepository('CustomerOrder').update(order.id, { status, updatedBy: userId });
+  await manager.getRepository('CustomerOrder').update(order.id, { status, saleId: order.saleId ?? null, paymentStatus: status === 'D' && order.paymentMethod === 'COD' ? 'PAID' : order.paymentStatus, updatedBy: userId });
 });
+
+export const searchMedicines = async term => (await AppDataSource.getRepository('Medicine').find({
+  where: [
+    { status: 'E', name: Like(`%${term}%`) },
+    { status: 'E', code: Like(`%${term}%`) }
+  ],
+  take: 10,
+  order: { name: 'ASC' }
+})).map(item => ({ id: item.id, code: item.code, name: item.name, priceSell: Number(item.priceSell ?? 0) }));
 
 export const toOrderDto = toDto;

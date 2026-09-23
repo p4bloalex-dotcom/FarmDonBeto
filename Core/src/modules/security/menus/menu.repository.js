@@ -30,7 +30,7 @@ export const getAccessMenus = async userId => {
     .map(roleMenu => roleMenu.menu)
     .filter(menu => menu.idMenuFather && menusById.has(menu.idMenuFather));
 
-  return roleMenus
+  const navigation = roleMenus
     .map(roleMenu => roleMenu.menu)
     .filter(menu => !menu.idMenuFather)
     .map(parent => {
@@ -53,6 +53,19 @@ export const getAccessMenus = async userId => {
         children
       };
     });
+
+  if (!navigation.some(item => item.link?.toLowerCase() === 'home')) {
+    navigation.unshift({
+      id: 'home',
+      title: 'Home',
+      type: 'basic',
+      icon: 'heroicons_solid:home',
+      link: 'home',
+      children: []
+    });
+  }
+
+  return navigation;
 };
 
 export const createMenu = data => menus().save(menus().create(data));

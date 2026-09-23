@@ -1,25 +1,114 @@
-<div class="flex min-w-0 flex-auto flex-col">
-    <!-- Main -->
-    <div class="flex-auto p-0 overflow-hidden">
-        <div class="relative flex items-center justify-center w-full h-full rounded-2xl overflow-hidden bg-gray-50">
-            <!-- Imagen de fondo (cubre toda el área central) -->
-            <img src="images/homeBombero.png" alt="Bombero"
-                class="absolute inset-0 object-contain md:object-cover w-[85%] md:w-[75%] lg:w-[68%] max-w-[920px] bottom-0 opacity-100" />
+<div class="flex min-w-0 flex-auto flex-col bg-white text-slate-900 sm:absolute sm:inset-0 sm:overflow-hidden">
+    @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
 
-            <!-- Capa translúcida para contraste -->
-            <div class="absolute inset-0 bg-gradient-to-tr from-white/70 to-transparent"></div>
+    <div class="flex flex-col gap-4 border-b border-slate-200 px-4 py-5 sm:flex-row sm:items-center sm:justify-between md:px-8">
+        <div>
+            <div class="text-3xl font-extrabold tracking-tight">Centro de control</div>
+            <div class="text-sm text-slate-500">Vista ejecutiva de sucursales, caja, inventario, entregas y auditoria.</div>
+        </div>
+        <button mat-flat-button color="primary" (click)="loadSummary()">
+            <mat-icon svgIcon="heroicons_outline:arrow-path"></mat-icon>
+            <span class="ml-2">Actualizar</span>
+        </button>
+    </div>
 
-            <!-- Texto centrado sobre la imagen -->
-            <div
-                class="relative z-10 flex flex-col items-center md:items-start justify-center text-center md:text-left p-8 md:p-16">
-                <h1
-                    class="text-4xl md:text-5xl font-extrabold text-red-600 mb-2 drop-shadow-[0_2px_2px_rgba(0,0,0,0.15)]">
-                    Bienvenido
-                </h1>
-                <p class="text-lg md:text-2xl font-semibold text-gray-800 drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
-                    Sistemas<br />Alkode
-                </p>
+    @if (summary) {
+        <div class="overflow-auto p-4 md:p-8">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+                    <div class="text-sm text-emerald-700">Flujo neto hoy</div>
+                    <div class="mt-2 text-3xl font-black">{{ money(summary.cash.net) }}</div>
+                    <div class="mt-3 text-xs text-emerald-700">Ingresos {{ money(summary.cash.income) }} · Egresos {{ money(summary.cash.expense) }}</div>
+                </div>
+                <div class="rounded-3xl border border-sky-200 bg-sky-50 p-5">
+                    <div class="text-sm text-sky-700">Ordenes activas</div>
+                    <div class="mt-2 text-3xl font-black">{{ summary.orders.pending + summary.orders.inRoute }}</div>
+                    <div class="mt-3 text-xs text-sky-700">Pendientes {{ summary.orders.pending }} · En ruta {{ summary.orders.inRoute }}</div>
+                </div>
+                <div class="rounded-3xl border border-amber-200 bg-amber-50 p-5">
+                    <div class="text-sm text-amber-700">Alertas de inventario</div>
+                    <div class="mt-2 text-3xl font-black">{{ summary.inventory.lowStock + summary.inventory.expiringLots + (summary.inventory.overStock || 0) }}</div>
+                    <div class="mt-3 text-xs text-amber-700">Stock bajo {{ summary.inventory.lowStock }} · Vencen {{ summary.inventory.expiringLots }} · Sobrestock {{ summary.inventory.overStock || 0 }}</div>
+                </div>
+                <div class="rounded-3xl border border-fuchsia-200 bg-fuchsia-50 p-5">
+                    <div class="text-sm text-fuchsia-700">Valor activo fijo</div>
+                    <div class="mt-2 text-3xl font-black">{{ money(summary.assets.bookValue) }}</div>
+                    <div class="mt-3 text-xs text-fuchsia-700">Activos registrados {{ summary.assets.assets }}</div>
+                </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_0.7fr]">
+                <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div class="mb-4 flex items-center justify-between">
+                        <div>
+                            <div class="text-xl font-bold">Salud por sucursal</div>
+                            <div class="text-sm text-slate-500">Prioriza sucursales con inventario critico, pedidos activos o caja abierta.</div>
+                        </div>
+                        <div class="text-right text-xs text-slate-500">{{ summary.branches.active }} sucursales activas</div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="text-slate-500">
+                                <tr>
+                                    <th class="px-3 py-2">Sucursal</th>
+                                    <th class="px-3 py-2">Tipo</th>
+                                    <th class="px-3 py-2">Stock bajo</th>
+                                    <th class="px-3 py-2">Pedidos</th>
+                                    <th class="px-3 py-2">Caja</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (branch of summary.branchStatus; track branch.id) {
+                                    <tr class="border-t border-slate-100">
+                                        <td class="px-3 py-3 font-medium">{{ branch.name }}</td>
+                                        <td class="px-3 py-3 text-slate-600">{{ branchTypeLabel(branch.branchType) }}</td>
+                                        <td class="px-3 py-3" [class.text-amber-600]="branch.lowStock > 0">{{ branch.lowStock }}</td>
+                                        <td class="px-3 py-3" [class.text-sky-600]="branch.pendingOrders > 0">{{ branch.pendingOrders }}</td>
+                                        <td class="px-3 py-3">{{ branch.openSessions > 0 ? 'Abierta' : 'Sin caja abierta' }}</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grid gap-4">
+                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="text-xl font-bold">Operacion</div>
+                        <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+                            <div class="rounded-2xl bg-slate-50 p-4"><div class="text-slate-500">Cajas abiertas</div><div class="text-2xl font-black">{{ summary.cash.openSessions }}</div></div>
+                            <div class="rounded-2xl bg-slate-50 p-4"><div class="text-slate-500">Entregas sucursal</div><div class="text-2xl font-black">{{ summary.delivery.pendingRequests }}</div></div>
+                            <div class="rounded-2xl bg-slate-50 p-4"><div class="text-slate-500">Traspasos</div><div class="text-2xl font-black">{{ summary.delivery.transfers }}</div></div>
+                            <div class="rounded-2xl bg-slate-50 p-4"><div class="text-slate-500">Planilla hoy</div><div class="text-lg font-black">{{ money(summary.payroll.todayTotal) }}</div></div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="text-xl font-bold">Auditoria reciente</div>
+                        <div class="mt-3 space-y-3">
+                            @for (item of summary.activity; track item.id) {
+                                <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                                    <div class="font-medium">{{ item.action }} · {{ item.tableName }}</div>
+                                    <div class="text-xs text-slate-500">Registro {{ item.recordId || '-' }} · Usuario {{ item.userId || '-' }} · {{ item.createdAt }}</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-sm text-slate-500">Centros comerciales</div><div class="mt-2 text-3xl font-black">{{ summary.branches.mall }}</div></div>
+                <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-sm text-slate-500">Stands gasolinera</div><div class="mt-2 text-3xl font-black">{{ summary.branches.gasStationStand }}</div></div>
+                <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-sm text-slate-500">Generado</div><div class="mt-2 text-sm font-semibold">{{ summary.generatedAt }}</div></div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+                <div class="rounded-3xl border border-indigo-200 bg-indigo-50 p-5"><div class="text-sm text-indigo-700">Ventas hoy</div><div class="mt-2 text-3xl font-black">{{ money(summary.executive.todaySales) }}</div></div>
+                <div class="rounded-3xl border border-indigo-200 bg-indigo-50 p-5"><div class="text-sm text-indigo-700">Ventas del mes</div><div class="mt-2 text-3xl font-black">{{ money(summary.executive.monthSales) }}</div></div>
+                <div class="rounded-3xl border border-indigo-200 bg-indigo-50 p-5"><div class="text-sm text-indigo-700">Ticket promedio</div><div class="mt-2 text-3xl font-black">{{ money(summary.executive.averageTicket) }}</div></div>
+                <div class="rounded-3xl border border-indigo-200 bg-indigo-50 p-5"><div class="text-sm text-indigo-700">Valor inventario venta</div><div class="mt-2 text-3xl font-black">{{ money(summary.executive.inventorySellValue) }}</div></div>
             </div>
         </div>
-    </div>
+    }
 </div>

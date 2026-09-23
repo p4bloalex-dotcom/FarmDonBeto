@@ -1,19 +1,32 @@
 <div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
     <div class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
-        <div class="text-3xl font-extrabold tracking-tight">Bitacora</div>
-        <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
-            <!-- Search -->
-            <!-- <mat-form-field class="fuse-mat-dense fuse-mat-rounded min-w-64" [subscriptSizing]="'dynamic'">
-                <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
-                <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar'" />
-            </mat-form-field> -->
-
-            <!-- <button class="ml-4" mat-flat-button [color]="'primary'" (click)="openDialog(null, 1)">
-                <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                <span class="ml-2 mr-1">Crear</span>
-            </button> -->
-
+        <div>
+            <div class="text-3xl font-extrabold tracking-tight">Bitacora</div>
+            <div class="text-sm text-slate-500">Filtro avanzado y exportacion para auditoria operativa.</div>
         </div>
+        <div class="mt-6 flex shrink-0 items-center gap-2 sm:ml-4 sm:mt-0">
+            <button mat-stroked-button (click)="clearFilters()">Limpiar</button>
+            <button mat-flat-button color="primary" (click)="exportCsv()">
+                <mat-icon [svgIcon]="'heroicons_outline:arrow-down-tray'"></mat-icon>
+                <span class="ml-2">Exportar CSV</span>
+            </button>
+        </div>
+    </div>
+    <div class="grid gap-3 border-b px-6 py-4 md:grid-cols-4 lg:grid-cols-9 md:px-8">
+        <input class="rounded-xl border px-3 py-2" [(ngModel)]="filters.search" placeholder="Buscar" />
+        <input class="rounded-xl border px-3 py-2" [(ngModel)]="filters.tableName" placeholder="Tabla" />
+        <select class="rounded-xl border px-3 py-2" [(ngModel)]="filters.action">
+            <option value="">Accion</option>
+            <option value="INSERT">Creacion</option>
+            <option value="UPDATE">Actualizacion</option>
+            <option value="DELETE">Eliminacion</option>
+        </select>
+        <input class="rounded-xl border px-3 py-2" [(ngModel)]="filters.userId" placeholder="Usuario ID" type="number" />
+        <input class="rounded-xl border px-3 py-2" [(ngModel)]="filters.branchId" placeholder="Sucursal ID" type="number" />
+        <input class="rounded-xl border px-3 py-2" [(ngModel)]="filters.recordId" placeholder="Registro" />
+        <input class="rounded-xl border px-3 py-2" [(ngModel)]="filters.startDate" type="date" />
+        <input class="rounded-xl border px-3 py-2" [(ngModel)]="filters.endDate" type="date" />
+        <button mat-flat-button color="primary" (click)="applyFilters()">Filtrar</button>
     </div>
     <div class="flex flex-auto overflow-hidden">
         <div class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto">
