@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 
 const employees = () => AppDataSource.getRepository('Employee');
+const users = () => AppDataSource.getRepository('User');
 
 const toDto = item => ({
   id: item.id,
@@ -45,3 +46,4 @@ export const changePersonalStatus = async (id, status) => AppDataSource.transact
 });
 
 export const deletePersonal = async id => (await employees().delete(id)).affected > 0;
+

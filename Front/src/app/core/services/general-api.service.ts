@@ -78,6 +78,24 @@ getList(endpoint: string) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/alerts`, { params });
   }
 
+  getPurchaseDashboard() {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/dashboard`);
+  }
+
+  getPurchaseNetworkAvailability(filters: any = {}) {
+    let params = new HttpParams();
+    Object.keys(filters).forEach(key => { if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') params = params.set(key, filters[key]); });
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/network-availability`, { params });
+  }
+
+  postPurchaseFlow(path: string, data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/${path}`, data);
+  }
+
+  approvePurchaseOrder(id: number, comments = '') {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/orders/${id}/approve`, { comments });
+  }
+
   getDashboardSummary() {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/dashboard/summary`);
   }

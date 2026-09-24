@@ -45,7 +45,7 @@ export const updatePersonalStatus = async (req, res) => {
 
 export const removePersonal = async (req, res) => {
   try {
-    const deleted = await deletePersonal(Number(req.params.id));
+    const c = await deletePersonal(Number(req.params.id));
     return deleted ? ok(res, null, 'Registro eliminado correctamente.') : notFound(res);
   } catch (error) {
     if (isForeignKeyViolation(error)) {

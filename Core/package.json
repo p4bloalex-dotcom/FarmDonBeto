@@ -9,7 +9,17 @@
     "start": "node src/server.js",
     "lint": "eslint .",
     "migration:run": "typeorm migration:run -d src/config/data-source.js",
-    "migration:revert": "typeorm migration:revert -d src/config/data-source.js"
+    "migration:revert": "typeorm migration:revert -d src/config/data-source.js",
+    "migration:add": "node scripts/create-migration.js --name=$npm_config_name",
+    "migration:generate": "typeorm migration:generate -d src/config/data-source.js src/migrations/$npm_config_name --outputJs",
+    "add-migration": "node scripts/assert-codefirst-schema.js && node scripts/generate-codefirst-migration.js --name=$npm_config_name",
+    "update-database": "typeorm migration:run -d src/config/data-source-code-first.js",
+    "codefirst:add": "node scripts/assert-codefirst-schema.js && node scripts/generate-codefirst-migration.js --name=$npm_config_name",
+    "codefirst:update": "typeorm migration:run -d src/config/data-source-code-first.js",
+    "codefirst:show": "typeorm migration:show -d src/config/data-source-code-first.js",
+    "codefirst:create-user": "node scripts/create-codefirst-user.js",
+    "tenant:sync-rls": "node scripts/sync-tenant-rls.js",
+    "tenant:fix-rls-context": "node scripts/fix-rls-context.js"
   },
   "dependencies": {
     "compression": "^1.7.4",

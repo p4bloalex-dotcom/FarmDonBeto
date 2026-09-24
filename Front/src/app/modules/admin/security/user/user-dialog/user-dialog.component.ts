@@ -150,8 +150,12 @@ export class UserDialogComponent {
   
     delete() {
       const payload = this.dataForm.getRawValue();
+      const dataForRequest = {
+        idUser: this._data.row?.idUser,
+        idPersonal : this._data.row?.idPersonal,
+      }
       const idData = this._data.row?.idUser;//OJO
-      this._generalApi.delete(this.service, idData).subscribe({
+      this._generalApi.delete(this.service, dataForRequest).subscribe({
         next: (response: ApiResponse<any>) => {
           if (response.success) {
             this._matDialogRef.close({ idAction: this._data.action, idData: idData, ...payload });

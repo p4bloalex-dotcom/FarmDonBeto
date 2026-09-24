@@ -217,3 +217,253 @@ export const deletePurchaseWithDetails = async (id, branchId) => AppDataSource.t
   await detailRepo.delete({ purchaseId: id });
   await purchaseRepo.delete(id);
 });
+
+const nextNumber = prefix => `${prefix}-${new Date().getFullYear()}${String(Date.now()).slice(-8)}`;
+
+export const createPurchaseRequest = async payload => AppDataSource.transaction(async manager => {
+  const repo = manager.getRepository('PurchaseRequest');
+  const saved = await repo.save(repo.create({
+    requestNumber: payload.requestNumber || nextNumber('REQ'),
+    branchId: payload.branchId,
+    warehouseId: payload.warehouseId ?? payload.branchId,
+    requestedBy: payload.requestedBy ?? payload.userId ?? null,
+    requiredDate: payload.requiredDate ? new Date(payload.requiredDate) : null,
+    priority: payload.priority || 'NORMAL',
+    reason: payload.reason || null,
+    source: payload.source || 'MANUAL',
+    status: payload.status || 'SUBMITTED',
+    notes: payload.notes || null,
+    createdBy: payload.userId ?? null
+  }));
+  const detailRepo = manager.getRepository('PurchaseRequestDetail');
+  const rows = (payload.details || []).map(detail => detailRepo.create({
+    requestId: saved.id,
+    branchId: payload.branchId,
+    medicineId: detail.medicineId,
+    unitOfMeasureId: detail.unitOfMeasureId ?? null,
+    currentStock: detail.currentStock ?? 0,
+    availableStock: detail.availableStock ?? 0,
+    minimumStock: detail.minimumStock ?? 0,
+    maximumStock: detail.maximumStock ?? 0,
+    averageConsumption: detail.averageConsumption ?? 0,
+    suggestedQuantity: detail.suggestedQuantity ?? detail.requestedQuantity,
+    requestedQuantity: detail.requestedQuantity ?? detail.quantity
+  }));
+  if (rows.length) await detailRepo.save(rows);
+  return saved.id;
+});
+
+export const listPurchaseRequests = async () => AppDataSource.getRepository('PurchaseRequest')
+  .createQueryBuilder('item')
+  .leftJoin('item.branch', 'branch').addSelect(['branch.id', 'branch.name'])
+  .orderBy('item.createdAt', 'DESC')
+  .getMany();
+
+export const checkNetworkAvailability = async (medicineId, targetBranchId, requestedQuantity) => {
+  const runner = AppDataSource.createQueryRunner();
+  runner.__branchRlsApplied = true;
+  await runner.connect();
+  try {
+    await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch); END;', [null]);
+    const targetRows = await runner.query('SELECT ID, NAME, LATITUDE, LONGITUDE FROM TB_BRANCH WHERE ID = :branchId', [targetBranchId]);
+    const target = targetRows?.[0] ?? {};
+    const rows = await runner.query(`
+      SELECT
+        I.BRANCH_ID,
+        B.NAME BRANCH_NAME,
+        B.ADDRESS,
+        B.LATITUDE,
+        B.LONGITUDE,
+        I.STOCK_AVAILABLE,
+        I.RESERVE,
+        I.STOCK_MIN,
+        (I.STOCK_AVAILABLE - I.RESERVE - I.STOCK_MIN) TRANSFERABLE
+      FROM TB_INVENTORY I
+      INNER JOIN TB_BRANCH B ON B.ID = I.BRANCH_ID
+      WHERE I.MEDICINE_ID = :medicineId
+        AND I.BRANCH_ID <> :targetBranchId
+        AND B.STATUS = 'E'
+        AND (I.STOCK_AVAILABLE - I.RESERVE - I.STOCK_MIN) > 0
+    `, [medicineId, targetBranchId]);
+
+    const distanceKm = row => {
+      const lat1 = Number(target.LATITUDE ?? target.latitude);
+      const lon1 = Number(target.LONGITUDE ?? target.longitude);
+      const lat2 = Number(row.LATITUDE ?? row.latitude);
+      const lon2 = Number(row.LONGITUDE ?? row.longitude);
+      if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return null;
+      const toRad = value => value * Math.PI / 180;
+      const r = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return Math.round((r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))) * 10) / 10;
+    };
+
+    let pending = Number(requestedQuantity ?? 0);
+    const suggestions = rows.map(row => ({
+      branchId: Number(row.BRANCH_ID ?? row.branch_id),
+      branchName: row.BRANCH_NAME ?? row.branch_name,
+      address: row.ADDRESS ?? row.address ?? null,
+      stockAvailable: Number(row.STOCK_AVAILABLE ?? row.stock_available ?? 0),
+      reserve: Number(row.RESERVE ?? row.reserve ?? 0),
+      stockMin: Number(row.STOCK_MIN ?? row.stock_min ?? 0),
+      transferable: Number(row.TRANSFERABLE ?? row.transferable ?? 0),
+      distanceKm: distanceKm(row)
+    })).sort((a, b) => (a.distanceKm ?? 999999) - (b.distanceKm ?? 999999) || b.transferable - a.transferable).map(row => {
+      const suggested = Math.min(row.transferable, pending);
+      pending -= suggested;
+      return { ...row, suggested };
+    }).filter(row => row.suggested > 0);
+
+    return { canTransfer: pending <= 0, requestedQuantity: Number(requestedQuantity ?? 0), pendingExternalPurchase: Math.max(0, pending), targetBranch: { id: targetBranchId, name: target.NAME ?? target.name ?? null }, suggestions };
+  } finally {
+    await runner.release();
+  }
+};
+
+export const approvePurchase = async (id, { approvedBy = null, comments = null } = {}) => {
+  await purchases().update(id, { status: 'APPROVED', approvedBy, approvedAt: new Date(), notes: comments ?? undefined });
+};
+
+export const createPurchaseOrder = async payload => AppDataSource.transaction(async manager => {
+  const purchaseRepo = manager.getRepository('Purchase');
+  const subtotal = Number(payload.subtotal ?? (payload.details || []).reduce((sum, detail) => sum + (Number(detail.quantityOrdered ?? detail.quantity ?? 0) * Number(detail.unitPrice ?? 0)), 0));
+  const total = Number(payload.total ?? subtotal - Number(payload.discount ?? 0) + Number(payload.tax ?? 0) + Number(payload.shippingCost ?? 0) + Number(payload.otherCharges ?? 0));
+  const saved = await purchaseRepo.save(purchaseRepo.create({
+    supplierId: payload.supplierId,
+    branchId: payload.branchId,
+    warehouseId: payload.warehouseId ?? payload.branchId,
+    purchaseRequestId: payload.purchaseRequestId ?? null,
+    quotationId: payload.quotationId ?? null,
+    purchaseNumber: payload.purchaseNumber || nextNumber('PO'),
+    purchaseDate: payload.purchaseDate ? new Date(payload.purchaseDate) : new Date(),
+    expectedDeliveryDate: payload.expectedDeliveryDate ? new Date(payload.expectedDeliveryDate) : null,
+    invoiceNumber: payload.invoiceNumber ?? null,
+    currencyId: payload.currencyId ?? null,
+    exchangeRate: payload.exchangeRate ?? 1,
+    subtotal,
+    discount: payload.discount ?? 0,
+    tax: payload.tax ?? 0,
+    shippingCost: payload.shippingCost ?? 0,
+    otherCharges: payload.otherCharges ?? 0,
+    total,
+    deliveryTerms: payload.deliveryTerms ?? null,
+    status: payload.status || 'PENDING_APPROVAL',
+    notes: payload.notes ?? null,
+    createdBy: payload.userId ?? null
+  }));
+  const detailRepo = manager.getRepository('PurchaseDetail');
+  const rows = (payload.details || []).map(detail => {
+    const quantity = Number(detail.quantityOrdered ?? detail.quantity ?? 0);
+    const lineSubtotal = Number(detail.subtotal ?? quantity * Number(detail.unitPrice ?? 0));
+    return detailRepo.create({
+      purchaseId: saved.id,
+      medicineId: detail.medicineId,
+      quantity,
+      quantityOrdered: quantity,
+      quantityReceived: 0,
+      quantityPending: quantity,
+      quantityRejected: 0,
+      unitOfMeasureId: detail.unitOfMeasureId ?? null,
+      unitPrice: detail.unitPrice ?? 0,
+      discountPercentage: detail.discountPercentage ?? 0,
+      discountAmount: detail.discountAmount ?? 0,
+      taxPercentage: detail.taxPercentage ?? 0,
+      taxAmount: detail.taxAmount ?? 0,
+      subtotal: lineSubtotal,
+      total: detail.total ?? lineSubtotal,
+      expectedDeliveryDate: detail.expectedDeliveryDate ? new Date(detail.expectedDeliveryDate) : null,
+      status: 'ORDERED'
+    });
+  });
+  if (rows.length) await detailRepo.save(rows);
+  return saved.id;
+});
+
+export const receivePurchase = async payload => AppDataSource.transaction(async manager => {
+  const receiptRepo = manager.getRepository('PurchaseReceipt');
+  const receipt = await receiptRepo.save(receiptRepo.create({
+    receiptNumber: payload.receiptNumber || nextNumber('REC'),
+    purchaseId: payload.purchaseId,
+    branchId: payload.branchId ?? null,
+    warehouseId: payload.warehouseId ?? null,
+    receivedAt: payload.receivedAt ? new Date(payload.receivedAt) : new Date(),
+    receivedBy: payload.receivedBy ?? payload.userId ?? null,
+    verifiedBy: payload.verifiedBy ?? null,
+    supplierDeliveryDocument: payload.supplierDeliveryDocument ?? null,
+    status: payload.status || 'RECEIVED',
+    notes: payload.notes ?? null
+  }));
+  const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
+  receipt.branchId = purchase?.branchId ?? payload.branchId ?? null;
+  await receiptRepo.save(receipt);
+  const detailRepo = manager.getRepository('PurchaseDetail');
+  const inventoryRepo = manager.getRepository('Inventory');
+  const receiptDetailRepo = manager.getRepository('PurchaseReceiptDetail');
+
+  for (const detail of payload.details || []) {
+    const purchaseDetail = await detailRepo.findOneBy({ id: detail.purchaseDetailId });
+    if (!purchaseDetail) throw new BusinessRuleError('El detalle de orden indicado no existe.');
+    const accepted = Number(detail.quantityAccepted ?? 0);
+    const rejected = Number(detail.quantityRejected ?? 0);
+    const received = Number(detail.quantityReceived ?? accepted + rejected);
+    const nextReceived = Number(purchaseDetail.quantityReceived ?? 0) + accepted;
+    if (nextReceived > Number(purchaseDetail.quantityOrdered ?? purchaseDetail.quantity ?? 0)) throw new BusinessRuleError('La recepcion supera la cantidad ordenada.');
+    await receiptDetailRepo.save(receiptDetailRepo.create({ ...detail, receiptId: receipt.id, branchId: purchase.branchId, medicineId: purchaseDetail.medicineId, quantityReceived: received, quantityAccepted: accepted, quantityRejected: rejected }));
+    purchaseDetail.quantityReceived = nextReceived;
+    purchaseDetail.quantityRejected = Number(purchaseDetail.quantityRejected ?? 0) + rejected;
+    purchaseDetail.quantityPending = Math.max(0, Number(purchaseDetail.quantityOrdered ?? purchaseDetail.quantity ?? 0) - nextReceived);
+    purchaseDetail.status = purchaseDetail.quantityPending > 0 ? 'PARTIALLY_RECEIVED' : 'RECEIVED';
+    await detailRepo.save(purchaseDetail);
+    if (accepted > 0) {
+      let stock = await inventoryRepo.findOneBy({ medicineId: purchaseDetail.medicineId, branchId: purchase.branchId });
+      if (!stock) stock = inventoryRepo.create({ medicineId: purchaseDetail.medicineId, branchId: purchase.branchId, stockAvailable: 0, reserve: 0, stockMin: 0, stockMax: 0 });
+      stock.stockAvailable = Number(stock.stockAvailable ?? 0) + accepted;
+      await inventoryRepo.save(stock);
+      await addLotStock(manager, { branchId: purchase.branchId, medicineId: purchaseDetail.medicineId, lotNumber: detail.batchNumber, expirationDate: detail.expirationDate, quantity: accepted, userId: payload.userId ?? null });
+      await registerKardex(manager, { branchId: purchase.branchId, medicineId: purchaseDetail.medicineId, movementType: 'PURCHASE_RECEIPT', quantityIn: accepted, balanceAfter: Number(stock.stockAvailable ?? 0), unitCost: purchaseDetail.unitPrice, referenceType: 'PURCHASE_RECEIPT', referenceId: receipt.id });
+    }
+  }
+  const allDetails = await detailRepo.findBy({ purchaseId: payload.purchaseId });
+  const pending = allDetails.reduce((sum, item) => sum + Number(item.quantityPending ?? Math.max(0, Number(item.quantity ?? 0) - Number(item.quantityReceived ?? 0))), 0);
+  await manager.getRepository('Purchase').update(payload.purchaseId, { status: pending > 0 ? 'PARTIALLY_RECEIVED' : 'RECEIVED' });
+  return receipt.id;
+});
+
+export const registerSupplierInvoice = async payload => AppDataSource.transaction(async manager => {
+  const invoiceRepo = manager.getRepository('SupplierInvoice');
+  const detailsRows = await manager.getRepository('PurchaseDetail').findBy({ purchaseId: payload.purchaseId });
+  const orderTotal = detailsRows.reduce((sum, detail) => sum + Number(detail.total ?? detail.subtotal ?? 0), 0);
+  const receivedTotal = detailsRows.reduce((sum, detail) => sum + (Number(detail.quantityReceived ?? 0) * Number(detail.unitPrice ?? 0)), 0);
+  const tolerance = Number(payload.tolerance ?? 0.01);
+  const invoiceTotal = Number(payload.total ?? 0);
+  const matchingStatus = Math.abs(invoiceTotal - orderTotal) <= tolerance && invoiceTotal <= receivedTotal + tolerance ? 'MATCHED' : 'DISCREPANCY';
+  const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
+  const saved = await invoiceRepo.save(invoiceRepo.create({ ...payload, branchId: purchase?.branchId ?? payload.branchId ?? null, invoiceDate: payload.invoiceDate ? new Date(payload.invoiceDate) : new Date(), dueDate: payload.dueDate ? new Date(payload.dueDate) : null, matchingStatus, status: matchingStatus === 'MATCHED' ? 'APPROVED' : 'PENDING_APPROVAL' }));
+  await manager.getRepository('Purchase').update(payload.purchaseId, { status: matchingStatus === 'MATCHED' ? 'INVOICED' : 'DISCREPANCY' });
+  return saved.id;
+});
+
+export const createSupplierReturn = async payload => AppDataSource.transaction(async manager => {
+  const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
+  const saved = await manager.getRepository('PurchaseReturn').save({ ...payload, branchId: purchase?.branchId ?? payload.branchId ?? null });
+  const stock = await manager.getRepository('Inventory').findOneBy({ branchId: purchase.branchId, medicineId: payload.medicineId });
+  if (stock) {
+    stock.stockAvailable = Math.max(0, Number(stock.stockAvailable ?? 0) - Number(payload.quantity ?? 0));
+    await manager.getRepository('Inventory').save(stock);
+    await registerKardex(manager, { branchId: purchase.branchId, medicineId: payload.medicineId, movementType: 'SUPPLIER_RETURN', quantityOut: payload.quantity, balanceAfter: Number(stock.stockAvailable ?? 0), referenceType: 'PURCHASE_RETURN', referenceId: saved.id, reason: payload.reason });
+  }
+  return saved.id;
+});
+
+export const purchaseDashboard = async () => {
+  const purchaseRepo = purchases();
+  const [pendingOrders, partialReceipts, discrepancies, quarantined] = await Promise.all([
+    purchaseRepo.countBy({ status: 'PENDING_APPROVAL' }),
+    purchaseRepo.countBy({ status: 'PARTIALLY_RECEIVED' }),
+    purchaseRepo.countBy({ status: 'DISCREPANCY' }),
+    AppDataSource.getRepository('PurchaseReceiptDetail').countBy({ qualityStatus: 'QUARANTINE' })
+  ]);
+  return { pendingOrders, partialReceipts, discrepancies, quarantined };
+};

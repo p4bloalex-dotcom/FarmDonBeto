@@ -1,22 +1,6 @@
 import { getRequestContext } from '../utils/request-context.js';
 import { cacheService } from '../services/cache.service.js';
-
-const TENANT_TABLES = [
-  'TB_INVENTORY',
-  'TB_SALE',
-  'TB_PURCHASE',
-  'TB_EMPLOYEE',
-  'TB_CASH_REGISTER',
-  'TB_CASH_SESSION',
-  'TB_CASH_MOVEMENT',
-  'TB_MOVE_INVENTORY',
-  'TB_DELIVERY_REQUEST',
-  'TB_DELIVERY_REQUEST_DETAIL',
-  'TB_FIXED_ASSET',
-  'TB_CUSTOMER_ORDER',
-  'TB_CUSTOMER_ORDER_DETAIL',
-  'TB_BRANCH'
-];
+import { TENANT_TABLES } from '../tenant/tenant-tables.js';
 
 const CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch); END;';
 

@@ -16,6 +16,10 @@ const schema = Joi.object({
   ORACLE_USER: Joi.string().required(),
   ORACLE_PASSWORD: Joi.string().required(),
   ORACLE_CONNECT_STRING: Joi.string().required(),
+  ORACLE_ADMIN_USER: Joi.string().allow('').optional(),
+  ORACLE_ADMIN_PASSWORD: Joi.string().allow('').optional(),
+  ORACLE_ADMIN_CONNECT_STRING: Joi.string().allow('').optional(),
+  ORACLE_ADMIN_SYSDBA: Joi.boolean().truthy('true').falsy('false').default(false),
   ORACLE_POOL_MIN: Joi.number().integer().min(0).default(1),
   ORACLE_POOL_MAX: Joi.number().integer().min(1).default(10),
   ORACLE_POOL_INCREMENT: Joi.number().integer().min(1).default(1),
@@ -57,6 +61,10 @@ export const env = {
     user: value.ORACLE_USER,
     password: value.ORACLE_PASSWORD,
     connectString: value.ORACLE_CONNECT_STRING,
+    adminUser: value.ORACLE_ADMIN_USER || value.ORACLE_USER,
+    adminPassword: value.ORACLE_ADMIN_PASSWORD || value.ORACLE_PASSWORD,
+    adminConnectString: value.ORACLE_ADMIN_CONNECT_STRING || value.ORACLE_CONNECT_STRING,
+    adminSysdba: value.ORACLE_ADMIN_SYSDBA,
     poolMin: value.ORACLE_POOL_MIN,
     poolMax: value.ORACLE_POOL_MAX,
     poolIncrement: value.ORACLE_POOL_INCREMENT
@@ -90,7 +98,7 @@ export const env = {
     secure: value.SMTP_SECURE,
     user: value.SMTP_USER,
     password: value.SMTP_PASSWORD,
-    from: value.MAIL_FROM || value.SMTP_USER
+    from: value.MAIL_FROM,
   },
   logLevel: value.LOG_LEVEL
 };

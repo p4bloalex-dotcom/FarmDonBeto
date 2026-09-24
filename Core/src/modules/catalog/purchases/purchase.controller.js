@@ -3,15 +3,24 @@ import { badRequest, conflict, created, notFound, ok } from '../../../utils/api-
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
 import {
   BusinessRuleError,
+  approvePurchase,
+  checkNetworkAvailability,
+  createPurchaseOrder,
+  createPurchaseRequest,
   createPurchaseWithDetails,
+  createSupplierReturn,
   deletePurchaseWithDetails,
   findOpenSessionByBranch,
   findPurchaseByInvoice,
   findPurchaseById,
   hasCashMovement,
   listPurchaseDetails,
+  listPurchaseRequests,
   listPurchases,
   paginatePurchases,
+  purchaseDashboard,
+  receivePurchase,
+  registerSupplierInvoice,
   updatePurchaseWithDetails
 } from './purchase.repository.js';
 
@@ -187,3 +196,65 @@ export const removePurchase = async (req, res) => {
     throw error;
   }
 };
+
+const bodyWithUser = req => ({ ...req.body, userId: req.user?.id ?? req.user?.userId ?? null });
+
+export const addPurchaseRequest = async (req, res) => {
+  if (!req.body.branchId || !Array.isArray(req.body.details) || req.body.details.length === 0) return badRequest(res, 'La solicitud requiere sucursal y al menos un producto.');
+  try {
+    const id = await createPurchaseRequest(bodyWithUser(req));
+    return created(res, { id }, 'Solicitud de compra registrada.');
+  } catch (error) {
+    if (String(error.message).includes('ORA-00904')) return badRequest(res, 'La base de datos no tiene aplicada la ultima migracion del modulo de compras. Ejecute npm run migration:run en Core.');
+    throw error;
+  }
+};
+
+export const getPurchaseRequests = async (_req, res) => ok(res, await listPurchaseRequests());
+
+export const getNetworkAvailability = async (req, res) => {
+  const medicineId = Number(req.query.medicineId ?? req.query.medicine_id);
+  const branchId = Number(req.query.branchId ?? req.query.branch_id);
+  const quantity = Number(req.query.quantity ?? 0);
+  if (!medicineId || !branchId || quantity <= 0) return badRequest(res, 'medicineId, branchId y quantity son requeridos.');
+  return ok(res, await checkNetworkAvailability(medicineId, branchId, quantity));
+};
+
+export const addPurchaseOrder = async (req, res) => {
+  if (!req.body.supplierId || !req.body.branchId || !Array.isArray(req.body.details) || req.body.details.length === 0) return badRequest(res, 'La orden requiere proveedor, destino y al menos un producto.');
+  const id = await createPurchaseOrder(bodyWithUser(req));
+  return created(res, { id }, 'Orden de compra generada sin afectar inventario.');
+};
+
+export const approvePurchaseOrder = async (req, res) => {
+  const id = Number(req.params.id);
+  const purchase = await findPurchaseById(id);
+  if (!purchase) return notFound(res);
+  await approvePurchase(id, { approvedBy: req.user?.id ?? req.user?.userId ?? null, comments: req.body?.comments ?? null });
+  return ok(res, { id }, 'Orden aprobada.');
+};
+
+export const addPurchaseReceipt = async (req, res) => {
+  if (!req.body.purchaseId || !Array.isArray(req.body.details) || req.body.details.length === 0) return badRequest(res, 'La recepcion requiere orden y detalle.');
+  try {
+    const id = await receivePurchase(bodyWithUser(req));
+    return created(res, { id }, 'Recepcion registrada. Solo cantidades aceptadas ingresaron al inventario.');
+  } catch (error) {
+    if (error instanceof BusinessRuleError) return badRequest(res, error.message);
+    throw error;
+  }
+};
+
+export const addSupplierInvoice = async (req, res) => {
+  if (!req.body.supplierId || !req.body.purchaseId || !req.body.invoiceNumber) return badRequest(res, 'La factura requiere proveedor, orden y numero de factura.');
+  const id = await registerSupplierInvoice(bodyWithUser(req));
+  return created(res, { id }, 'Factura registrada y conciliada contra orden/recepcion.');
+};
+
+export const addPurchaseReturn = async (req, res) => {
+  if (!req.body.supplierId || !req.body.purchaseId || !req.body.medicineId || !req.body.quantity || !req.body.reason) return badRequest(res, 'La devolucion requiere proveedor, compra, producto, cantidad y motivo.');
+  const id = await createSupplierReturn(bodyWithUser(req));
+  return created(res, { id }, 'Devolucion a proveedor registrada.');
+};
+
+export const getPurchaseDashboard = async (_req, res) => ok(res, await purchaseDashboard());

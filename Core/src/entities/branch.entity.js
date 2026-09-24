@@ -13,7 +13,7 @@ export const BranchEntity = new EntitySchema({
     idDepartment: { name: 'ID_DEPARTMENT', type: Number, nullable: true },
     idMunicipality: { name: 'ID_MUNICIPALITY', type: Number, nullable: true },
     companyId: { name: 'COMPANY_ID', type: Number, nullable: true },
-    status: { name: 'STATUS', type: String, length: 2, default: 'E' },
+    status: { name: 'STATUS', type: String, length: 1, default: 'E' },
     isMain: { name: 'IS_MAIN', type: Number, default: 0 },
     latitude: { name: 'LATITUDE', type: 'decimal', precision: 10, scale: 7, nullable: true },
     longitude: { name: 'LONGITUDE', type: 'decimal', precision: 10, scale: 7, nullable: true },

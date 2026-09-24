@@ -15,6 +15,140 @@
             </button>
         </div>
     </div>
+    <div class="grid gap-4 border-b bg-slate-50 p-4 dark:bg-slate-900 md:grid-cols-4 md:px-8">
+        <div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
+            <div class="text-sm text-secondary">Pendientes aprobacion</div>
+            <div class="text-3xl font-bold">{{ dashboard.pendingOrders || 0 }}</div>
+        </div>
+        <div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
+            <div class="text-sm text-secondary">Recepciones parciales</div>
+            <div class="text-3xl font-bold">{{ dashboard.partialReceipts || 0 }}</div>
+        </div>
+        <div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
+            <div class="text-sm text-secondary">Discrepancias factura</div>
+            <div class="text-3xl font-bold">{{ dashboard.discrepancies || 0 }}</div>
+        </div>
+        <div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
+            <div class="text-sm text-secondary">Cuarentena</div>
+            <div class="text-3xl font-bold">{{ dashboard.quarantined || 0 }}</div>
+        </div>
+    </div>
+    <div class="border-b bg-white p-4 md:px-8 dark:bg-transparent">
+        <div class="mb-4 flex flex-col gap-1">
+            <div class="text-xl font-bold">Centro de compras</div>
+            <div class="text-sm text-secondary">Siga el flujo normal: necesidad, orden, recepcion, factura y devolucion. El sistema mantiene trazabilidad e inventario.</div>
+        </div>
+        <div class="grid gap-3 md:grid-cols-5">
+            @for (action of flowActions; track action.value) {
+                <button type="button" class="purchase-step" [class.purchase-step-active]="flowAction === action.value" (click)="selectFlowAction(action.value)">
+                    <mat-icon [svgIcon]="action.icon"></mat-icon>
+                    <span class="font-semibold">{{ action.label }}</span>
+                    <small>{{ action.description }}</small>
+                </button>
+            }
+        </div>
+        <div class="mt-4 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <div class="rounded-3xl border bg-slate-50 p-5 dark:bg-slate-900">
+                <div class="mb-4 flex items-start gap-3">
+                    <div class="rounded-2xl bg-primary-100 p-3 text-primary-700 dark:bg-primary-900 dark:text-primary-200">
+                        <mat-icon [svgIcon]="selectedFlow.icon"></mat-icon>
+                    </div>
+                    <div>
+                        <div class="text-lg font-bold">{{ selectedFlow.label }}</div>
+                        <div class="text-sm text-secondary">{{ flowHelp[flowAction] }}</div>
+                    </div>
+                </div>
+
+                @if (flowAction === 'requests') {
+                    <div class="mb-4 rounded-2xl bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100">
+                        Primero revise la red. Si una sucursal cercana tiene excedente, use transferencia interna; si no alcanza, cree la solicitud de compra.
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-3">
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select [(ngModel)]="networkQuery.medicineId">@for (medicine of medicines; track medicine.id) { <mat-option [value]="medicine.id">{{ medicine.name }}</mat-option> }</mat-select></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal que necesita</mat-label><mat-select [(ngModel)]="networkQuery.branchId">@for (branch of branches; track branch.id) { <mat-option [value]="branch.id">{{ branch.name }}</mat-option> }</mat-select></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Cantidad necesaria</mat-label><input matInput type="number" [(ngModel)]="networkQuery.quantity" /></mat-form-field>
+                    </div>
+                    <button class="mb-4" mat-stroked-button color="primary" (click)="runNetworkCheck()">Revisar sucursales con stock</button>
+                }
+
+                <div class="grid gap-3 sm:grid-cols-2">
+                @if (flowAction !== 'receipts') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal destino</mat-label><mat-select [(ngModel)]="flowForm.branchId">@for (branch of branches; track branch.id) { <mat-option [value]="branch.id">{{ branch.name }}</mat-option> }</mat-select></mat-form-field>
+                }
+                @if (flowAction === 'orders' || flowAction === 'invoices' || flowAction === 'returns') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Proveedor</mat-label><mat-select [(ngModel)]="flowForm.supplierId">@for (supplier of suppliers; track supplier.id) { <mat-option [value]="supplier.id">{{ supplier.name }}</mat-option> }</mat-select></mat-form-field>
+                }
+                @if (flowAction === 'invoices' || flowAction === 'receipts' || flowAction === 'returns') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Orden de compra ID</mat-label><input matInput type="number" [(ngModel)]="flowForm.purchaseId" /></mat-form-field>
+                }
+                @if (flowAction === 'receipts') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Linea de orden ID</mat-label><input matInput type="number" [(ngModel)]="flowForm.purchaseDetailId" /></mat-form-field>
+                }
+                @if (flowAction === 'requests' || flowAction === 'orders' || flowAction === 'returns') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select [(ngModel)]="flowForm.medicineId">@for (medicine of medicines; track medicine.id) { <mat-option [value]="medicine.id">{{ medicine.name }}</mat-option> }</mat-select></mat-form-field>
+                }
+                @if (flowAction !== 'invoices') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Cantidad</mat-label><input matInput type="number" [(ngModel)]="flowForm.quantity" /></mat-form-field>
+                }
+                @if (flowAction === 'orders' || flowAction === 'invoices') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Precio unitario</mat-label><input matInput type="number" [(ngModel)]="flowForm.unitPrice" /></mat-form-field>
+                }
+                @if (flowAction === 'receipts' || flowAction === 'returns') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Lote</mat-label><input matInput [(ngModel)]="flowForm.batchNumber" /></mat-form-field>
+                }
+                @if (flowAction === 'receipts') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Vencimiento</mat-label><input matInput type="date" [(ngModel)]="flowForm.expirationDate" /></mat-form-field>
+                }
+                @if (flowAction === 'invoices') {
+                    <mat-form-field class="fuse-mat-dense"><mat-label>No. factura</mat-label><input matInput [(ngModel)]="flowForm.invoiceNumber" /></mat-form-field>
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Total factura</mat-label><input matInput type="number" [(ngModel)]="flowForm.total" /></mat-form-field>
+                }
+                @if (flowAction === 'requests' || flowAction === 'returns') {
+                    <mat-form-field class="fuse-mat-dense sm:col-span-2"><mat-label>Motivo</mat-label><input matInput [(ngModel)]="flowForm.reason" /></mat-form-field>
+                }
+            </div>
+            <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button mat-flat-button color="primary" (click)="submitFlow()">Guardar {{ selectedFlow.label | lowercase }}</button>
+                <span class="text-sm text-secondary">Se registrara con usuario, fecha y sucursal para auditoria.</span>
+            </div>
+            </div>
+
+            <div class="rounded-3xl border p-5">
+                <div class="mb-3 text-lg font-bold">Resultado recomendado</div>
+                @if (flowAction !== 'requests') {
+                    <div class="rounded-2xl bg-slate-100 p-4 text-sm text-secondary dark:bg-slate-800">Complete el formulario de la izquierda. Esta accion no requiere revisar sucursales.</div>
+                }
+                @if (flowAction === 'requests' && !networkResult) {
+                    <div class="rounded-2xl bg-slate-100 p-4 text-sm text-secondary dark:bg-slate-800">Seleccione medicamento, sucursal y cantidad para ver si hay stock en otras sucursales.</div>
+                }
+                @if (flowAction === 'requests' && networkResult) {
+                    <div class="mb-3 rounded-2xl p-4" [class.bg-green-50]="networkResult.canTransfer" [class.text-green-900]="networkResult.canTransfer" [class.bg-amber-50]="!networkResult.canTransfer" [class.text-amber-900]="!networkResult.canTransfer">
+                        <div class="font-bold">{{ networkResult.canTransfer ? 'Cubrir con transferencia interna' : 'Transferir parcialmente y comprar faltante' }}</div>
+                        <div class="text-sm">Pendiente para compra externa: {{ networkResult.pendingExternalPurchase }}</div>
+                    </div>
+                    <div class="grid gap-2">
+                        @for (branch of networkResult.suggestions; track branch.branchId) {
+                            <div class="rounded-2xl border p-3">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div class="font-semibold">{{ branch.branchName }}</div>
+                                        <div class="text-sm text-secondary">{{ branch.address || 'Sin direccion registrada' }}</div>
+                                    </div>
+                                    <div class="rounded-full bg-primary-50 px-3 py-1 text-sm font-semibold text-primary-700">{{ branch.suggested }} sugerido</div>
+                                </div>
+                                <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-secondary">
+                                    <div>Transferible: {{ branch.transferable }}</div>
+                                    <div>Distancia: {{ branch.distanceKm !== null ? (branch.distanceKm + ' km') : 'sin coordenadas' }}</div>
+                                    <div>Disponible: {{ branch.stockAvailable }}</div>
+                                    <div>Minimo/Reserva: {{ branch.stockMin }} / {{ branch.reserve }}</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
     <div class="flex flex-auto overflow-auto">
         <div class="flex min-w-full flex-auto flex-col overflow-auto sm:mb-18">
             <app-table

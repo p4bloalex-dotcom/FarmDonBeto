@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSortModule } from '@angular/material/sort';
 import { HotToastService } from '@fuse/components/hot-toast';
 import { TableAction, TableColumn } from '@fuse/components/table/table-column.model';
@@ -21,7 +22,7 @@ import { PurchaseFormDialogComponent } from './purchase-form-dialog/purchase-for
   selector: 'app-purchase',
 imports: [
       CommonModule, FormsModule, ReactiveFormsModule,
-      MatProgressBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule, MatSortModule,
+      MatProgressBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule, MatSortModule, MatSelectModule,
       TableComponent
     ],
   templateUrl: './purchase.component.html',
@@ -36,10 +37,48 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   totalItems = 0;
   service = 'Purchase';
   isLoading = false;
+  dashboard: any = {};
+  flowAction = 'requests';
+  branches: any[] = [];
+  medicines: any[] = [];
+  suppliers: any[] = [];
+  flowForm: any = {
+    branchId: null,
+    supplierId: null,
+    purchaseId: null,
+    purchaseDetailId: null,
+    medicineId: null,
+    quantity: 1,
+    unitPrice: 0,
+    invoiceNumber: '',
+    reason: 'Reposicion de stock',
+    batchNumber: '',
+    expirationDate: null,
+    qualityStatus: 'AVAILABLE'
+  };
+  networkQuery: any = { medicineId: null, branchId: null, quantity: null };
+  networkResult: any = null;
+
+  flowActions = [
+    { value: 'requests', label: 'Necesito abastecer', description: 'El sistema revisa si conviene transferir desde otra sucursal o pedir compra.', icon: 'heroicons_outline:clipboard-document-list' },
+    { value: 'orders', label: 'Crear orden', description: 'Formaliza una compra a proveedor sin mover inventario todavia.', icon: 'heroicons_outline:shopping-cart' },
+    { value: 'receipts', label: 'Recibir mercaderia', description: 'Registra lotes, vencimientos y solo suma lo aceptado al inventario.', icon: 'heroicons_outline:archive-box-arrow-down' },
+    { value: 'invoices', label: 'Registrar factura', description: 'Compara factura contra orden y recepcion.', icon: 'heroicons_outline:document-currency-dollar' },
+    { value: 'returns', label: 'Devolver proveedor', description: 'Registra producto rechazado o no conforme.', icon: 'heroicons_outline:arrow-uturn-left' }
+  ];
+
+  flowHelp: Record<string, string> = {
+    requests: 'Use este paso cuando una sucursal necesita producto. Primero revise si otra sucursal puede cubrirlo; si no, se crea la solicitud de compra.',
+    orders: 'Use este paso cuando compras ya eligio proveedor y quiere emitir la orden. La orden no aumenta inventario.',
+    receipts: 'Use este paso cuando llega el producto fisicamente. Solo la cantidad aceptada entra al inventario disponible.',
+    invoices: 'Use este paso cuando llega la factura del proveedor. El sistema marca coincidencia o discrepancia.',
+    returns: 'Use este paso para devolver producto rechazado, danado, vencido o no conforme al proveedor.'
+  };
 
   actions: TableAction[] = [
     { action: 'view', label: 'Ver detalle', icon: 'feather:eye' },
     { action: 'edit', label: 'Editar', icon: 'feather:edit' },
+    { action: 'approve', label: 'Aprobar orden', icon: 'heroicons_outline:check-circle' },
     { action: 'delete', label: 'Eliminar', icon: 'delete_forever' }
   ];
 
@@ -61,6 +100,8 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit(): void {
+    this.loadCombos();
+    this.loadDashboard();
     this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
     this.searchInputControl.valueChanges
       .pipe(takeUntil(this._unsubscribeAll), startWith(''), debounceTime(300), distinctUntilChanged())
@@ -68,6 +109,115 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         const text = searchText?.toLowerCase() || '';
         this.pagedData = this.filteredData.filter(item => JSON.stringify(item).toLowerCase().includes(text));
       });
+  }
+
+  loadCombos(): void {
+    this._generalApi.comboList(['Branch', 'Medicine', 'Supplier']).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: ([branches, medicines, suppliers]: any[]) => {
+        this.branches = branches ?? [];
+        this.medicines = medicines ?? [];
+        this.suppliers = suppliers ?? [];
+      },
+      error: () => this._toast.error('No se pudieron cargar sucursales, medicamentos o proveedores.')
+    });
+  }
+
+  loadDashboard(): void {
+    this._generalApi.getPurchaseDashboard().pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => { if (resp.success) this.dashboard = resp.data ?? {}; },
+      error: () => { this.dashboard = {}; }
+    });
+  }
+
+  runNetworkCheck(): void {
+    if (!this.networkQuery.medicineId || !this.networkQuery.branchId || !this.networkQuery.quantity) {
+      this._toast.error('Seleccione medicamento, sucursal y cantidad para revisar la red.');
+      return;
+    }
+    this.isLoading = true;
+    this._generalApi.getPurchaseNetworkAvailability(this.networkQuery).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => {
+        this.networkResult = resp.success ? resp.data : null;
+        this.finishLoad(resp.success ? undefined : (resp.error?.detail ?? 'No se pudo verificar disponibilidad.'));
+      },
+      error: () => this.finishLoad('Error inesperado al verificar inventario de red.')
+    });
+  }
+
+  selectFlowAction(action: string): void {
+    this.flowAction = action;
+    this.networkResult = null;
+  }
+
+  get selectedFlow(): any {
+    return this.flowActions.find(action => action.value === this.flowAction) ?? this.flowActions[0];
+  }
+
+  submitFlow(): void {
+    const payload = this.buildFlowPayload();
+    if (!payload) return;
+    this.isLoading = true;
+    this._generalApi.postPurchaseFlow(this.flowAction, payload).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => {
+        if (!resp.success) {
+          this.finishLoad(resp.error?.detail ?? 'No se pudo completar la operacion.');
+          return;
+        }
+        this._toast.success(resp.message ?? 'Operacion registrada.');
+        this.loadDashboard();
+        this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
+      },
+      error: () => this.finishLoad('Error inesperado al ejecutar el flujo de compras.')
+    });
+  }
+
+  private buildFlowPayload(): any {
+    const form = this.flowForm;
+    const quantity = Number(form.quantity ?? 0);
+    const unitPrice = Number(form.unitPrice ?? 0);
+    if (this.flowAction === 'requests') {
+      if (!form.branchId || !form.medicineId || quantity <= 0) return this.invalidFlow('Seleccione sucursal, medicamento y cantidad.');
+      return { branchId: form.branchId, priority: form.priority ?? 'NORMAL', reason: form.reason, details: [{ medicineId: form.medicineId, requestedQuantity: quantity }] };
+    }
+    if (this.flowAction === 'orders') {
+      if (!form.branchId || !form.supplierId || !form.medicineId || quantity <= 0) return this.invalidFlow('Seleccione sucursal, proveedor, medicamento y cantidad.');
+      return { branchId: form.branchId, supplierId: form.supplierId, details: [{ medicineId: form.medicineId, quantityOrdered: quantity, unitPrice }] };
+    }
+    if (this.flowAction === 'receipts') {
+      if (!form.purchaseId || !form.purchaseDetailId || quantity <= 0) return this.invalidFlow('Ingrese orden, linea de orden y cantidad aceptada.');
+      return { purchaseId: form.purchaseId, details: [{ purchaseDetailId: form.purchaseDetailId, quantityReceived: quantity, quantityAccepted: quantity, quantityRejected: Number(form.quantityRejected ?? 0), batchNumber: form.batchNumber || null, expirationDate: form.expirationDate || null, qualityStatus: form.qualityStatus || 'AVAILABLE' }] };
+    }
+    if (this.flowAction === 'invoices') {
+      if (!form.purchaseId || !form.supplierId || !form.invoiceNumber) return this.invalidFlow('Ingrese orden, proveedor y numero de factura.');
+      const subtotal = quantity * unitPrice;
+      return { purchaseId: form.purchaseId, supplierId: form.supplierId, invoiceNumber: form.invoiceNumber, invoiceDate: new Date(), subtotal, tax: Number(form.tax ?? 0), discount: Number(form.discount ?? 0), total: Number(form.total ?? subtotal) };
+    }
+    if (this.flowAction === 'returns') {
+      if (!form.purchaseId || !form.supplierId || !form.medicineId || quantity <= 0 || !form.reason) return this.invalidFlow('Ingrese proveedor, compra, medicamento, cantidad y motivo.');
+      return { purchaseId: form.purchaseId, supplierId: form.supplierId, medicineId: form.medicineId, quantity, batchNumber: form.batchNumber || null, reason: form.reason };
+    }
+    return null;
+  }
+
+  private invalidFlow(message: string): null {
+    this._toast.error(message);
+    return null;
+  }
+
+  approveSelected(row: any): void {
+    this.isLoading = true;
+    this._generalApi.approvePurchaseOrder(row.id, 'Aprobado desde modulo de compras').pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => {
+        if (resp.success) {
+          this._toast.success('Orden aprobada.');
+          this.loadDashboard();
+          this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
+        } else {
+          this.finishLoad(resp.error?.detail ?? 'No se pudo aprobar la orden.');
+        }
+      },
+      error: () => this.finishLoad('Error inesperado al aprobar la orden.')
+    });
   }
 
   ngOnDestroy(): void {
@@ -130,6 +280,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   handleRowAction(event: { action: string; row: any }): void {
     if (event.action === 'view') this.openPurchaseDialog(event.row, 7);
     if (event.action === 'edit') this.openPurchaseDialog(event.row, 2);
+    if (event.action === 'approve') this.approveSelected(event.row);
     if (event.action === 'delete') this.deletePurchase(event.row.id);
   }
 

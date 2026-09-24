@@ -20,6 +20,8 @@ export const UserEntity = new EntitySchema({
     updatedBy: { name: 'UPDATED_BY', type: Number, nullable: true }
   },
   relations: {
-    role: { type: 'many-to-one', target: 'Role', joinColumn: { name: 'ID_ROLE' } }
+    role: { type: 'many-to-one', target: 'Role', joinColumn: { name: 'ID_ROLE' } },
+    employee: { type: 'one-to-one', target: 'Employee', joinColumn: { name: 'ID_PERSONAL' } }
+
   }
 });
