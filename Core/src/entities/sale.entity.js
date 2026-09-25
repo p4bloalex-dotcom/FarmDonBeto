@@ -28,6 +28,12 @@ export const SaleEntity = new EntitySchema({
 
     paymentMethod: { name: 'PAYMENT_METHOD', type: String, length: 30 },
 
+    cashSessionId: { name: 'CASH_SESSION_ID', type: Number, nullable: true },
+
+    felStatus: { name: 'FEL_STATUS', type: String, length: 20, default: 'PENDING' },
+
+    originalOrderId: { name: 'ORIGINAL_ORDER_ID', type: Number, nullable: true },
+
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
 
     updatedAt: { name: 'UPDATED_AT', type: 'timestamp', updateDate: true, nullable: true },

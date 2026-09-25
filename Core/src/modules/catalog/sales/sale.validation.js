@@ -17,6 +17,29 @@ const detailSchema = Joi.object({
   };
 });
 
+const paymentSchema = Joi.object({
+  method: Joi.string().trim().max(30).required(),
+  amount: Joi.number().precision(2).min(0.01).required(),
+  receivedAmount: Joi.number().precision(2).min(0),
+  received_amount: Joi.number().precision(2).min(0),
+  cardBrand: Joi.string().trim().max(30).allow(null, ''),
+  card_brand: Joi.string().trim().max(30).allow(null, ''),
+  cardLast4: Joi.string().trim().pattern(/^\d{4}$/).allow(null, ''),
+  card_last4: Joi.string().trim().pattern(/^\d{4}$/).allow(null, ''),
+  authorizationCode: Joi.string().trim().max(60).allow(null, ''),
+  authorization_code: Joi.string().trim().max(60).allow(null, '')
+}).custom(value => {
+  const receivedAmount = value.receivedAmount ?? value.received_amount;
+  return {
+    method: value.method,
+    amount: Number(value.amount),
+    receivedAmount: receivedAmount == null ? null : Number(receivedAmount),
+    cardBrand: value.cardBrand ?? value.card_brand ?? null,
+    cardLast4: value.cardLast4 ?? value.card_last4 ?? null,
+    authorizationCode: value.authorizationCode ?? value.authorization_code ?? null
+  };
+});
+
 export const saleSchema = Joi.object({
   branchId: Joi.number().integer(),
   branch_id: Joi.number().integer(),
@@ -28,6 +51,7 @@ export const saleSchema = Joi.object({
   paymentMethod: Joi.string().trim().max(30).required(),
   tax: Joi.number().precision(2).min(0),
   taxRate: Joi.number().precision(2).min(0).max(100),
+  payments: Joi.array().items(paymentSchema).min(1),
   details: Joi.array().items(detailSchema).min(1).required()
 }).custom((value, helpers) => {
   const branchId = value.branchId ?? value.branch_id;
@@ -45,6 +69,7 @@ export const saleSchema = Joi.object({
     paymentMethod: value.paymentMethod,
     tax: value.tax,
     taxRate: value.taxRate ?? 0,
+    payments: value.payments,
     details: value.details
   };
 });

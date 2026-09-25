@@ -3,11 +3,11 @@ import { getPagination, paginationMeta } from '../../../utils/pagination.js';
 import { findSessionById } from './cash-session.repository.js';
 import {
   createMovement,
-  deleteMovement,
   findActiveMovementType,
   findMovementById,
   listMovementsBySession,
   paginateMovements,
+  reverseMovement,
   updateMovement
 } from './cash-movement.repository.js';
 
@@ -41,6 +41,7 @@ const buildMovementData = (session, body) => ({
   description: body.description || null,
   referenceId: body.referenceId || null,
   referenceType: body.referenceType || null,
+  authorizedBy: body.authorizedBy ?? null,
   movementDate: body.movementDate ?? new Date(),
   status: 'E'
 });
@@ -121,6 +122,10 @@ export const removeMovement = async (req, res) => {
     return conflict(res, reason === 'not_found' ? 'La sesion de caja no existe.' : 'No se puede eliminar un movimiento de una sesion cerrada.');
   }
 
-  const deleted = await deleteMovement(id);
-  return deleted ? ok(res, null, 'Movimiento eliminado correctamente.') : notFound(res);
+  if (existing.reversalOfId) {
+    return conflict(res, 'No se puede reversar un movimiento que ya es reverso.');
+  }
+
+  const reversed = await reverseMovement(existing, req.user?.id ?? null);
+  return reversed ? ok(res, reversed, 'Movimiento reversado correctamente.') : conflict(res, 'No existe un tipo de movimiento activo para registrar el reverso.');
 };

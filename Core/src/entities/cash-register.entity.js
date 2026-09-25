@@ -16,6 +16,8 @@ export const CashRegisterEntity = new EntitySchema({
 
     code: { name: 'CODE', type: String, length: 30, unique: true },
 
+    cashLimit: { name: 'CASH_LIMIT', type: 'decimal', precision: 12, scale: 2, nullable: true },
+
     status: { name: 'STATUS', type: String, length: 2, default: 'E' },
 
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },

@@ -87,19 +87,29 @@ export const closeSession = async (req, res) => {
     return conflict(res, 'La sesion no esta abierta.');
   }
 
-  const { closingAmount, closingDate } = req.body;
+  const { closingAmount, closingDate, countedBreakdown, differenceExplanation, authorizedBy } = req.body;
   if (new Date(closingDate).getTime() < new Date(session.openingDate).getTime()) {
     return badRequest(res, 'La fecha de cierre no puede ser anterior a la apertura.');
   }
 
   const { expectedAmount } = await buildBalance(session);
   const differenceAmount = Number(closingAmount) - expectedAmount;
+  const absoluteDifference = Math.abs(differenceAmount);
+  if (absoluteDifference > 50 && !authorizedBy) {
+    return badRequest(res, 'La diferencia supera la tolerancia permitida y requiere autorizacion.');
+  }
+  if (absoluteDifference > 5 && !differenceExplanation) {
+    return badRequest(res, 'La diferencia requiere explicacion.');
+  }
 
   const updated = await updateSession(id, {
     closingAmount,
     closingDate,
     expectedAmount,
     differenceAmount,
+    countedBreakdown: countedBreakdown ? JSON.stringify(countedBreakdown) : null,
+    differenceExplanation: differenceExplanation || null,
+    authorizedBy: authorizedBy ?? null,
     status: 'C'
   });
 

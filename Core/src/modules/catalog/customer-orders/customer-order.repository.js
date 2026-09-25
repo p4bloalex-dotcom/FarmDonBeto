@@ -228,10 +228,14 @@ export const updateOrderStatus = async (order, status, userId = null) => AppData
       tax: 0,
       total: Number(order.total ?? 0),
       paymentMethod: order.paymentMethod,
+      cashSessionId: session.id,
+      felStatus: 'PENDING',
+      originalOrderId: order.id,
       status: 'E',
       createdBy: userId
     }));
     await manager.getRepository('SaleDetail').save(rows.map(item => manager.getRepository('SaleDetail').create({ saleId: sale.id, medicineId: item.medicineId, quantity: Number(item.quantity ?? 0), unitPrice: Number(item.unitPrice ?? 0), total: Number(item.subtotal ?? 0), status: 'E', createdBy: userId })));
+    await manager.getRepository('SalePayment').save(manager.getRepository('SalePayment').create({ saleId: sale.id, branchId: order.branchId, method: order.paymentMethod, amount: Number(order.total ?? 0), status: 'E', createdBy: userId }));
     const movementType = await manager.getRepository('CashMovementType').findOneBy({ code: 'SALE', status: 'E' });
     if (!movementType) throw new BusinessRuleError('No existe el tipo de movimiento de caja SALE.');
     await manager.getRepository('CashMovement').save(manager.getRepository('CashMovement').create({ cashSessionId: session.id, branchId: order.branchId, movementTypeId: movementType.id, amount: Number(order.total ?? 0), description: `Orden entregada #${order.id}`, referenceId: sale.id, referenceType: 'CUSTOMER_ORDER', movementDate: new Date(), status: 'E', createdBy: userId }));

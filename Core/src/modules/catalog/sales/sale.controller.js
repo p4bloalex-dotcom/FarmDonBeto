@@ -13,6 +13,19 @@ const validateSale = async payload => {
   const session = await AppDataSource.getRepository('CashSession').findOneBy({ id: payload.cashSessionId, branchId: payload.branchId, status: 'A' });
   if (!session) return 'Debe seleccionar una sesion de caja abierta para la sucursal.';
   if (new Date(payload.saleDate).getTime() < new Date(session.openingDate).getTime()) return 'La fecha de venta no puede ser anterior a la apertura de caja.';
+  const cashRegister = await AppDataSource.getRepository('CashRegister').findOneBy({ id: session.cashRegisterId });
+  if (cashRegister?.cashLimit) {
+    const raw = await AppDataSource.getRepository('CashMovement').createQueryBuilder('m')
+      .leftJoin('m.cashMovementType', 't')
+      .select('COALESCE(SUM(CASE WHEN t.operation = :income THEN m.amount ELSE -m.amount END), 0)', 'balance')
+      .where('m.cashSessionId = :sessionId', { sessionId: session.id })
+      .andWhere('m.status = :status', { status: 'E' })
+      .setParameter('income', 'I')
+      .getRawOne();
+    const currentCash = Number(session.openingAmount ?? 0) + Number(raw?.balance ?? 0);
+    const saleCash = (payload.payments ?? [{ method: payload.paymentMethod, amount: 0 }]).filter(payment => String(payment.method).toUpperCase() === 'CASH').reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+    if (currentCash + saleCash > Number(cashRegister.cashLimit)) return 'La caja supera el limite de efectivo permitido. Registre un retiro a boveda antes de continuar.';
+  }
   return null;
 };
 

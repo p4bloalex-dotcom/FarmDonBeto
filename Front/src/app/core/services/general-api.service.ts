@@ -100,6 +100,14 @@ getList(endpoint: string) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/dashboard/summary`);
   }
 
+  getCashAdvanced(path: string) {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/cash-advanced/${path}`);
+  }
+
+  postCashAdvanced(path: string, data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/cash-advanced/${path}`, data);
+  }
+
   addInventoryAdjustment(data: any) {
     return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/adjustments`, data);
   }
@@ -342,6 +350,7 @@ Supplier: 'catalog/suppliers',
       CashRegister: 'catalog/cash-registers',
       CashSession: 'catalog/cash-sessions',
       CashMovement: 'catalog/cash-movements',
+      CashAdvanced: 'catalog/cash-advanced',
       Purchase: 'catalog/purchases',
       StockTransfer: 'catalog/stock-transfers',
       DeliveryRequest: 'catalog/delivery-requests',

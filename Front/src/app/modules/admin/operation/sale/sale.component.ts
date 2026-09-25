@@ -50,20 +50,25 @@ export class SaleComponent implements OnInit, OnDestroy {
       employeeId: ['', Validators.required],
       cashSessionId: ['', Validators.required],
       paymentMethod: ['CASH', Validators.required],
+      payments: this._fb.array([]),
       taxRate: [0, [Validators.required, Validators.min(0)]],
       details: this._fb.array([])
     });
     this.addItem();
+    this.addPayment();
     this.loadCatalogs();
     this.loadSales();
   }
 
   ngOnDestroy(): void { this._unsubscribeAll.next(null); this._unsubscribeAll.complete(); }
   get details(): UntypedFormArray { return this.form.get('details') as UntypedFormArray; }
+  get payments(): UntypedFormArray { return this.form.get('payments') as UntypedFormArray; }
   get openSessions(): any[] { return this.sessions.filter(item => item.status === 'A' && item.branchId === this.form.value.branchId); }
 
   addItem(): void { this.details.push(this._fb.group({ medicineId: ['', Validators.required], quantity: [1, [Validators.required, Validators.min(0.01)]], unitPrice: [null] })); }
   removeItem(index: number): void { if (this.details.length > 1) this.details.removeAt(index); }
+  addPayment(): void { this.payments.push(this._fb.group({ method: ['CASH', Validators.required], amount: [0, [Validators.required, Validators.min(0.01)]], receivedAmount: [null], cardBrand: [''], cardLast4: [''], authorizationCode: [''] })); }
+  removePayment(index: number): void { if (this.payments.length > 1) this.payments.removeAt(index); }
 
   loadCatalogs(): void {
     this._api.comboList(['Medicine', 'Branch', 'Personal']).pipe(takeUntil(this._unsubscribeAll)).subscribe({
@@ -97,7 +102,9 @@ export class SaleComponent implements OnInit, OnDestroy {
         this._toast.success('Venta registrada.');
         this.form.reset({ paymentMethod: 'CASH', taxRate: 0 });
         this.details.clear();
+        this.payments.clear();
         this.addItem();
+        this.addPayment();
         this.loadSales();
       },
       error: () => { this.isLoading = false; this._toast.error('Error inesperado al registrar venta.'); }

@@ -24,6 +24,15 @@
     <div class="flex flex-auto overflow-hidden">
         <div class="flex w-full flex-auto flex-col gap-6 overflow-y-auto p-6">
             @if (openSession) {
+                @if (alerts.length) {
+                    <div class="grid gap-3 md:grid-cols-2">
+                        @for (alert of alerts; track $index) {
+                            <div class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+                                {{ alert.message }}
+                            </div>
+                        }
+                    </div>
+                }
                 <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     <div class="rounded-2xl border bg-card p-4 shadow-sm">
                         <div class="text-sm font-medium text-secondary">Monto inicial</div>
@@ -90,6 +99,19 @@
             }
 
             <div>
+                @if (centralDashboard?.branches?.length) {
+                    <div class="mb-3 text-xl font-semibold">Dashboard central</div>
+                    <div class="mb-6 grid gap-3 md:grid-cols-3">
+                        @for (branch of centralDashboard.branches; track branch.branchId) {
+                            <div class="rounded-2xl border bg-card p-4 shadow-sm">
+                                <div class="font-semibold">{{ branch.branchName }}</div>
+                                <div class="mt-2 text-sm text-secondary">Cajas abiertas: {{ branch.openSessions }}</div>
+                                <div class="text-sm text-secondary">Efectivo esperado: Q {{ branch.expectedCash | number: '1.2-2' }}</div>
+                                <div class="text-sm text-secondary">Retiros: Q {{ branch.withdrawals | number: '1.2-2' }}</div>
+                            </div>
+                        }
+                    </div>
+                }
                 <div class="mb-3 text-xl font-semibold">Cierres anteriores</div>
                 <app-table
                     [columns]="historyColumns"

@@ -19,6 +19,8 @@ const toDto = item => ({
   description: item.description ?? null,
   referenceId: item.referenceId ?? null,
   referenceType: item.referenceType ?? null,
+  authorizedBy: item.authorizedBy ?? null,
+  reversalOfId: item.reversalOfId ?? null,
   movementDate: item.movementDate,
   status: item.status
 });
@@ -42,7 +44,27 @@ export const createMovement = async data => {
 
 export const updateMovement = async (id, data) => (await movements().update(id, data)).affected > 0;
 
-export const deleteMovement = async id => (await movements().delete(id)).affected > 0;
+export const reverseMovement = async (movement, userId = null) => {
+  const movementTypeRepository = AppDataSource.getRepository('CashMovementType');
+  const currentType = await movementTypeRepository.findOneBy({ id: movement.movementTypeId });
+  const reverseOperation = currentType?.operation === 'I' ? 'E' : 'I';
+  const reverseType = await movementTypeRepository.findOneBy({ code: 'REVERSAL', operation: reverseOperation, status: 'E' })
+    ?? await movementTypeRepository.findOneBy({ operation: reverseOperation, status: 'E' });
+  if (!reverseType) return null;
+  return createMovement({
+    cashSessionId: movement.cashSessionId,
+    branchId: movement.branchId,
+    movementTypeId: reverseType.id,
+    amount: movement.amount,
+    description: `Reverso de movimiento #${movement.id}`,
+    referenceId: movement.id,
+    referenceType: 'CASH_MOVEMENT_REVERSAL',
+    reversalOfId: movement.id,
+    movementDate: new Date(),
+    status: 'E',
+    createdBy: userId
+  });
+};
 
 export const listMovementsBySession = async sessionId => {
   const rows = await queryBase().where('item.cashSessionId = :sessionId', { sessionId }).orderBy('item.movementDate', 'DESC').getMany();

@@ -14,6 +14,14 @@
             <mat-label>Monto contado</mat-label>
             <input matInput type="number" min="0" step="0.01" formControlName="closingAmount" />
         </mat-form-field>
+        <div class="mb-4 grid grid-cols-3 gap-2">
+            <mat-form-field><mat-label>Q100</mat-label><input matInput type="number" min="0" formControlName="q100" /></mat-form-field>
+            <mat-form-field><mat-label>Q50</mat-label><input matInput type="number" min="0" formControlName="q50" /></mat-form-field>
+            <mat-form-field><mat-label>Q20</mat-label><input matInput type="number" min="0" formControlName="q20" /></mat-form-field>
+            <mat-form-field><mat-label>Q10</mat-label><input matInput type="number" min="0" formControlName="q10" /></mat-form-field>
+            <mat-form-field><mat-label>Q5</mat-label><input matInput type="number" min="0" formControlName="q5" /></mat-form-field>
+            <mat-form-field><mat-label>Q1</mat-label><input matInput type="number" min="0" formControlName="q1" /></mat-form-field>
+        </div>
         <div class="rounded-xl border bg-card p-4" [class.border-t]="false">
             <div class="flex items-center justify-between text-sm text-secondary">
                 <span>Diferencia</span>
@@ -22,6 +30,10 @@
                 </span>
             </div>
         </div>
+        <mat-form-field class="mt-4 w-full">
+            <mat-label>Explicacion de diferencia</mat-label>
+            <textarea matInput rows="3" formControlName="differenceExplanation"></textarea>
+        </mat-form-field>
         <div class="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button mat-flat-button matDialogClose (click)="close()">Cancelar</button>
             <button mat-flat-button color="primary" [disabled]="dataForm.invalid" (click)="save()">Cerrar caja</button>

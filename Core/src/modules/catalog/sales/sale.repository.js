@@ -23,6 +23,8 @@ const toDto = item => ({
   tax: Number(item.tax ?? 0),
   total: Number(item.total ?? 0),
   paymentMethod: item.paymentMethod,
+  cashSessionId: item.cashSessionId ?? null,
+  felStatus: item.felStatus ?? 'PENDING',
   status: item.status,
   itemsCount: Number(item.itemsCount ?? 0)
 });
@@ -83,16 +85,43 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
 
   const subtotal = Math.round(normalized.reduce((sum, item) => sum + item.total, 0) * 100) / 100;
   const tax = header.tax == null ? Math.round(subtotal * (Number(header.taxRate ?? 0) / 100) * 100) / 100 : Number(header.tax);
+  const total = Math.round((subtotal + tax) * 100) / 100;
+  const rawPayments = header.payments?.length ? header.payments : [{ method: header.paymentMethod, amount: total }];
+  const paymentTotal = Math.round(rawPayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0) * 100) / 100;
+  if (paymentTotal !== total) throw new BusinessRuleError('La suma de pagos debe coincidir con el total de la venta.');
+
   const sale = await manager.getRepository('Sale').save(manager.getRepository('Sale').create({
     branchId: header.branchId,
     employeeId: header.employeeId,
+    cashSessionId: header.cashSessionId,
     saleDate: header.saleDate,
     subtotal,
     tax,
-    total: subtotal + tax,
-    paymentMethod: header.paymentMethod,
+    total,
+    paymentMethod: rawPayments.length > 1 ? 'MIXED' : rawPayments[0].method,
+    felStatus: 'PENDING',
     status: 'E',
     createdBy: userId
+  }));
+
+  await manager.getRepository('SalePayment').save(rawPayments.map(payment => {
+    const method = String(payment.method).toUpperCase();
+    const receivedAmount = payment.receivedAmount == null ? null : Number(payment.receivedAmount);
+    const amount = Number(payment.amount);
+    if (method === 'CASH' && receivedAmount != null && receivedAmount < amount) throw new BusinessRuleError('El efectivo recibido no puede ser menor al monto cobrado.');
+    return manager.getRepository('SalePayment').create({
+      saleId: sale.id,
+      branchId: header.branchId,
+      method,
+      amount,
+      receivedAmount,
+      changeAmount: method === 'CASH' && receivedAmount != null ? Math.round((receivedAmount - amount) * 100) / 100 : null,
+      cardBrand: payment.cardBrand || null,
+      cardLast4: payment.cardLast4 || null,
+      authorizationCode: payment.authorizationCode || null,
+      status: 'E',
+      createdBy: userId
+    });
   }));
 
   await manager.getRepository('SaleDetail').save(normalized.map(item => manager.getRepository('SaleDetail').create({ medicineId: item.medicineId, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total, saleId: sale.id, status: 'E', createdBy: userId })));
@@ -103,11 +132,12 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
 
   const movementType = await manager.getRepository('CashMovementType').findOneBy({ code: 'SALE', status: 'E' });
   if (!movementType) throw new BusinessRuleError('No existe el tipo de movimiento de caja SALE.');
-  await manager.getRepository('CashMovement').save(manager.getRepository('CashMovement').create({
+  const cashAmount = Math.round(rawPayments.filter(payment => String(payment.method).toUpperCase() === 'CASH').reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0) * 100) / 100;
+  if (cashAmount > 0) await manager.getRepository('CashMovement').save(manager.getRepository('CashMovement').create({
     cashSessionId: header.cashSessionId,
     branchId: header.branchId,
     movementTypeId: movementType.id,
-    amount: subtotal + tax,
+    amount: cashAmount,
     description: `Venta presencial #${sale.id}`,
     referenceId: sale.id,
     referenceType: 'SALE',

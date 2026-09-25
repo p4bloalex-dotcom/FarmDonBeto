@@ -16,6 +16,9 @@ const toDto = item => ({
   closingAmount: item.closingAmount == null ? null : Number(item.closingAmount),
   expectedAmount: item.expectedAmount == null ? null : Number(item.expectedAmount),
   differenceAmount: item.differenceAmount == null ? null : Number(item.differenceAmount),
+  countedBreakdown: item.countedBreakdown ? JSON.parse(item.countedBreakdown) : null,
+  differenceExplanation: item.differenceExplanation ?? null,
+  authorizedBy: item.authorizedBy ?? null,
   status: item.status
 });
 

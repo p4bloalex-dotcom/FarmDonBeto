@@ -24,6 +24,10 @@ export const CashMovementEntity = new EntitySchema({
 
     referenceType: { name: 'REFERENCE_TYPE', type: String, length: 50, nullable: true },
 
+    authorizedBy: { name: 'AUTHORIZED_BY', type: Number, nullable: true },
+
+    reversalOfId: { name: 'REVERSAL_OF_ID', type: Number, nullable: true },
+
     movementDate: { name: 'MOVEMENT_DATE', type: 'timestamp' },
 
     status: { name: 'STATUS', type: String, length: 2, default: 'E' },

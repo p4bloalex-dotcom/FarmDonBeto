@@ -9,6 +9,7 @@ import { medicineCategoryRoutes, medicineLaboratoryRoutes, medicinePresentationR
 import { cashMovementRoutes } from '../modules/catalog/cash/cash-movement.routes.js';
 import { cashRegisterRoutes } from '../modules/catalog/cash/cash-register.routes.js';
 import { cashSessionRoutes } from '../modules/catalog/cash/cash-session.routes.js';
+import { cashAdvancedRoutes } from '../modules/catalog/cash/cash-advanced.routes.js';
 import { purchaseRoutes } from '../modules/catalog/purchases/purchase.routes.js';
 import { stockTransferRoutes } from '../modules/catalog/stock-transfers/stock-transfer.routes.js';
 import { deliveryRequestRoutes } from '../modules/catalog/delivery-requests/delivery-request.routes.js';
@@ -52,6 +53,7 @@ routes.use('/catalog/cash-movement-types', cashMovementTypeRoutes);
 routes.use('/catalog/cash-registers', cashRegisterRoutes);
 routes.use('/catalog/cash-sessions', cashSessionRoutes);
 routes.use('/catalog/cash-movements', cashMovementRoutes);
+routes.use('/catalog/cash-advanced', cashAdvancedRoutes);
 routes.use('/catalog/purchases', purchaseRoutes);
 routes.use('/catalog/stock-transfers', stockTransferRoutes);
 routes.use('/catalog/delivery-requests', deliveryRequestRoutes);

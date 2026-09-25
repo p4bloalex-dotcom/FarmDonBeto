@@ -31,6 +31,8 @@ export class CashFlowComponent implements OnInit, OnDestroy {
   openSession: any = null;
   movements: any[] = [];
   summary: any = { income: 0, expense: 0, expectedAmount: 0 };
+  centralDashboard: any = null;
+  alerts: any[] = [];
   closedSessions: any[] = [];
   movementTypes: any[] = [];
   isLoading = false;
@@ -43,7 +45,7 @@ export class CashFlowComponent implements OnInit, OnDestroy {
   ];
 
   movementActions: TableAction[] = [
-    { action: 'delete', label: 'Eliminar', icon: 'delete_forever' }
+    { action: 'delete', label: 'Reversar', icon: 'undo' }
   ];
 
   historyColumns: TableColumn[] = [
@@ -96,6 +98,7 @@ export class CashFlowComponent implements OnInit, OnDestroy {
     this._generalApi.getList('CashMovementType').pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         this.movementTypes = resp.success ? resp.data ?? [] : [];
+        this.loadAdvancedSummary();
         this.loadSessions();
       },
       error: () => this.finishLoad('Error inesperado al cargar los tipos de movimiento.')
@@ -118,6 +121,15 @@ export class CashFlowComponent implements OnInit, OnDestroy {
         this.applyRegisterContext();
       },
       error: () => this.finishLoad('Error inesperado al cargar las sesiones.')
+    });
+  }
+
+  loadAdvancedSummary(): void {
+    this._generalApi.getCashAdvanced('dashboard').pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => this.centralDashboard = resp.success ? resp.data : null
+    });
+    this._generalApi.getCashAdvanced('alerts').pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => this.alerts = resp.success ? resp.data ?? [] : []
     });
   }
 
@@ -237,7 +249,7 @@ export class CashFlowComponent implements OnInit, OnDestroy {
     this._generalApi.delete('CashMovement', id).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         if (resp.success) {
-          this._toast.success('Movimiento eliminado correctamente.');
+          this._toast.success('Movimiento reversado correctamente.');
           this.refreshSessionDetails();
         } else {
           this._toast.error(resp.error?.detail ?? 'No se pudo eliminar el movimiento.');
@@ -267,11 +279,12 @@ export class CashFlowComponent implements OnInit, OnDestroy {
     dialogRef.afterClosed().pipe(takeUntil(this._unsubscribeAll)).subscribe(payload => {
       if (!payload) return;
       this.isLoading = true;
-      this._generalApi.closeSession(this.openSession.id, { closingAmount: payload.closingAmount })
+      this._generalApi.closeSession(this.openSession.id, { closingAmount: payload.closingAmount, countedBreakdown: payload.countedBreakdown, differenceExplanation: payload.differenceExplanation })
         .pipe(takeUntil(this._unsubscribeAll)).subscribe({
           next: (resp: ApiResponse<any>) => {
             if (resp.success) {
               this._toast.success('Caja cerrada correctamente.');
+              this.loadAdvancedSummary();
               this.loadSessions();
             } else {
               this._toast.error(resp.error?.detail ?? 'No se pudo cerrar la caja.');

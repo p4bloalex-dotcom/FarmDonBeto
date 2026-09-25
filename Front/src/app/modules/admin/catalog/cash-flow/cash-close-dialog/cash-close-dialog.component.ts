@@ -25,16 +25,25 @@ export class CashCloseDialogComponent {
 
   ngOnInit(): void {
     this.dataForm = this._formBuilder.group({
-      closingAmount: ['', [Validators.required, Validators.min(0)]]
+      closingAmount: ['', [Validators.required, Validators.min(0)]],
+      differenceExplanation: [''],
+      q100: [0],
+      q50: [0],
+      q20: [0],
+      q10: [0],
+      q5: [0],
+      q1: [0]
     });
   }
 
   save(): void {
     if (this.dataForm.invalid) return;
-    const { closingAmount } = this.dataForm.getRawValue();
+    const { closingAmount, differenceExplanation, q100, q50, q20, q10, q5, q1 } = this.dataForm.getRawValue();
     this._matDialogRef.close({
       idAction: 3,
-      closingAmount: Math.max(Number(closingAmount) || 0, 0)
+      closingAmount: Math.max(Number(closingAmount) || 0, 0),
+      differenceExplanation,
+      countedBreakdown: { q100, q50, q20, q10, q5, q1 }
     });
   }
 

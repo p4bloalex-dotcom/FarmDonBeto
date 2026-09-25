@@ -26,6 +26,12 @@ export const CashSessionEntity = new EntitySchema({
 
     differenceAmount: { name: 'DIFFERENCE_AMOUNT', type: Number, nullable: true },
 
+    countedBreakdown: { name: 'COUNTED_BREAKDOWN', type: 'clob', nullable: true },
+
+    differenceExplanation: { name: 'DIFFERENCE_EXPLANATION', type: String, length: 500, nullable: true },
+
+    authorizedBy: { name: 'AUTHORIZED_BY', type: Number, nullable: true },
+
     status: { name: 'STATUS', type: String, length: 2, default: 'E' },
 
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },

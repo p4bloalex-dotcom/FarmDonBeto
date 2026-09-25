@@ -34,7 +34,13 @@ export const openSessionSchema = Joi.object({
 
 export const closeSessionSchema = Joi.object({
   closingDate: Joi.alternatives().try(Joi.date(), Joi.string()),
-  closingAmount: Joi.number().precision(2).min(0).required()
+  closingAmount: Joi.number().precision(2).min(0).required(),
+  countedBreakdown: Joi.object().unknown(true),
+  counted_breakdown: Joi.object().unknown(true),
+  differenceExplanation: Joi.string().trim().max(500).allow(null, ''),
+  difference_explanation: Joi.string().trim().max(500).allow(null, ''),
+  authorizedBy: Joi.number().integer().allow(null),
+  authorized_by: Joi.number().integer().allow(null)
 }).custom((value, helpers) => {
   const closingDate = parseDate(value.closingDate);
   if (closingDate === undefined) {
@@ -43,6 +49,9 @@ export const closeSessionSchema = Joi.object({
 
   return {
     closingAmount: value.closingAmount,
-    closingDate: closingDate ?? new Date()
+    closingDate: closingDate ?? new Date(),
+    countedBreakdown: value.countedBreakdown ?? value.counted_breakdown ?? null,
+    differenceExplanation: value.differenceExplanation ?? value.difference_explanation ?? null,
+    authorizedBy: value.authorizedBy ?? value.authorized_by ?? null
   };
 });

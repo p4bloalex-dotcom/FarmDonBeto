@@ -6,7 +6,7 @@ const parseDate = raw => {
   return isNaN(date.getTime()) ? undefined : date;
 };
 
-const referenceTypes = ['SALE', 'PURCHASE', 'SUPPLIER_PAYMENT', 'SESSION', 'OTHER'];
+const referenceTypes = ['SALE', 'PURCHASE', 'SUPPLIER_PAYMENT', 'SESSION', 'RETURN', 'VAULT_TRANSFER', 'CASH_MOVEMENT_REVERSAL', 'CUSTOMER_ORDER', 'OTHER'];
 
 export const cashMovementSchema = Joi.object({
   cashSessionId: Joi.number().integer(),
@@ -19,6 +19,8 @@ export const cashMovementSchema = Joi.object({
   description: Joi.string().max(255).allow(null, ''),
   referenceId: Joi.number().integer().allow(null, ''),
   referenceType: Joi.string().valid(...referenceTypes).allow(null, ''),
+  authorizedBy: Joi.number().integer().allow(null),
+  authorized_by: Joi.number().integer().allow(null),
   movementDate: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''),
   status: Joi.string().valid('E', 'D', 'I').default('E')
 }).custom((value, helpers) => {
@@ -41,6 +43,7 @@ export const cashMovementSchema = Joi.object({
     description: value.description || null,
     referenceId: value.referenceId || null,
     referenceType: value.referenceType || null,
+    authorizedBy: value.authorizedBy ?? value.authorized_by ?? null,
     movementDate: movementDate ?? new Date(),
     status: value.status ?? 'E'
   };
