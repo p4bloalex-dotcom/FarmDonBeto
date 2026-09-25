@@ -252,8 +252,10 @@ getList(endpoint: string) {
     if (endpoint === 'Role') {
       return forkJoin({
         role: this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`),
-        screens: this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/security/permissions/screens`)
-      }).pipe(map(({ role, screens }) => this.toRolePermissionTree(role, screens, id)));
+        screens: this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/security/permissions/screens`),
+        menus: this.getList('Menu'),
+        roleMenus: this.getRoleMenus(id)
+      }).pipe(map(({ role, screens, menus, roleMenus }) => this.toRolePermissionTree(role, screens, id, menus, roleMenus)));
     }
 
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`)
@@ -478,9 +480,26 @@ Supplier: 'catalog/suppliers',
     }));
   }
 
-  private toRolePermissionTree(roleResponse: ApiResponse<any>, screensResponse: ApiResponse<any>, roleId: number): ApiResponse<any> {
+  private toRolePermissionTree(
+    roleResponse: ApiResponse<any>,
+    screensResponse: ApiResponse<any>,
+    roleId: number,
+    menusResponse?: ApiResponse<any>,
+    roleMenusResponse?: ApiResponse<any>
+  ): ApiResponse<any> {
     const rolePermissions = roleResponse.data?.permissions ?? [];
-    const screens = screensResponse.data ?? [];
+    const menus = menusResponse?.data ?? [];
+    const assignedMenuIds = new Set(
+      (roleMenusResponse?.data ?? [])
+        .filter((item: any) => item.status === 'E')
+        .map((item: any) => item.idMenu)
+    );
+    const assignedMenuPaths = new Set(
+      menus
+        .filter((menu: any) => assignedMenuIds.has(menu.id) && menu.id_menu_father !== null)
+        .map((menu: any) => menu.path)
+    );
+    const screens = (screensResponse.data ?? []).filter((screen: any) => assignedMenuPaths.has(screen.routePath));
 
     const categories = screens.reduce((acc: any[], screen: any) => {
       let category = acc.find(item => item.nameMenu === screen.category);
