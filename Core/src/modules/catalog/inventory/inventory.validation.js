@@ -53,3 +53,23 @@ export const inventoryLotSchema = Joi.object({
   if (!branchId || !medicineId || !lotNumber || isNaN(expirationDate.getTime())) return helpers.error('any.required');
   return { branchId, medicineId, lotNumber, expirationDate, quantity: Number(value.quantity) };
 });
+
+export const inventoryReservationSchema = Joi.object({
+  branchId: Joi.number().integer(),
+  branch_id: Joi.number().integer(),
+  medicineId: Joi.number().integer(),
+  medicine_id: Joi.number().integer(),
+  customerOrderId: Joi.number().integer().allow(null),
+  customer_order_id: Joi.number().integer().allow(null),
+  quantity: Joi.number().precision(2).positive().required(),
+  expiresAt: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null),
+  expires_at: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null)
+}).custom((value, helpers) => {
+  const branchId = value.branchId ?? value.branch_id;
+  const medicineId = value.medicineId ?? value.medicine_id;
+  const customerOrderId = value.customerOrderId ?? value.customer_order_id ?? null;
+  const expiresAtValue = value.expiresAt ?? value.expires_at ?? null;
+  const expiresAt = expiresAtValue ? new Date(expiresAtValue) : null;
+  if (!branchId || !medicineId || (expiresAtValue && isNaN(expiresAt.getTime()))) return helpers.error('any.required');
+  return { branchId, medicineId, customerOrderId, quantity: Number(value.quantity), expiresAt };
+});

@@ -65,6 +65,7 @@ export class AuthResetPasswordComponent implements OnInit {
 ngOnInit(): void {
   this.resetPasswordForm = this._formBuilder.group(
     {
+      currentPassword: ['', Validators.required],
       password: [
         '',
         [
@@ -119,7 +120,10 @@ ngOnInit(): void {
         this.resetPasswordForm.disable();
 
         this._authService
-            .changePassword(this.resetPasswordForm.get('password').value, this.resetPasswordForm.get('passwordConfirm').value)
+            .changePassword(
+                this.resetPasswordForm.get('currentPassword').value,
+                this.resetPasswordForm.get('password').value
+            )
             .subscribe({
                 next: (response: ApiResponse<any>) => {
                     if (response.success) {

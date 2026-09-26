@@ -7,6 +7,7 @@ export const InventoryAdjustmentEntity = new EntitySchema({
     id: { name: 'ID', type: Number, primary: true, generated: 'increment' },
     branchId: { name: 'BRANCH_ID', type: Number },
     medicineId: { name: 'MEDICINE_ID', type: Number },
+    inventoryLotId: { name: 'INVENTORY_LOT_ID', type: Number, nullable: true },
     adjustmentDate: { name: 'ADJUSTMENT_DATE', type: 'timestamp' },
     quantityBefore: { name: 'QUANTITY_BEFORE', type: 'decimal', precision: 14, scale: 2, default: 0 },
     quantityAfter: { name: 'QUANTITY_AFTER', type: 'decimal', precision: 14, scale: 2, default: 0 },
@@ -17,6 +18,7 @@ export const InventoryAdjustmentEntity = new EntitySchema({
   },
   relations: {
     branch: { type: 'many-to-one', target: 'Branch', joinColumn: { name: 'BRANCH_ID' } },
-    medicine: { type: 'many-to-one', target: 'Medicine', joinColumn: { name: 'MEDICINE_ID' } }
+    medicine: { type: 'many-to-one', target: 'Medicine', joinColumn: { name: 'MEDICINE_ID' } },
+    inventoryLot: { type: 'many-to-one', target: 'InventoryLot', joinColumn: { name: 'INVENTORY_LOT_ID' } }
   }
 });

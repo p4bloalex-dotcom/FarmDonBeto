@@ -15,6 +15,7 @@ import { PayrollComponent } from "./payroll/payroll.component";
 export default [
     {path: '', pathMatch : 'full', redirectTo: 'cashsession'},
     {path     : 'cashsession',component: CashFlowComponent},
+    {path     : 'cash-advanced',component: CashFlowComponent},
     {path     : 'purchase',component: PurchaseComponent},
     {path     : 'stock-transfer',component: StockTransferComponent},
     {path     : 'delivery-request',component: DeliveryRequestComponent},

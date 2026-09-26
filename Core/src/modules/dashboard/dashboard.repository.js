@@ -148,17 +148,17 @@ const deliverySummary = async () => {
   return { pendingRequests, transfers };
 };
 
-const recentActivity = async () => (await AppDataSource.getRepository('AuditTrailLog').find({
-  order: { createdAt: 'DESC', id: 'DESC' },
-  take: 8
-})).map(item => ({
-  id: item.id,
-  tableName: item.tableName,
-  action: item.action,
-  recordId: item.recordId,
-  userId: item.userId,
-  createdAt: item.createdAt
-}));
+// const recentActivity = async () => (await AppDataSource.getRepository('AuditTrailLog').find({
+//   order: { createdAt: 'DESC', id: 'DESC' },
+//   take: 8
+// })).map(item => ({
+//   id: item.id,
+//   tableName: item.tableName,
+//   action: item.action,
+//   recordId: item.recordId,
+//   userId: item.userId,
+//   createdAt: item.createdAt
+// }));
 
 const branchHealth = async () => {
   const rows = await AppDataSource.getRepository('Branch').createQueryBuilder('b')
@@ -185,7 +185,7 @@ const branchHealth = async () => {
 };
 
 export const getDashboardSummary = async () => {
-  const [cash, orders, branches, assets, payroll, inventory, delivery, activity, branchStatus, executive] = await Promise.all([
+  const [cash, orders, branches, assets, payroll, inventory, delivery, branchStatus, executive] = await Promise.all([
     cashSummary(),
     orderSummary(),
     branchSummary(),
@@ -193,10 +193,9 @@ export const getDashboardSummary = async () => {
     payrollSummary(),
     criticalInventory(),
     deliverySummary(),
-    recentActivity(),
     branchHealth(),
     executiveSummary()
   ]);
 
-  return { cash, orders, branches, assets, payroll, inventory, delivery, activity, branchStatus, executive, generatedAt: new Date() };
+  return { cash, orders, branches, assets, payroll, inventory, delivery, branchStatus, executive, generatedAt: new Date() };
 };

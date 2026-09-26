@@ -2,6 +2,7 @@ import { AppDataSource } from '../../config/data-source.js';
 import { createAccessToken } from '../../services/token.service.js';
 import { createHashedPassword, verifyPassword } from '../../utils/password.js';
 import { badRequest, ok, unauthorized } from '../../utils/api-response.js';
+import { logger } from '../../utils/logger.js';
 import { findRoleName, findUserById, findUserByName, updateLastLogin, updatePassword } from './auth.repository.js';
 
 const buildUserResponse = async user => {
@@ -18,7 +19,18 @@ const buildUserResponse = async user => {
 export const login = async (req, res) => {
   const user = await findUserByName(req.body.userName);
 
-  if (!user || !verifyPassword(req.body.password, user.salt, user.password) || user.status !== 'E') {
+  if (!user) {
+    logger.warn({ userName: req.body.userName, reason: 'not_found' }, 'Login rejected');
+    return unauthorized(res, 'Usuario o contrasena incorrecta.');
+  }
+
+  if (user.status !== 'E') {
+    logger.warn({ userId: user.id, userName: user.name, status: user.status, reason: 'inactive' }, 'Login rejected');
+    return unauthorized(res, 'Usuario o contrasena incorrecta.');
+  }
+
+  if (!verifyPassword(req.body.password, user.salt, user.password)) {
+    logger.warn({ userId: user.id, userName: user.name, reason: 'password_mismatch' }, 'Login rejected');
     return unauthorized(res, 'Usuario o contrasena incorrecta.');
   }
 

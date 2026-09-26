@@ -89,7 +89,6 @@
                 <mat-form-field class="w-full">
                     <mat-label>Sucursal</mat-label>
                     <mat-select id="branch_id" [value]="" formControlName="branch_id">
-                        <mat-option [value]="null">Sin sucursal</mat-option>
                         @for (item of aData1; track $index) {
                         <mat-option [value]="item.id">{{item.name}}</mat-option>
                         }

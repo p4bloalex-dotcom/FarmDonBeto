@@ -89,7 +89,7 @@ export class PersonalDialogComponent {
 
       // Input Desabilitados
       this.dataForm.get('status').disable();
-      this.dataForm.get('branch_id').disable();
+      // this.dataForm.get('branch_id').disable();
       // Input Desabilitados
     }
     if (this._data.action == 3) {

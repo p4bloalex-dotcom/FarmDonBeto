@@ -101,9 +101,8 @@ export class AuthSignInComponent implements OnInit {
                 }
             },
             error: (error) => {
-                this._toast.error('Error inesperado. Intenta más tarde.');
+                this._toast.error(error?.error?.message ?? 'Error inesperado. Intenta más tarde.');
                 this.signInForm.enable();
-                this.signInNgForm.resetForm();
                 this.showAlert = true;
             }
         });

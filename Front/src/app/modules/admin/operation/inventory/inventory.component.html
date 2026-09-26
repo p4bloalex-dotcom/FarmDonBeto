@@ -10,6 +10,8 @@
         <div class="flex gap-2">
             <button mat-stroked-button type="button" (click)="loadLowStockAlerts()">Stock bajo</button>
             <button mat-stroked-button type="button" (click)="loadExpiringLots()">Por vencer</button>
+            <button mat-stroked-button type="button" (click)="loadAvailability()">ATP</button>
+            <button mat-stroked-button type="button" (click)="loadReplenishmentSuggestions()">Reabastecer</button>
         </div>
         <mat-form-field class="fuse-mat-dense fuse-mat-rounded w-full sm:max-w-80" [subscriptSizing]="'dynamic'">
             <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>

@@ -2,7 +2,7 @@ import { getRequestContext } from '../utils/request-context.js';
 import { cacheService } from '../services/cache.service.js';
 import { TENANT_TABLES } from '../tenant/tenant-tables.js';
 
-const CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch); END;';
+const CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain); END;';
 
 const CACHE_TTL_SECONDS = 60;
 const CACHE_PREFIX = 'branch-rls:';
@@ -45,7 +45,10 @@ const resolveBranchScope = dataSource => async () => {
   }
 
   store.__rlsResolved = true;
-  store.__rlsScope = isGlobal ? null : (user.branchId ?? null);
+  store.__rlsScope = {
+    branchId: isGlobal ? null : (user.branchId ?? null),
+    isMain: isGlobal || user.branchIsMain ? 1 : 0
+  };
   return store.__rlsScope;
 };
 
@@ -74,7 +77,8 @@ export const installBranchRls = dataSource => {
 
     if (this.isTransactionActive) {
       return (async () => {
-        await this.query(CONTEXT_CALL, [await branchScope()]);
+        const scope = await branchScope();
+        await this.query(CONTEXT_CALL, [scope?.branchId ?? null, scope?.isMain ?? 0]);
         return originalQuery.call(this, query, parameters, useStructuredResult);
       })();
     }
@@ -84,7 +88,7 @@ export const installBranchRls = dataSource => {
       fresh.__branchRlsApplied = true;
       try {
         const scope = await branchScope();
-        await fresh.query(CONTEXT_CALL, [await scope]);
+        await fresh.query(CONTEXT_CALL, [scope?.branchId ?? null, scope?.isMain ?? 0]);
         return await fresh.query(query, parameters, useStructuredResult);
       } finally {
         await fresh.release();

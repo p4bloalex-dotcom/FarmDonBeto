@@ -1,6 +1,7 @@
 import { created, notFound, ok } from '../../../utils/api-response.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
-import { createAdjustment, createLot, findInventoryById, inventoryAlerts, listInventory, listKardex, listLots, lowStockAlerts, paginateInventory, toInventoryDto, updateInventory } from './inventory.repository.js';
+import { badRequest } from '../../../utils/api-response.js';
+import { cancelReservation, createAdjustment, createLot, createReservation, findInventoryById, getAvailability, getReplenishmentSuggestions, inventoryAlerts, listInventory, listKardex, listLots, lowStockAlerts, paginateInventory, toInventoryDto, updateInventory } from './inventory.repository.js';
 
 export const getInventory = async (_req, res) => ok(res, await listInventory());
 
@@ -37,3 +38,21 @@ export const getLowStockAlerts = async (_req, res) => ok(res, await lowStockAler
 export const getInventoryAlerts = async (req, res) => ok(res, await inventoryAlerts(req.query));
 
 export const adjustInventory = async (req, res) => created(res, { id: await createAdjustment(req.body, req.user?.id ?? null) }, 'Ajuste registrado y auditado correctamente.');
+
+export const getInventoryAvailability = async (req, res) => ok(res, await getAvailability(req.query));
+
+export const addReservation = async (req, res) => {
+  try {
+    return created(res, { id: await createReservation(req.body, req.user?.id ?? null) }, 'Reserva registrada correctamente.');
+  } catch (error) {
+    return badRequest(res, error.message);
+  }
+};
+
+export const removeReservation = async (req, res) => {
+  const deleted = await cancelReservation(req.params.id, req.user?.id ?? null);
+  if (!deleted) return notFound(res);
+  return ok(res, null, 'Reserva cancelada correctamente.');
+};
+
+export const getReplenishment = async (req, res) => ok(res, await getReplenishmentSuggestions(req.query));

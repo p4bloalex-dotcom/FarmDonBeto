@@ -21,6 +21,7 @@ export const authenticate = async (req, res, next) => {
 
   let user = null;
   let branchId = null;
+  let branchIsMain = false;
   let companyId = null;
 
   try {
@@ -32,6 +33,10 @@ export const authenticate = async (req, res, next) => {
     if (user?.idPersonal) {
       const employee = await AppDataSource.getRepository('Employee').findOneBy({ id: user.idPersonal });
       branchId = employee?.branchId ?? null;
+      if (branchId) {
+        const branch = await AppDataSource.getRepository('Branch').findOneBy({ id: branchId });
+        branchIsMain = Number(branch?.isMain ?? 0) === 1;
+      }
     }
 
     companyId = user?.companyId ?? null;
@@ -40,7 +45,7 @@ export const authenticate = async (req, res, next) => {
     return next(error);
   }
 
-  req.user = { id: userId, role: user.idRole ?? payload.role ?? null, branchId, companyId };
+  req.user = { id: userId, role: user.idRole ?? payload.role ?? null, branchId, branchIsMain, companyId };
 
   return runWithRequestContext({ user: req.user }, () => next());
 };

@@ -39,6 +39,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
     { action: 'edit', label: 'Configurar', icon: 'feather:edit' },
     { action: 'kardex', label: 'Kardex', icon: 'heroicons_outline:document-chart-bar' },
     { action: 'lots', label: 'Lotes', icon: 'heroicons_outline:archive-box' },
+    { action: 'availability', label: 'ATP', icon: 'heroicons_outline:check-badge' },
+    { action: 'reserve', label: 'Reservar', icon: 'heroicons_outline:bookmark' },
     { action: 'adjust', label: 'Ajustar', icon: 'heroicons_outline:adjustments-horizontal' }
   ];
 
@@ -94,6 +96,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
     if (event.action === 'edit') this.openEditDialog(event.row);
     if (event.action === 'kardex') this.loadKardex(event.row);
     if (event.action === 'lots') this.loadLots(event.row);
+    if (event.action === 'availability') this.loadAvailability(event.row);
+    if (event.action === 'reserve') this.reserveStock(event.row);
     if (event.action === 'adjust') this.adjustStock(event.row);
   }
 
@@ -120,6 +124,53 @@ export class InventoryComponent implements OnInit, OnDestroy {
         this.detailRows = resp.data ?? [];
       },
       error: () => this.finishLoad('No se pudieron cargar lotes por vencer.')
+    });
+  }
+
+  loadAvailability(row?: any): void {
+    this.isLoading = true;
+    const filters = row ? { branchId: row.branchId, medicineId: row.medicineId } : {};
+    this._generalApi.getInventoryAvailability(filters).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        this.detailTitle = row ? `Disponible para prometer - ${row.medicineName}` : 'Disponible para prometer por sucursal';
+        this.detailColumns = [
+          { field: 'branchName', header: 'Sucursal', width: '1fr' },
+          { field: 'medicineName', header: 'Medicamento', width: '1.5fr' },
+          { field: 'available', header: 'Disponible', width: '100px' },
+          { field: 'reserved', header: 'Reservado', width: '100px' },
+          { field: 'availableToPromise', header: 'ATP', width: '100px' },
+          { field: 'inTransit', header: 'Transito', width: '100px' },
+          { field: 'quarantine', header: 'Cuarentena', width: '110px' }
+        ];
+        this.detailRows = resp.data ?? [];
+      },
+      error: () => this.finishLoad('No se pudo cargar disponibilidad.')
+    });
+  }
+
+  loadReplenishmentSuggestions(): void {
+    this.isLoading = true;
+    this._generalApi.getReplenishmentSuggestions().pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        this.detailTitle = 'Sugerencias de reabastecimiento';
+        this.detailColumns = [
+          { field: 'branchName', header: 'Sucursal', width: '1fr' },
+          { field: 'medicineName', header: 'Medicamento', width: '1.4fr' },
+          { field: 'currentAvailableToPromise', header: 'ATP actual', width: '100px' },
+          { field: 'reorderPoint', header: 'Reorden', width: '100px' },
+          { field: 'minimumStock', header: 'Minimo', width: '100px' },
+          { field: 'neededQuantity', header: 'Necesidad', width: '100px' },
+          { field: 'suggestionType', header: 'Accion', width: '120px' },
+          { field: 'sourceSummary', header: 'Origen sugerido', width: '1.4fr' }
+        ];
+        this.detailRows = (resp.data ?? []).map((item: any) => ({
+          ...item,
+          sourceSummary: item.transferSources?.length ? item.transferSources.map((source: any) => `${source.branchName}: ${Number(source.surplus ?? 0).toFixed(2)}`).join(', ') : 'Compra a proveedor'
+        }));
+      },
+      error: () => this.finishLoad('No se pudieron cargar sugerencias.')
     });
   }
 
@@ -170,6 +221,27 @@ export class InventoryComponent implements OnInit, OnDestroy {
     });
   }
 
+  reserveStock(row: any): void {
+    const rawQuantity = window.prompt(`Cantidad a reservar para ${row.medicineName}`);
+    if (rawQuantity === null) return;
+    const quantity = Number(rawQuantity);
+    if (!quantity || quantity <= 0) {
+      this._toast.error('La cantidad debe ser mayor a cero.');
+      return;
+    }
+    this._generalApi.createInventoryReservation({ branchId: row.branchId, medicineId: row.medicineId, quantity }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        if (!resp.success) {
+          this._toast.error(resp.error?.detail ?? 'No se pudo reservar inventario.');
+          return;
+        }
+        this._toast.success('Reserva registrada correctamente.');
+        this.loadAvailability(row);
+      },
+      error: () => this._toast.error('Error inesperado al reservar inventario.')
+    });
+  }
+
   openEditDialog(row: any): void {
     const dialogRef = this._matDialog.open(InventoryEditDialogComponent, { autoFocus: false, data: { row }, width: '520px', disableClose: true });
     dialogRef.afterClosed().pipe(takeUntil(this._unsubscribeAll)).subscribe(updated => {
@@ -196,7 +268,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
       { field: 'medicineName', header: 'Medicamento', width: '1.4fr' },
       { field: 'lotNumber', header: 'Lote', width: '120px' },
       { field: 'expirationDate', header: 'Vence', width: '1fr' },
-      { field: 'quantity', header: 'Cantidad', width: '100px' }
+      { field: 'quantity', header: 'Fisico', width: '90px' },
+      { field: 'quantityAvailable', header: 'Disponible', width: '100px' },
+      { field: 'quantityReserved', header: 'Reservado', width: '100px' },
+      { field: 'availableToPromise', header: 'ATP', width: '90px' },
+      { field: 'quantityQuarantine', header: 'Cuarentena', width: '110px' }
     ];
   }
 

@@ -11,7 +11,7 @@
                 Iniciar sesión
             </div>
 
-            <form class="mt-8" [formGroup]="signInForm" #signInNgForm="ngForm">
+            <form class="mt-8" [formGroup]="signInForm" #signInNgForm="ngForm" (ngSubmit)="signIn()">
 
                 <mat-form-field class="w-full">
                     <mat-label>Usuario</mat-label>
@@ -41,8 +41,8 @@
                 </mat-form-field>
 
 
-                <button class="fuse-mat-button-large mt-6 w-full" mat-flat-button [color]="'primary'"
-                    [disabled]="signInForm.disabled" (click)="signIn()">
+                <button type="submit" class="fuse-mat-button-large mt-6 w-full" mat-flat-button [color]="'primary'"
+                    [disabled]="signInForm.disabled">
                     @if (!signInForm.disabled) {
                     <span> Iniciar sesión </span>
                     }

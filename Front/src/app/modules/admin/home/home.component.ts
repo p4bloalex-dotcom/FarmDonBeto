@@ -38,7 +38,10 @@ export class HomeComponent implements OnInit, OnDestroy {
                     this._toast.error(response.error?.detail ?? 'No se pudo cargar el tablero.');
                     return;
                 }
-                this.summary = response.data;
+                this.summary = {
+                    ...response.data,
+                    branchStatus: Array.isArray(response.data?.branchStatus) ? response.data.branchStatus : []
+                };
             },
             error: () => {
                 this.isLoading = false;

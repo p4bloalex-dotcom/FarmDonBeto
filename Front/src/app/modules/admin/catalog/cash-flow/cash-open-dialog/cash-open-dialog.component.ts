@@ -12,7 +12,10 @@ import { MatSelectModule } from '@angular/material/select';
   templateUrl: './cash-open-dialog.component.html'
 })
 export class CashOpenDialogComponent {
-  dataForm: UntypedFormGroup;
+  dataForm: UntypedFormGroup = this._formBuilder.group({
+    cashRegisterId: ['', Validators.required],
+    openingAmount: [0, [Validators.required, Validators.min(0)]]
+  });
   registers: any[] = [];
   registerName = '';
 
@@ -27,14 +30,18 @@ export class CashOpenDialogComponent {
   ngOnInit(): void {
     const defaultRegister = this.registers.find((register) => register.id === this._data?.selectedRegisterId) ?? this.registers[0];
     this.registerName = this.registers.length === 1 ? defaultRegister?.name ?? '' : '';
-    this.dataForm = this._formBuilder.group({
-      cashRegisterId: [defaultRegister?.id ?? '', Validators.required],
-      openingAmount: [0]
+    this.dataForm.patchValue({
+      cashRegisterId: defaultRegister?.id ?? '',
+      openingAmount: 0
     });
   }
 
+  get canOpenCash(): boolean {
+    return this.registers.length > 0 && this.dataForm.valid;
+  }
+
   save(): void {
-    if (this.dataForm.invalid) return;
+    if (!this.canOpenCash) return;
     const { cashRegisterId, openingAmount } = this.dataForm.getRawValue();
     this._matDialogRef.close({
       idAction: 1,

@@ -56,6 +56,10 @@ import { SalePaymentEntity } from '../entities/sale-payment.entity.js';
 import { SaleReturnEntity } from '../entities/sale-return.entity.js';
 import { SaleReturnDetailEntity } from '../entities/sale-return-detail.entity.js';
 import { CashReconciliationEntity } from '../entities/cash-reconciliation.entity.js';
+import { BranchProductConfigEntity } from '../entities/branch-product-config.entity.js';
+import { InventoryReservationEntity } from '../entities/inventory-reservation.entity.js';
+import { SaleLotDetailEntity } from '../entities/sale-lot-detail.entity.js';
+import { StorageLocationEntity } from '../entities/storage-location.entity.js';
 
 installAuditHooks();
 
@@ -121,7 +125,11 @@ export const AppDataSource = new DataSource({
     InventoryAdjustmentEntity,
     PayrollPositionEntity,
     EmployeeSalaryEntity,
-    PayrollAdjustmentEntity
+    PayrollAdjustmentEntity,
+    StorageLocationEntity,
+    BranchProductConfigEntity,
+    InventoryReservationEntity,
+    SaleLotDetailEntity
 
   ],
   subscribers: [AuditFieldsSubscriber],

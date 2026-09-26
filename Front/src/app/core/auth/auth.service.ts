@@ -32,8 +32,8 @@ export class AuthService {
     // -----------------------------------------------------------------------------------------------------
 
 
-    resetPassword(id: any): Observable<any> {
-        return this._httpClient.post(`${environment.apiUrl}/security/users/reset-password`, id);
+    resetPassword(id: number | string): Observable<any> {
+        return this._httpClient.post(`${environment.apiUrl}/security/users/reset-password`, { id });
     }
 
 
@@ -120,9 +120,9 @@ export class AuthService {
     }
 
 
-    changePassword(newPassword: string, confirmPassword: string): Observable<any> {
+    changePassword(currentPassword: string, newPassword: string): Observable<any> {
         return this._httpClient.post<any>(`${environment.apiUrl}/auth/change-password`, {
-            currentPassword: confirmPassword,
+            currentPassword,
             newPassword
         });
     }

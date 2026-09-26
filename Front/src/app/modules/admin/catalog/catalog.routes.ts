@@ -36,7 +36,6 @@ export default [
     {path     : 'unitmeasurement',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.unitMeasurement }},
     {path     : 'cashmovementtype',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.cashMovementType }},
     {path     : 'cashregister',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.cashRegister }},
-    {path     : 'cashsession', redirectTo: '/operation/cashsession', pathMatch: 'full'},
     {path     : 'purchase', redirectTo: '/operation/purchase', pathMatch: 'full'},
     {path     : 'stock-transfer', redirectTo: '/operation/stock-transfer', pathMatch: 'full'},
     {path     : 'delivery-request', redirectTo: '/operation/delivery-request', pathMatch: 'full'},

@@ -97,13 +97,21 @@ export const listLots = async ({ branchId = null, medicineId = null, expiringDay
     lotNumber: item.lotNumber,
     expirationDate: item.expirationDate,
     quantity: Number(item.quantity ?? 0),
+    quantityAvailable: Number(item.quantityAvailable ?? item.quantity ?? 0),
+    quantityReserved: Number(item.quantityReserved ?? 0),
+    quantityInTransit: Number(item.quantityInTransit ?? 0),
+    quantityQuarantine: Number(item.quantityQuarantine ?? 0),
+    quantityDamaged: Number(item.quantityDamaged ?? 0),
+    quantityExpired: Number(item.quantityExpired ?? 0),
+    availableToPromise: Number(item.quantityAvailable ?? item.quantity ?? 0) - Number(item.quantityReserved ?? 0),
     status: item.status
   }));
 };
 
 export const createLot = async (data, userId = null) => {
   const repo = AppDataSource.getRepository('InventoryLot');
-  const saved = await repo.save(repo.create({ ...data, status: 'E', createdBy: userId }));
+  const quantity = Number(data.quantity ?? data.quantityAvailable ?? 0);
+  const saved = await repo.save(repo.create({ ...data, quantity, quantityAvailable: Number(data.quantityAvailable ?? quantity), status: 'E', createdBy: userId }));
   return saved.id;
 };
 
@@ -133,6 +141,157 @@ export const inventoryAlerts = async ({ expiringDays = 60 } = {}) => {
     overStock,
     expiringLots
   };
+};
+
+export const getAvailability = async ({ branchId = null, medicineId = null } = {}) => {
+  const query = AppDataSource.getRepository('InventoryLot').createQueryBuilder('lot')
+    .select('lot.branchId', 'branchId')
+    .addSelect('lot.medicineId', 'medicineId')
+    .addSelect('SUM(lot.quantityAvailable)', 'available')
+    .addSelect('SUM(lot.quantityReserved)', 'reserved')
+    .addSelect('SUM(lot.quantityInTransit)', 'inTransit')
+    .addSelect('SUM(lot.quantityQuarantine)', 'quarantine')
+    .leftJoin('lot.branch', 'branch')
+    .addSelect('branch.name', 'branchName')
+    .leftJoin('lot.medicine', 'medicine')
+    .addSelect('medicine.name', 'medicineName')
+    .where('lot.status = :status', { status: 'E' })
+    .andWhere('lot.expirationDate >= :today', { today: new Date() })
+    .groupBy('lot.branchId')
+    .addGroupBy('lot.medicineId')
+    .addGroupBy('branch.name')
+    .addGroupBy('medicine.name')
+    .orderBy('branch.name', 'ASC')
+    .addOrderBy('medicine.name', 'ASC');
+
+  if (branchId) query.andWhere('lot.branchId = :branchId', { branchId: Number(branchId) });
+  if (medicineId) query.andWhere('lot.medicineId = :medicineId', { medicineId: Number(medicineId) });
+
+  return (await query.getRawMany()).map(row => {
+    const available = Number(row.available ?? 0);
+    const reserved = Number(row.reserved ?? 0);
+    return {
+      branchId: Number(row.branchId),
+      branchName: row.branchName,
+      medicineId: Number(row.medicineId),
+      medicineName: row.medicineName,
+      available,
+      reserved,
+      availableToPromise: available - reserved,
+      inTransit: Number(row.inTransit ?? 0),
+      quarantine: Number(row.quarantine ?? 0)
+    };
+  });
+};
+
+export const createReservation = async (data, userId = null) => AppDataSource.transaction(async manager => {
+  const lots = await manager.getRepository('InventoryLot').createQueryBuilder('lot')
+    .where('lot.branchId = :branchId', { branchId: data.branchId })
+    .andWhere('lot.medicineId = :medicineId', { medicineId: data.medicineId })
+    .andWhere('lot.status = :status', { status: 'E' })
+    .andWhere('lot.quantityAvailable - lot.quantityReserved > 0')
+    .andWhere('lot.quantityQuarantine = 0')
+    .andWhere('lot.quantityDamaged = 0')
+    .andWhere('lot.quantityExpired = 0')
+    .andWhere('lot.expirationDate >= :today', { today: new Date() })
+    .orderBy('lot.expirationDate', 'ASC')
+    .addOrderBy('lot.id', 'ASC')
+    .getMany();
+
+  const available = lots.reduce((sum, lot) => sum + Number(lot.quantityAvailable ?? 0) - Number(lot.quantityReserved ?? 0), 0);
+  if (available < Number(data.quantity)) throw new Error(`Disponibilidad insuficiente. Disponible para prometer: ${available}.`);
+
+  let pending = Number(data.quantity);
+  for (const lot of lots) {
+    if (pending <= 0) break;
+    const promiseable = Number(lot.quantityAvailable ?? 0) - Number(lot.quantityReserved ?? 0);
+    const take = Math.min(promiseable, pending);
+    lot.quantityReserved = Number(lot.quantityReserved ?? 0) + take;
+    lot.updatedBy = userId;
+    await manager.getRepository('InventoryLot').save(lot);
+    pending -= take;
+  }
+
+  const reservation = await manager.getRepository('InventoryReservation').save(manager.getRepository('InventoryReservation').create({
+    branchId: data.branchId,
+    medicineId: data.medicineId,
+    customerOrderId: data.customerOrderId ?? null,
+    quantity: data.quantity,
+    reservedAt: new Date(),
+    expiresAt: data.expiresAt ?? null,
+    status: 'ACTIVE',
+    createdBy: userId
+  }));
+
+  await registerKardex(manager, { branchId: data.branchId, medicineId: data.medicineId, movementType: 'RESERVATION', quantityOut: data.quantity, balanceAfter: available - Number(data.quantity), referenceType: 'INVENTORY_RESERVATION', referenceId: reservation.id, reason: 'Reserva de inventario', userId });
+  return reservation.id;
+});
+
+export const cancelReservation = async (id, userId = null) => AppDataSource.transaction(async manager => {
+  const reservation = await manager.getRepository('InventoryReservation').findOneBy({ id: Number(id), status: 'ACTIVE' });
+  if (!reservation) return false;
+
+  const lots = await manager.getRepository('InventoryLot').createQueryBuilder('lot')
+    .where('lot.branchId = :branchId', { branchId: reservation.branchId })
+    .andWhere('lot.medicineId = :medicineId', { medicineId: reservation.medicineId })
+    .andWhere('lot.quantityReserved > 0')
+    .orderBy('lot.expirationDate', 'ASC')
+    .addOrderBy('lot.id', 'ASC')
+    .getMany();
+
+  let pending = Number(reservation.quantity ?? 0);
+  for (const lot of lots) {
+    if (pending <= 0) break;
+    const release = Math.min(Number(lot.quantityReserved ?? 0), pending);
+    lot.quantityReserved = Number(lot.quantityReserved ?? 0) - release;
+    lot.updatedBy = userId;
+    await manager.getRepository('InventoryLot').save(lot);
+    pending -= release;
+  }
+
+  reservation.status = 'CANCELLED';
+  reservation.updatedBy = userId;
+  await manager.getRepository('InventoryReservation').save(reservation);
+  await registerKardex(manager, { branchId: reservation.branchId, medicineId: reservation.medicineId, movementType: 'RESERVATION_RELEASE', quantityIn: reservation.quantity, balanceAfter: reservation.quantity, referenceType: 'INVENTORY_RESERVATION', referenceId: reservation.id, reason: 'Liberacion de reserva', userId });
+  return true;
+});
+
+export const getReplenishmentSuggestions = async ({ branchId = null } = {}) => {
+  const query = AppDataSource.getRepository('BranchProductConfig').createQueryBuilder('config')
+    .leftJoin('config.branch', 'branch').addSelect(['branch.id', 'branch.name'])
+    .leftJoin('config.medicine', 'medicine').addSelect(['medicine.id', 'medicine.name'])
+    .leftJoin('Inventory', 'inventory', 'inventory.branchId = config.branchId AND inventory.medicineId = config.medicineId')
+    .where('config.reorderPoint > 0')
+    .andWhere('NVL(inventory.stockAvailable, 0) <= config.reorderPoint')
+    .orderBy('branch.name', 'ASC')
+    .addOrderBy('medicine.name', 'ASC');
+
+  if (branchId) query.andWhere('config.branchId = :branchId', { branchId: Number(branchId) });
+
+  const configs = await query.getMany();
+  const suggestions = [];
+  for (const config of configs) {
+    const currentAvailability = await getAvailability({ branchId: config.branchId, medicineId: config.medicineId });
+    const current = currentAvailability[0]?.availableToPromise ?? 0;
+    const needed = Math.max(Number(config.minimumStock ?? 0) - current, Number(config.suggestedOrderQuantity ?? 0));
+    const donors = await getAvailability({ medicineId: config.medicineId });
+    const transferSources = donors
+      .filter(item => item.branchId !== config.branchId && item.availableToPromise > Number(config.minimumStock ?? 0))
+      .map(item => ({ branchId: item.branchId, branchName: item.branchName, surplus: item.availableToPromise - Number(config.minimumStock ?? 0) }));
+    suggestions.push({
+      branchId: config.branchId,
+      branchName: config.branch?.name ?? null,
+      medicineId: config.medicineId,
+      medicineName: config.medicine?.name ?? null,
+      currentAvailableToPromise: current,
+      reorderPoint: Number(config.reorderPoint ?? 0),
+      minimumStock: Number(config.minimumStock ?? 0),
+      neededQuantity: needed,
+      suggestionType: transferSources.length && config.allowAutomaticTransferSuggestion ? 'TRANSFER' : 'PURCHASE',
+      transferSources: config.allowAutomaticTransferSuggestion ? transferSources : []
+    });
+  }
+  return suggestions;
 };
 
 export const createAdjustment = async (data, userId = null) => AppDataSource.transaction(async manager => {

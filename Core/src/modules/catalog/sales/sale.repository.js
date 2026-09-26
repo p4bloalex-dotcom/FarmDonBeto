@@ -71,15 +71,16 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
     const stock = await inventoryRepo.findOneBy({ branchId: header.branchId, medicineId: detail.medicineId });
     const available = Number(stock?.stockAvailable ?? 0) - Number(stock?.reserve ?? 0);
     if (!stock || available < quantity) throw new BusinessRuleError(`Stock insuficiente para el medicamento ${medicine.name}.`);
+    let consumedLots = [];
     try {
-      await consumeLotsFefo(manager, { branchId: header.branchId, medicineId: detail.medicineId, quantity, referenceType: 'SALE', userId });
+      consumedLots = await consumeLotsFefo(manager, { branchId: header.branchId, medicineId: detail.medicineId, quantity, referenceType: 'SALE', userId });
     } catch (error) {
       if (error instanceof LotConsumptionError) throw new BusinessRuleError(error.message);
       throw error;
     }
     stock.stockAvailable = Number(stock.stockAvailable ?? 0) - quantity;
     await inventoryRepo.save(stock);
-    normalized.push({ medicineId: detail.medicineId, quantity, unitPrice, total: Math.round(quantity * unitPrice * 100) / 100 });
+    normalized.push({ medicineId: detail.medicineId, quantity, unitPrice, total: Math.round(quantity * unitPrice * 100) / 100, consumedLots });
     normalized[normalized.length - 1].balanceAfter = Number(stock.stockAvailable ?? 0);
   }
 
@@ -124,10 +125,28 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
     });
   }));
 
-  await manager.getRepository('SaleDetail').save(normalized.map(item => manager.getRepository('SaleDetail').create({ medicineId: item.medicineId, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total, saleId: sale.id, status: 'E', createdBy: userId })));
+  const savedDetails = await manager.getRepository('SaleDetail').save(normalized.map(item => manager.getRepository('SaleDetail').create({ medicineId: item.medicineId, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total, saleId: sale.id, status: 'E', createdBy: userId })));
+
+  const saleLotDetails = [];
+  savedDetails.forEach((detail, index) => {
+    for (const lot of normalized[index].consumedLots) {
+      saleLotDetails.push(manager.getRepository('SaleLotDetail').create({
+        saleDetailId: detail.id,
+        branchId: header.branchId,
+        inventoryLotId: lot.lotId,
+        lotNumber: lot.lotNumber,
+        expirationDate: lot.expirationDate,
+        quantity: lot.quantity,
+        createdBy: userId
+      }));
+    }
+  });
+  if (saleLotDetails.length) await manager.getRepository('SaleLotDetail').save(saleLotDetails);
 
   for (const item of normalized) {
-    await registerKardex(manager, { branchId: header.branchId, medicineId: item.medicineId, movementType: 'SALE', quantityOut: item.quantity, balanceAfter: item.balanceAfter, unitCost: item.unitPrice, referenceType: 'SALE', referenceId: sale.id, userId });
+    for (const lot of item.consumedLots) {
+      await registerKardex(manager, { branchId: header.branchId, medicineId: item.medicineId, inventoryLotId: lot.lotId, movementType: 'SALE', quantityOut: lot.quantity, previousBalance: lot.previousBalance, balanceAfter: lot.newBalance, unitCost: item.unitPrice, referenceType: 'SALE', referenceId: sale.id, userId });
+    }
   }
 
   const movementType = await manager.getRepository('CashMovementType').findOneBy({ code: 'SALE', status: 'E' });

@@ -20,7 +20,7 @@ export const cashCentralDashboard = async () => {
     .select('b.id', 'branchId')
     .addSelect('b.name', 'branchName')
     .addSelect('COUNT(DISTINCT s.id)', 'openSessions')
-    .addSelect('COALESCE(SUM(CASE WHEN t.operation = :income THEN m.amount WHEN t.operation = :expense THEN -m.amount ELSE 0 END), 0) + COALESCE(SUM(DISTINCT s.openingAmount), 0)', 'expectedCash')
+    .addSelect('COALESCE(SUM(CASE WHEN t.operation = :income THEN m.amount WHEN t.operation = :expense THEN (0 - m.amount) ELSE 0 END), 0) + COALESCE(SUM(DISTINCT s.openingAmount), 0)', 'expectedCash')
     .addSelect('COALESCE(SUM(CASE WHEN m.referenceType = :withdrawal THEN m.amount ELSE 0 END), 0)', 'withdrawals')
     .addSelect('COUNT(CASE WHEN r.cashLimit IS NOT NULL AND s.id IS NOT NULL THEN 1 END)', 'limitedSessions')
     .where('b.status = :enabled')

@@ -78,6 +78,22 @@ getList(endpoint: string) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/alerts`, { params });
   }
 
+  getInventoryAvailability(filters: any = {}) {
+    let params = new HttpParams();
+    Object.keys(filters).forEach(key => { if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') params = params.set(key, filters[key]); });
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/availability`, { params });
+  }
+
+  getReplenishmentSuggestions(filters: any = {}) {
+    let params = new HttpParams();
+    Object.keys(filters).forEach(key => { if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') params = params.set(key, filters[key]); });
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/replenishment-suggestions`, { params });
+  }
+
+  createInventoryReservation(data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/reservations`, data);
+  }
+
   getPurchaseDashboard() {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/dashboard`);
   }

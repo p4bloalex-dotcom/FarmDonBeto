@@ -3,7 +3,7 @@ import { asyncHandler } from '../../../middlewares/async-handler.js';
 import { authenticate } from '../../../middlewares/authenticate.js';
 import { permissionRequired } from '../../../middlewares/permission-required.js';
 import { validate } from '../../../middlewares/validate.js';
-import { crudActions } from '../../security/permissions/permission-actions.js';
+import { actions, crudActions } from '../../security/permissions/permission-actions.js';
 import { registerScreen } from '../../../routes/route-registry.js';
 import {
   addSession,
@@ -22,7 +22,15 @@ export const permissions = registerScreen({
   routePath: 'cashsession',
   title: 'Caja del dia',
   icon: 'heroicons_solid:banknotes',
-  actions: [...crudActions(), { key: 'close', name: 'Cerrar' }, { key: 'movement', name: 'Movimiento' }]
+  actions: [
+    ...crudActions(),
+    { key: 'close', name: 'Cerrar' },
+    { key: 'movement', name: 'Movimiento' },
+    actions.authorize,
+    actions.report,
+    actions.audit,
+    actions.reconcile
+  ]
 });
 
 cashSessionRoutes.use(authenticate);
