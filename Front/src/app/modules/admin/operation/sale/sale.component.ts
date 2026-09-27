@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { FormsModule, ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -23,6 +23,8 @@ import { Subject, takeUntil } from 'rxjs';
 export class SaleComponent implements OnInit, OnDestroy {
   form: UntypedFormGroup;
   medicines: any[] = [];
+  medicineSearchControl: UntypedFormControl = new UntypedFormControl('');
+  medicineSearchText = '';
   branches: any[] = [];
   employees: any[] = [];
   sessions: any[] = [];
@@ -56,6 +58,11 @@ export class SaleComponent implements OnInit, OnDestroy {
     });
     this.addItem();
     this.addPayment();
+    this.form.get('branchId')!.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(() => {
+      this.details.controls.forEach(item => item.get('medicineId')?.reset(''));
+      this.loadAvailableMedicines();
+    });
+    this.medicineSearchControl.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(value => this.medicineSearchText = value ?? '');
     this.loadCatalogs();
     this.loadSales();
   }
@@ -71,15 +78,35 @@ export class SaleComponent implements OnInit, OnDestroy {
   removePayment(index: number): void { if (this.payments.length > 1) this.payments.removeAt(index); }
 
   loadCatalogs(): void {
-    this._api.comboList(['Medicine', 'Branch', 'Personal']).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: ([medicines, branches, employees]) => {
-        this.medicines = medicines;
+    this._api.comboList(['Branch', 'Personal']).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: ([branches, employees]) => {
         this.branches = branches;
         this.employees = employees;
         this.loadSessions();
       },
       error: () => this._toast.error('No se pudieron cargar catalogos.')
     });
+  }
+
+  loadAvailableMedicines(): void {
+    const branchId = this.form.value.branchId;
+    this.medicines = [];
+    if (!branchId) return;
+
+    this._api.getInventoryAvailability({ branchId }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.medicines = (resp.success ? resp.data ?? [] : [])
+          .filter((item: any) => Number(item.availableToPromise ?? 0) > 0)
+          .map((item: any) => ({ id: item.medicineId, name: item.medicineName, availableToPromise: item.availableToPromise }));
+      },
+      error: () => this._toast.error('No se pudieron cargar medicamentos disponibles.')
+    });
+  }
+
+  filteredMedicines(): any[] {
+    const text = this.medicineSearchText.toLowerCase().trim();
+    if (!text) return this.medicines;
+    return this.medicines.filter(item => String(item.name ?? '').toLowerCase().includes(text));
   }
 
   loadSessions(): void {

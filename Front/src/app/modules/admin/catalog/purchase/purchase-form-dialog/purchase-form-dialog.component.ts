@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, Inject, OnInit } from '@angular/core';
-import { FormArray, FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { FormArray, FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -23,6 +23,8 @@ export class PurchaseFormDialogComponent implements OnInit {
   suppliers: any[] = [];
   branches: any[] = [];
   medicines: any[] = [];
+  filteredMedicines: any[] = [];
+  medicineSearchControl = new UntypedFormControl('');
   isViewMode = false;
   subtotal = 0;
   tax = 0;
@@ -50,6 +52,7 @@ export class PurchaseFormDialogComponent implements OnInit {
     });
 
     this.loadCombos();
+    this.medicineSearchControl.valueChanges.subscribe(searchText => this.filterMedicines(searchText));
     if (this._data?.row) {
       this.loadPurchase(this._data.row.id);
     }
@@ -65,6 +68,7 @@ export class PurchaseFormDialogComponent implements OnInit {
         this.suppliers = suppliers;
         this.branches = (branches ?? []).filter(item => Number(item.isMain ?? item.is_main) === 1);
         this.medicines = medicines;
+        this.filterMedicines(this.medicineSearchControl.value);
         if (this.actionDialog === 1 && this.branches.length === 1) {
           this.dataForm.get('branchId').patchValue(this.branches[0].id);
         }
@@ -203,7 +207,14 @@ export class PurchaseFormDialogComponent implements OnInit {
   }
 
   medicineLabel(item: any): string {
-    return item ? `${item.name}` : '';
+    return item ? [item.code, item.name].filter(Boolean).join(' - ') : '';
+  }
+
+  private filterMedicines(searchText: string = ''): void {
+    const text = (searchText ?? '').toString().trim().toLowerCase();
+    this.filteredMedicines = text
+      ? this.medicines.filter(item => this.medicineLabel(item).toLowerCase().includes(text))
+      : this.medicines;
   }
 
   private toLocalInput(value: any): string {

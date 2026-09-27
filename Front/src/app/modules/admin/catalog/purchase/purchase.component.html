@@ -1,4 +1,4 @@
-<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+<div class="bg-card flex min-w-0 flex-auto flex-col overflow-y-auto dark:bg-transparent sm:absolute sm:inset-0">
     @if (isLoading) {
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }
@@ -36,7 +36,6 @@
     <div class="border-b bg-white p-4 md:px-8 dark:bg-transparent">
         <div class="mb-4 flex flex-col gap-1">
             <div class="text-xl font-bold">Centro de compras</div>
-            <div class="text-sm text-secondary">Siga el flujo normal: necesidad, orden, recepcion, factura y devolucion. El sistema mantiene trazabilidad e inventario.</div>
         </div>
         <div class="grid gap-3 md:grid-cols-5">
             @for (action of flowActions; track action.value) {
@@ -60,17 +59,26 @@
                 </div>
 
                 @if (flowAction === 'requests') {
-                    <div class="mb-4 rounded-2xl bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100">
-                        Primero revise la red. Si una sucursal cercana tiene excedente, use transferencia interna; si no alcanza, cree la solicitud de compra.
-                    </div>
+                    <mat-form-field class="fuse-mat-dense w-full">
+                        <mat-label>Buscar medicamento</mat-label>
+                        <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
+                        <input matInput [formControl]="medicineSearchControl" autocomplete="off" placeholder="Nombre o codigo" />
+                    </mat-form-field>
                     <div class="grid gap-3 sm:grid-cols-3">
-                        <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select [(ngModel)]="networkQuery.medicineId">@for (medicine of medicines; track medicine.id) { <mat-option [value]="medicine.id">{{ medicine.name }}</mat-option> }</mat-select></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select [(ngModel)]="networkQuery.medicineId">@for (medicine of filteredMedicines; track medicine.id) { <mat-option [value]="medicine.id">{{ medicineOptionLabel(medicine) }}</mat-option> }</mat-select></mat-form-field>
                         <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal que necesita</mat-label><mat-select [(ngModel)]="networkQuery.branchId">@for (branch of branches; track branch.id) { <mat-option [value]="branch.id">{{ branch.name }}</mat-option> }</mat-select></mat-form-field>
                         <mat-form-field class="fuse-mat-dense"><mat-label>Cantidad necesaria</mat-label><input matInput type="number" [(ngModel)]="networkQuery.quantity" /></mat-form-field>
                     </div>
                     <button class="mb-4" mat-stroked-button color="primary" (click)="runNetworkCheck()">Revisar sucursales con stock</button>
                 }
 
+                @if (flowAction === 'orders' || flowAction === 'returns') {
+                    <mat-form-field class="fuse-mat-dense mb-3 w-full">
+                        <mat-label>Buscar medicamento</mat-label>
+                        <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
+                        <input matInput [formControl]="medicineSearchControl" autocomplete="off" placeholder="Nombre o codigo" />
+                    </mat-form-field>
+                }
                 <div class="grid gap-3 sm:grid-cols-2">
                 @if (flowAction !== 'receipts') {
                     <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal destino</mat-label><mat-select [(ngModel)]="flowForm.branchId">@for (branch of branches; track branch.id) { <mat-option [value]="branch.id">{{ branch.name }}</mat-option> }</mat-select></mat-form-field>
@@ -85,7 +93,7 @@
                     <mat-form-field class="fuse-mat-dense"><mat-label>Linea de orden ID</mat-label><input matInput type="number" [(ngModel)]="flowForm.purchaseDetailId" /></mat-form-field>
                 }
                 @if (flowAction === 'requests' || flowAction === 'orders' || flowAction === 'returns') {
-                    <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select [(ngModel)]="flowForm.medicineId">@for (medicine of medicines; track medicine.id) { <mat-option [value]="medicine.id">{{ medicine.name }}</mat-option> }</mat-select></mat-form-field>
+                    <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select [(ngModel)]="flowForm.medicineId">@for (medicine of filteredMedicines; track medicine.id) { <mat-option [value]="medicine.id">{{ medicineOptionLabel(medicine) }}</mat-option> }</mat-select></mat-form-field>
                 }
                 @if (flowAction !== 'invoices') {
                     <mat-form-field class="fuse-mat-dense"><mat-label>Cantidad</mat-label><input matInput type="number" [(ngModel)]="flowForm.quantity" /></mat-form-field>
@@ -109,7 +117,6 @@
             </div>
             <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button mat-flat-button color="primary" (click)="submitFlow()">Guardar {{ selectedFlow.label | lowercase }}</button>
-                <span class="text-sm text-secondary">Se registrara con usuario, fecha y sucursal para auditoria.</span>
             </div>
             </div>
 
@@ -149,7 +156,7 @@
             </div>
         </div>
     </div>
-    <div class="flex flex-auto overflow-auto">
+    <div class="flex flex-auto overflow-auto pb-6">
         <div class="flex min-w-full flex-auto flex-col overflow-auto sm:mb-18">
             <app-table
                 [columns]="columns"

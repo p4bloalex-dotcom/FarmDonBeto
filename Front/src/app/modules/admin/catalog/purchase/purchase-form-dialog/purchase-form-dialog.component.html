@@ -61,14 +61,20 @@
             }
         </div>
 
+        <mat-form-field class="mb-3 w-full">
+            <mat-label>Buscar medicamento</mat-label>
+            <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
+            <input matInput [formControl]="medicineSearchControl" autocomplete="off" placeholder="Nombre o codigo" />
+        </mat-form-field>
+
         <div class="flex flex-col gap-3" formArrayName="details">
             @for (row of detailRows.controls; track $index) {
                 <div class="grid grid-cols-12 items-start gap-3 rounded-xl border bg-card p-3" [formGroupName]="$index">
                     <mat-form-field class="col-span-12 sm:col-span-4">
                         <mat-label>Medicamento</mat-label>
                         <mat-select formControlName="medicineId">
-                            @for (option of medicines; track option.id) {
-                                <mat-option [value]="option.id"><span>{{ option.code }} - {{ option.name }}</span></mat-option>
+                            @for (option of filteredMedicines; track option.id) {
+                                <mat-option [value]="option.id"><span>{{ medicineLabel(option) }}</span></mat-option>
                             }
                         </mat-select>
                     </mat-form-field>

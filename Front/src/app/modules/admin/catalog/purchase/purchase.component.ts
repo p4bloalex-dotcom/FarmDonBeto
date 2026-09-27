@@ -30,6 +30,7 @@ imports: [
 })
 export class PurchaseComponent implements OnInit, OnDestroy {
   searchInputControl: UntypedFormControl = new UntypedFormControl();
+  medicineSearchControl: UntypedFormControl = new UntypedFormControl('');
   pagedData: any[] = [];
   filteredData: any[] = [];
   pageSize = 10;
@@ -41,6 +42,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   flowAction = 'requests';
   branches: any[] = [];
   medicines: any[] = [];
+  filteredMedicines: any[] = [];
   suppliers: any[] = [];
   flowForm: any = {
     branchId: null,
@@ -60,16 +62,16 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   networkResult: any = null;
 
   flowActions = [
-    { value: 'requests', label: 'Necesito abastecer', description: 'El sistema revisa si conviene transferir desde otra sucursal o pedir compra.', icon: 'heroicons_outline:clipboard-document-list' },
-    { value: 'orders', label: 'Crear orden', description: 'Formaliza una compra a proveedor sin mover inventario todavia.', icon: 'heroicons_outline:shopping-cart' },
+    { value: 'requests', label: 'Necesito abastecer', description: '', icon: 'heroicons_outline:clipboard-document-list' },
+    { value: 'orders', label: 'Crear orden', description: '', icon: 'heroicons_outline:shopping-cart' },
     { value: 'receipts', label: 'Recibir mercaderia', description: 'Registra lotes, vencimientos y solo suma lo aceptado al inventario.', icon: 'heroicons_outline:archive-box-arrow-down' },
     { value: 'invoices', label: 'Registrar factura', description: 'Compara factura contra orden y recepcion.', icon: 'heroicons_outline:document-currency-dollar' },
     { value: 'returns', label: 'Devolver proveedor', description: 'Registra producto rechazado o no conforme.', icon: 'heroicons_outline:arrow-uturn-left' }
   ];
 
   flowHelp: Record<string, string> = {
-    requests: 'Use este paso cuando una sucursal necesita producto. Primero revise si otra sucursal puede cubrirlo; si no, se crea la solicitud de compra.',
-    orders: 'Use este paso cuando compras ya eligio proveedor y quiere emitir la orden. La orden no aumenta inventario.',
+    requests: 'Validar inventario.',
+    orders: '',
     receipts: 'Use este paso cuando llega el producto fisicamente. Solo la cantidad aceptada entra al inventario disponible.',
     invoices: 'Use este paso cuando llega la factura del proveedor. El sistema marca coincidencia o discrepancia.',
     returns: 'Use este paso para devolver producto rechazado, danado, vencido o no conforme al proveedor.'
@@ -109,6 +111,9 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         const text = searchText?.toLowerCase() || '';
         this.pagedData = this.filteredData.filter(item => JSON.stringify(item).toLowerCase().includes(text));
       });
+    this.medicineSearchControl.valueChanges
+      .pipe(takeUntil(this._unsubscribeAll), startWith(''), debounceTime(200), distinctUntilChanged())
+      .subscribe(searchText => this.filterMedicines(searchText));
   }
 
   loadCombos(): void {
@@ -116,6 +121,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
       next: ([branches, medicines, suppliers]: any[]) => {
         this.branches = branches ?? [];
         this.medicines = medicines ?? [];
+        this.filterMedicines(this.medicineSearchControl.value);
         this.suppliers = suppliers ?? [];
       },
       error: () => this._toast.error('No se pudieron cargar sucursales, medicamentos o proveedores.')
@@ -292,6 +298,18 @@ export class PurchaseComponent implements OnInit, OnDestroy {
       totalLabel: `Q ${numberFormat(item.total ?? item.subtotal)}`,
       statusLabel: item.status === 'E' ? 'Registrada' : item.status === 'I' ? 'Anulada' : item.status ?? '-'
     };
+  }
+
+  medicineOptionLabel(item: any): string {
+    if (!item) return '';
+    return [item.code, item.name].filter(Boolean).join(' - ');
+  }
+
+  private filterMedicines(searchText: string = ''): void {
+    const text = (searchText ?? '').toString().trim().toLowerCase();
+    this.filteredMedicines = text
+      ? this.medicines.filter(item => this.medicineOptionLabel(item).toLowerCase().includes(text))
+      : this.medicines;
   }
 
   private finishLoad(message?: string): void {
