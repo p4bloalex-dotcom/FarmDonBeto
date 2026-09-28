@@ -22,6 +22,10 @@ const toDetailDto = item => ({
   medicineCode: item.medicine?.code ?? null,
   medicineName: item.medicine?.name ?? null,
   quantity: Number(item.quantity ?? 0),
+  quantityOrdered: Number(item.quantityOrdered ?? item.quantity ?? 0),
+  quantityReceived: Number(item.quantityReceived ?? 0),
+  quantityRejected: Number(item.quantityRejected ?? 0),
+  quantityPending: Number(item.quantityPending ?? Math.max(0, Number(item.quantity ?? 0) - Number(item.quantityReceived ?? 0))),
   unitPrice: Number(item.unitPrice ?? 0),
   unit_price: Number(item.unitPrice ?? 0),
   subtotal: Number(item.subtotal ?? 0),
@@ -31,6 +35,7 @@ const toDetailDto = item => ({
 
 const toDto = item => ({
   id: item.id,
+  purchaseNumber: item.purchaseNumber ?? null,
   supplierId: item.supplierId,
   supplier_id: item.supplierId,
   supplierName: item.supplier?.name ?? null,
@@ -218,6 +223,11 @@ export const deletePurchaseWithDetails = async (id, branchId) => AppDataSource.t
   await purchaseRepo.delete(id);
 });
 
+export const deletePurchaseOrderDraft = async id => AppDataSource.transaction(async manager => {
+  await manager.getRepository('PurchaseDetail').delete({ purchaseId: id });
+  await manager.getRepository('Purchase').delete(id);
+});
+
 const nextNumber = prefix => `${prefix}-${new Date().getFullYear()}${String(Date.now()).slice(-8)}`;
 
 export const createPurchaseRequest = async payload => AppDataSource.transaction(async manager => {
@@ -341,7 +351,7 @@ export const createPurchaseOrder = async payload => AppDataSource.transaction(as
     expectedDeliveryDate: payload.expectedDeliveryDate ? new Date(payload.expectedDeliveryDate) : null,
     invoiceNumber: payload.invoiceNumber ?? null,
     currencyId: payload.currencyId ?? null,
-    exchangeRate: payload.exchangeRate ?? 1,
+    exchangeRate: payload.exchangeRate ?? 1, 
     subtotal,
     discount: payload.discount ?? 0,
     tax: payload.tax ?? 0,
@@ -408,7 +418,8 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
     const accepted = Number(detail.quantityAccepted ?? 0);
     const rejected = Number(detail.quantityRejected ?? 0);
     const received = Number(detail.quantityReceived ?? accepted + rejected);
-    const nextReceived = Number(purchaseDetail.quantityReceived ?? 0) + accepted;
+    const verified = accepted + rejected;
+    const nextReceived = Number(purchaseDetail.quantityReceived ?? 0) + verified;
     if (nextReceived > Number(purchaseDetail.quantityOrdered ?? purchaseDetail.quantity ?? 0)) throw new BusinessRuleError('La recepcion supera la cantidad ordenada.');
     await receiptDetailRepo.save(receiptDetailRepo.create({ ...detail, receiptId: receipt.id, branchId: purchase.branchId, medicineId: purchaseDetail.medicineId, quantityReceived: received, quantityAccepted: accepted, quantityRejected: rejected }));
     purchaseDetail.quantityReceived = nextReceived;

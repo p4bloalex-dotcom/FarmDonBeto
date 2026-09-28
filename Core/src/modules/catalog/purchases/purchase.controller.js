@@ -9,6 +9,7 @@ import {
   createPurchaseRequest,
   createPurchaseWithDetails,
   createSupplierReturn,
+  deletePurchaseOrderDraft,
   deletePurchaseWithDetails,
   findOpenSessionByBranch,
   findPurchaseByInvoice,
@@ -30,6 +31,13 @@ const toPurchaseResponse = async purchase => {
 };
 
 const findEnabled = async (name, id) => AppDataSource.getRepository(name).findOneBy({ id, status: 'E' });
+
+const isMainBranchUser = async req => {
+  const userBranchId = Number(req.user?.branchId ?? req.user?.branch_id ?? 0);
+  if (!userBranchId) return true;
+  const branch = await AppDataSource.getRepository('Branch').findOneBy({ id: userBranchId, status: 'E' });
+  return Number(branch?.isMain ?? 0) === 1;
+};
 
 const validatePharmacyData = async (payload, excludePurchaseId = null, requireMainBranch = false) => {
   const supplier = await findEnabled('Supplier', payload.supplierId);
@@ -93,6 +101,9 @@ const buildCashMovement = async (payload, supplier) => {
   };
 };
 
+const editableStatuses = ['E', 'DRAFT'];
+const deletableStatuses = ['E', 'DRAFT', 'PENDING_APPROVAL'];
+
 export const addPurchase = async (req, res) => {
   const { ok: valid, message, supplier } = await validatePharmacyData(req.body, null, true);
   if (!valid) {
@@ -152,6 +163,9 @@ export const editPurchase = async (req, res) => {
   if (existing.status === 'I') {
     return conflict(res, 'No se puede editar una compra anulada.');
   }
+  if (!editableStatuses.includes(existing.status)) {
+    return conflict(res, 'Solo se pueden editar compras directas o borradores. Una orden aprobada debe continuar con recepcion, factura o devolucion.');
+  }
   if (await hasCashMovement(id)) {
     return conflict(res, 'La compra ya fue registrada en el flujo de caja. No se puede modificar.');
   }
@@ -182,11 +196,18 @@ export const removePurchase = async (req, res) => {
   if (existing.status === 'I') {
     return conflict(res, 'La compra ya fue anulada.');
   }
+  if (!deletableStatuses.includes(existing.status)) {
+    return conflict(res, 'No se puede eliminar una orden aprobada, recibida o facturada. Use devolucion a proveedor si corresponde.');
+  }
   if (await hasCashMovement(id)) {
     return conflict(res, 'No se puede eliminar una compra registrada en el flujo de caja.');
   }
 
   try {
+    if (['DRAFT', 'PENDING_APPROVAL'].includes(existing.status)) {
+      await deletePurchaseOrderDraft(id);
+      return ok(res, null, 'Orden eliminada correctamente. No se afecto inventario.');
+    }
     await deletePurchaseWithDetails(id, existing.branchId);
     return ok(res, null, 'Compra eliminada correctamente. El inventario fue actualizado.');
   } catch (error) {
@@ -222,6 +243,7 @@ export const getNetworkAvailability = async (req, res) => {
 
 export const addPurchaseOrder = async (req, res) => {
   if (!req.body.supplierId || !req.body.branchId || !Array.isArray(req.body.details) || req.body.details.length === 0) return badRequest(res, 'La orden requiere proveedor, destino y al menos un producto.');
+  if (!(await isMainBranchUser(req))) return conflict(res, 'Solo la sucursal matriz puede crear ordenes de compra a proveedor. Las sucursales deben crear solicitudes de abastecimiento.');
   const id = await createPurchaseOrder(bodyWithUser(req));
   return created(res, { id }, 'Orden de compra generada sin afectar inventario.');
 };
@@ -230,6 +252,8 @@ export const approvePurchaseOrder = async (req, res) => {
   const id = Number(req.params.id);
   const purchase = await findPurchaseById(id);
   if (!purchase) return notFound(res);
+  if (!(await isMainBranchUser(req))) return conflict(res, 'Solo la sucursal matriz puede aprobar ordenes de compra.');
+  if (purchase.status !== 'PENDING_APPROVAL') return conflict(res, 'Solo se pueden aprobar ordenes pendientes de aprobacion.');
   await approvePurchase(id, { approvedBy: req.user?.id ?? req.user?.userId ?? null, comments: req.body?.comments ?? null });
   return ok(res, { id }, 'Orden aprobada.');
 };

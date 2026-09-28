@@ -49,6 +49,7 @@
             
             <div class="cell actions-cell flex gap-2 justify-center" data-label="Acciones">
               @for (act of actions; track $index) {
+                @if (isActionVisible(act, row)) {
                 <button  
                     (click)="onAction(act.action, row)" 
                     [attr.aria-label]="act.label" 
@@ -59,6 +60,7 @@
                       }
                       @else{ {{ act.label}}}
                 </button>
+                }
               } 
             </div>
 
@@ -91,6 +93,7 @@
 
             <div class="mobile-actions">
               @for (act of actions; track $index) {
+                @if (isActionVisible(act, row)) {
                 <button
                   (click)="onAction(act.action, row)"
                   [attr.aria-label]="act.label"
@@ -99,8 +102,9 @@
                     @if (act.icon) {
                       <mat-icon class="action-{{ act.action }}" svgIcon={{act.icon}}></mat-icon>
                     }
-                    @else{ {{ act.label}}}
+                    <span class="mobile-action-label">{{ act.label }}</span>
                 </button>
+                }
               }
             </div>
           </div>
@@ -116,7 +120,7 @@
       [showFirstLastButtons]="true">
     </mat-paginator> -->
     <mat-paginator
-      class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+      class="table-paginator z-10 border-t bg-gray-50 dark:bg-transparent"
       [ngClass]="{ 'pointer-events-none': isLoading }"
       [length] = "length"
       [pageSize]="pageSize"

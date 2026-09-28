@@ -139,10 +139,20 @@ export class StockTransferFormDialogComponent implements OnInit {
       this._toast.error('Debe agregar al menos un medicamento al traspaso.');
       return;
     }
+    const originId = Number(this.dataForm.get('branchOriginId').value);
+    const destinationId = Number(this.dataForm.get('branchDestinationId').value);
+    if (originId === destinationId) {
+      this._toast.error('La sucursal origen y destino deben ser diferentes.');
+      return;
+    }
+    if (details.some(detail => !Number.isFinite(detail.quantity) || detail.quantity <= 0 || !Number.isFinite(detail.unitCost) || detail.unitCost < 0)) {
+      this._toast.error('Revise cantidades y costos del traspaso.');
+      return;
+    }
 
     const payload = {
-      branchOriginId: Number(this.dataForm.get('branchOriginId').value),
-      branchDestinationId: Number(this.dataForm.get('branchDestinationId').value),
+      branchOriginId: originId,
+      branchDestinationId: destinationId,
       movementDate: this.dataForm.get('movementDate').value,
       description: this.dataForm.get('description').value?.trim() || null,
       details

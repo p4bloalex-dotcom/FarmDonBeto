@@ -62,12 +62,17 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
   const medicineRepo = manager.getRepository('Medicine');
   const inventoryRepo = manager.getRepository('Inventory');
   const normalized = [];
+  const cashSession = await manager.getRepository('CashSession').findOneBy({ id: header.cashSessionId, status: 'A' });
+  if (!cashSession) throw new BusinessRuleError('La caja seleccionada no esta abierta.');
+  if (Number(cashSession.branchId) !== Number(header.branchId)) throw new BusinessRuleError('La caja seleccionada no pertenece a la sucursal de la venta.');
 
   for (const detail of rawDetails) {
     const medicine = await medicineRepo.findOneBy({ id: detail.medicineId, status: 'E' });
     if (!medicine) throw new BusinessRuleError(`El medicamento ${detail.medicineId} no existe o esta inactivo.`);
     const unitPrice = detail.unitPrice == null ? Number(medicine.priceSell ?? 0) : Number(detail.unitPrice);
     const quantity = Number(detail.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) throw new BusinessRuleError(`Cantidad invalida para el medicamento ${medicine.name}.`);
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new BusinessRuleError(`Precio invalido para el medicamento ${medicine.name}.`);
     const stock = await inventoryRepo.findOneBy({ branchId: header.branchId, medicineId: detail.medicineId });
     const available = Number(stock?.stockAvailable ?? 0) - Number(stock?.reserve ?? 0);
     if (!stock || available < quantity) throw new BusinessRuleError(`Stock insuficiente para el medicamento ${medicine.name}.`);
@@ -89,7 +94,7 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
   const total = Math.round((subtotal + tax) * 100) / 100;
   const rawPayments = header.payments?.length ? header.payments : [{ method: header.paymentMethod, amount: total }];
   const paymentTotal = Math.round(rawPayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0) * 100) / 100;
-  if (paymentTotal !== total) throw new BusinessRuleError('La suma de pagos debe coincidir con el total de la venta.');
+  if (Math.abs(paymentTotal - total) > 0.01) throw new BusinessRuleError('La suma de pagos debe coincidir con el total de la venta.');
 
   const sale = await manager.getRepository('Sale').save(manager.getRepository('Sale').create({
     branchId: header.branchId,

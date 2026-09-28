@@ -121,6 +121,11 @@ export class SaleComponent implements OnInit, OnDestroy {
       this._toast.error('Complete los datos de la venta.');
       return;
     }
+    const validation = this.validateSale();
+    if (validation) {
+      this._toast.error(validation);
+      return;
+    }
     this.isLoading = true;
     this._api.add('Sale', this.form.getRawValue()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
@@ -149,5 +154,34 @@ export class SaleComponent implements OnInit, OnDestroy {
       },
       error: () => { this.isLoading = false; this._toast.error('No se pudieron cargar ventas.'); }
     });
+  }
+
+  private validateSale(): string | null {
+    const branchId = this.form.value.branchId;
+    const sessionId = this.form.value.cashSessionId;
+    if (!this.sessions.some(item => item.id === sessionId && item.status === 'A' && item.branchId === branchId)) {
+      return 'Seleccione una caja abierta de la sucursal de la venta.';
+    }
+    const details = this.details.controls.map(group => group.getRawValue());
+    for (const detail of details) {
+      const medicine = this.medicines.find(item => item.id === detail.medicineId);
+      const quantity = Number(detail.quantity ?? 0);
+      const unitPrice = detail.unitPrice == null || detail.unitPrice === '' ? 0 : Number(detail.unitPrice);
+      if (!medicine) return 'Seleccione medicamentos disponibles para la sucursal.';
+      if (!Number.isFinite(quantity) || quantity <= 0) return 'Ingrese cantidades validas.';
+      if (quantity > Number(medicine.availableToPromise ?? 0)) return `La cantidad de ${medicine.name} supera lo disponible (${medicine.availableToPromise}).`;
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) return 'Ingrese precios validos.';
+    }
+    const subtotal = details.reduce((sum, item) => sum + Number(item.quantity ?? 0) * Number(item.unitPrice ?? 0), 0);
+    const total = Math.round((subtotal + subtotal * (Number(this.form.value.taxRate ?? 0) / 100)) * 100) / 100;
+    const payments = this.payments.controls.map(group => group.getRawValue());
+    const paymentTotal = Math.round(payments.reduce((sum, item) => sum + Number(item.amount ?? 0), 0) * 100) / 100;
+    if (Math.abs(paymentTotal - total) > 0.01) return `La suma de pagos debe ser Q ${total.toFixed(2)}.`;
+    for (const payment of payments) {
+      if (String(payment.method).toUpperCase() === 'CASH' && payment.receivedAmount != null && payment.receivedAmount !== '' && Number(payment.receivedAmount) < Number(payment.amount)) {
+        return 'El efectivo recibido no puede ser menor al monto cobrado.';
+      }
+    }
+    return null;
   }
 }

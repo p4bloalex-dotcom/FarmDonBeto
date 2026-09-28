@@ -48,4 +48,40 @@ export class AppComponent {
     clearSession(): void {
         this._authService.signOut();
     }
+
+    @HostListener('document:input', ['$event'])
+    normalizeDecimalInput(event: Event): void {
+        const input = event.target as HTMLInputElement;
+        if (input?.tagName !== 'INPUT' || input.type !== 'number' || !input.value?.includes(',')) return;
+        input.value = input.value.replace(/,/g, '.');
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    @HostListener('document:keydown', ['$event'])
+    normalizeDecimalKey(event: KeyboardEvent): void {
+        const input = event.target as HTMLInputElement;
+        if (input?.tagName !== 'INPUT' || input.type !== 'number' || event.key !== ',') return;
+        event.preventDefault();
+        input.value = `${input.value}.`;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    @HostListener('document:click', ['$event'])
+    openNativePickerOnClick(event: Event): void {
+        this.openNativePicker(event.target as HTMLInputElement);
+    }
+
+    @HostListener('document:focusin', ['$event'])
+    openNativePickerOnFocus(event: Event): void {
+        this.openNativePicker(event.target as HTMLInputElement);
+    }
+
+    private openNativePicker(input: HTMLInputElement): void {
+        if (input?.tagName !== 'INPUT' || !['date', 'datetime-local', 'time', 'month'].includes(input.type)) return;
+        try {
+            input.showPicker?.();
+        } catch {
+            // Browsers may reject programmatic picker opening outside direct user activation.
+        }
+    }
 }

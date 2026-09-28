@@ -1,10 +1,17 @@
 <form [formGroup]="dataForm" class="flex max-h-[90vh] w-full flex-col overflow-hidden">
-    <div class="border-b px-4 py-3">
+    <div class="border-b bg-slate-50 px-4 py-3 dark:bg-slate-900">
         <h2 class="text-xl font-semibold sm:text-2xl">
             @if (actionDialog === 1) {Registrar compra}
             @else if (actionDialog === 2) {Editar compra}
             @else {Detalle de compra}
         </h2>
+        @if (actionDialog !== 1) {
+            <div class="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
+                <span class="rounded-full bg-primary-100 px-3 py-1 text-primary-700">{{ statusLabel() }}</span>
+                <span class="rounded-full bg-slate-200 px-3 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-200">{{ detailRows.length }} medicamentos</span>
+                <span class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">{{ money(total) }}</span>
+            </div>
+        }
     </div>
 
     <div class="flex-1 overflow-y-auto p-4">
@@ -41,7 +48,7 @@
 
             <mat-form-field class="w-full">
                 <mat-label>Fecha de compra</mat-label>
-                <input matInput formControlName="purchaseDate" type="datetime-local" />
+                <input matInput formControlName="purchaseDate" type="datetime-local" (click)="openNativePicker($event)" (focus)="openNativePicker($event)" />
                 @if (dataForm.get('purchaseDate').invalid) { <mat-error>Requerido</mat-error> }
             </mat-form-field>
 
@@ -51,7 +58,7 @@
             </mat-form-field>
         </div>
 
-        <div class="mb-3 mt-6 flex items-center justify-between">
+        <div class="mb-3 mt-6 flex items-center justify-between border-b pb-2">
             <div class="text-lg font-semibold">Medicamentos</div>
             @if (!isViewMode) {
                 <button mat-flat-button color="accent" type="button" (click)="addDetailRow()">
@@ -66,6 +73,10 @@
             <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
             <input matInput [formControl]="medicineSearchControl" autocomplete="off" placeholder="Nombre o codigo" />
         </mat-form-field>
+
+        @if (!hasSupplierMedicines()) {
+            <div class="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Este proveedor no tiene medicamentos relacionados. Registre la relacion en Catalogos > Medicamentos por proveedor.</div>
+        }
 
         <div class="flex flex-col gap-3" formArrayName="details">
             @for (row of detailRows.controls; track $index) {
@@ -92,10 +103,10 @@
                     </mat-form-field>
                     <mat-form-field class="col-span-6 sm:col-span-2">
                         <mat-label>Vencimiento</mat-label>
-                        <input matInput formControlName="expirationDate" type="date" />
+                        <input matInput formControlName="expirationDate" type="date" (click)="openNativePicker($event)" (focus)="openNativePicker($event)" />
                     </mat-form-field>
                     <div class="col-span-3 flex h-14 items-center justify-end font-semibold sm:col-span-1">
-                        Q {{ (row.get('quantity').value * row.get('unitPrice').value) | number: '1.2-2' }}
+                        {{ money(row.get('quantity').value * row.get('unitPrice').value) }}
                     </div>
                     <div class="col-span-1 flex h-14 items-center justify-end">
                         @if (!isViewMode) {
@@ -113,15 +124,15 @@
         <div class="mt-6 flex flex-col items-end gap-2 rounded-xl border bg-card p-4 text-right">
             <div class="flex w-full max-w-xs justify-between">
                 <span class="text-secondary">Subtotal</span>
-                <span class="font-semibold">Q {{ subtotal | number: '1.2-2' }}</span>
+                <span class="font-semibold">{{ money(subtotal) }}</span>
             </div>
             <div class="flex w-full max-w-xs justify-between">
                 <span class="text-secondary">Impuesto</span>
-                <span class="font-semibold">Q {{ tax | number: '1.2-2' }}</span>
+                <span class="font-semibold">{{ money(tax) }}</span>
             </div>
             <div class="flex w-full max-w-xs justify-between border-t pt-2">
                 <span class="font-bold">Total</span>
-                <span class="text-lg font-bold text-primary">Q {{ total | number: '1.2-2' }}</span>
+                <span class="text-lg font-bold text-primary">{{ money(total) }}</span>
             </div>
         </div>
     </div>

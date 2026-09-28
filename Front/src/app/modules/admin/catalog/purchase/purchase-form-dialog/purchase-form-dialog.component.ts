@@ -24,11 +24,13 @@ export class PurchaseFormDialogComponent implements OnInit {
   branches: any[] = [];
   medicines: any[] = [];
   filteredMedicines: any[] = [];
+  supplierMedicines: any[] = [];
   medicineSearchControl = new UntypedFormControl('');
   isViewMode = false;
   subtotal = 0;
   tax = 0;
   total = 0;
+  private isLoadingPurchase = false;
 
   constructor(
     @Inject(MAT_DIALOG_DATA) private _data: any,
@@ -53,6 +55,7 @@ export class PurchaseFormDialogComponent implements OnInit {
 
     this.loadCombos();
     this.medicineSearchControl.valueChanges.subscribe(searchText => this.filterMedicines(searchText));
+    this.dataForm.get('supplierId').valueChanges.subscribe(() => this.onSupplierChanged());
     if (this._data?.row) {
       this.loadPurchase(this._data.row.id);
     }
@@ -63,11 +66,12 @@ export class PurchaseFormDialogComponent implements OnInit {
   }
 
   loadCombos(): void {
-    this._generalApi.comboList(['Supplier', 'Branch', 'Medicine']).subscribe({
-      next: ([suppliers, branches, medicines]) => {
+    this._generalApi.comboList(['Supplier', 'Branch', 'Medicine', 'SupplierMedicine']).subscribe({
+      next: ([suppliers, branches, medicines, supplierMedicines]) => {
         this.suppliers = suppliers;
-        this.branches = (branches ?? []).filter(item => Number(item.isMain ?? item.is_main) === 1);
+        this.branches = this.actionDialog === 1 ? (branches ?? []).filter(item => Number(item.isMain ?? item.is_main) === 1) : (branches ?? []);
         this.medicines = medicines;
+        this.supplierMedicines = supplierMedicines ?? [];
         this.filterMedicines(this.medicineSearchControl.value);
         if (this.actionDialog === 1 && this.branches.length === 1) {
           this.dataForm.get('branchId').patchValue(this.branches[0].id);
@@ -89,13 +93,15 @@ export class PurchaseFormDialogComponent implements OnInit {
         const subtotal = Number(purchase.subtotal ?? 0);
         const tax = Number(purchase.tax ?? 0);
 
+        this.isLoadingPurchase = true;
         this.dataForm.patchValue({
           supplierId: purchase.supplierId,
           branchId: purchase.branchId,
           invoiceNumber: purchase.invoiceNumber,
           purchaseDate: this.toLocalInput(purchase.purchaseDate),
           taxRate: subtotal > 0 ? Math.round((tax / subtotal) * 1000) / 10 : 0
-        });
+        }, { emitEvent: false });
+        this.filterMedicines(this.medicineSearchControl.value);
 
         if (this.actionDialog === 2) {
           this.dataForm.get('branchId').disable();
@@ -103,6 +109,7 @@ export class PurchaseFormDialogComponent implements OnInit {
 
         this.detailRows.clear();
         details.forEach(detail => this.addDetailRow(detail));
+        this.isLoadingPurchase = false;
 
         if (this.actionDialog !== 7) {
           this.recalculate();
@@ -117,6 +124,10 @@ export class PurchaseFormDialogComponent implements OnInit {
   }
 
   addDetailRow(row: any = null): void {
+    if (!this.dataForm.get('supplierId')?.value && !this.isViewMode) {
+      this._toast.error('Seleccione un proveedor antes de agregar medicamentos.');
+      return;
+    }
     const group = this._formBuilder.group({
       medicineId: [{ value: row?.medicineId ?? '', disabled: this.isViewMode }, Validators.required],
       quantity: [{ value: row?.quantity ?? 1, disabled: this.isViewMode }, [Validators.required, Validators.min(0.001)]],
@@ -210,11 +221,53 @@ export class PurchaseFormDialogComponent implements OnInit {
     return item ? [item.code, item.name].filter(Boolean).join(' - ') : '';
   }
 
+  money(value: any): string {
+    return `Q ${Number(value ?? 0).toFixed(2)}`;
+  }
+
+  onSupplierChanged(): void {
+    if (this.isViewMode || this.isLoadingPurchase) return;
+    this.detailRows.clear();
+    this.recalculate();
+    this.filterMedicines(this.medicineSearchControl.value);
+  }
+
+  hasSupplierMedicines(): boolean {
+    return !this.dataForm?.get('supplierId')?.value || this.filteredMedicines.length > 0;
+  }
+
+  statusLabel(): string {
+    const labels: Record<string, string> = {
+      E: 'Registrada',
+      DRAFT: 'Borrador',
+      PENDING_APPROVAL: 'Pendiente aprobacion',
+      APPROVED: 'Aprobada',
+      PARTIALLY_RECEIVED: 'Recepcion parcial',
+      RECEIVED: 'Recibida',
+      INVOICED: 'Facturada',
+      DISCREPANCY: 'Con discrepancia'
+    };
+    return labels[this._data?.row?.status] ?? this._data?.row?.status ?? '-';
+  }
+
   private filterMedicines(searchText: string = ''): void {
     const text = (searchText ?? '').toString().trim().toLowerCase();
+    const supplierId = Number(this.dataForm?.get('supplierId')?.value ?? 0);
+    const source = supplierId
+      ? this.medicines.filter(item => this.supplierMedicines.some(relation => Number(relation.supplierId ?? relation.supplier_id) === supplierId && Number(relation.medicineId ?? relation.medicine_id) === Number(item.id)))
+      : [];
     this.filteredMedicines = text
-      ? this.medicines.filter(item => this.medicineLabel(item).toLowerCase().includes(text))
-      : this.medicines;
+      ? source.filter(item => this.medicineLabel(item).toLowerCase().includes(text))
+      : source;
+  }
+
+  openNativePicker(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    try {
+      input?.showPicker?.();
+    } catch {
+      // Some browsers only allow opening native pickers during direct user activation.
+    }
   }
 
   private toLocalInput(value: any): string {

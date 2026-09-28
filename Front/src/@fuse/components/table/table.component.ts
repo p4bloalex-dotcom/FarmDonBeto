@@ -55,6 +55,10 @@ export class TableComponent {
     this.rowAction.emit({ action, row });
   }
 
+  isActionVisible(action: TableAction, row: any): boolean {
+    return action.visible ? action.visible(row) : true;
+  }
+
 
   getGridTemplate(): string {
     return this.getVisibleColumns()

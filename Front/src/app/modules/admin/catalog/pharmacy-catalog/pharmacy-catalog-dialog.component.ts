@@ -115,6 +115,15 @@ export class PharmacyCatalogDialogComponent {
     return field.type === 'textarea' || field.name === 'description';
   }
 
+  openNativePicker(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    try {
+      input?.showPicker?.();
+    } catch {
+      // Some browsers only allow opening native pickers during direct user activation.
+    }
+  }
+
   private toLocalInput(value: any): string {
     const date = value instanceof Date ? value : new Date(value);
     if (isNaN(date.getTime())) return '';

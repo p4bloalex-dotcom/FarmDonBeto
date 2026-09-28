@@ -217,6 +217,5 @@ export const deleteStockTransferWithDetails = async (id, headerData) =>
       await registerKardex(manager, { branchId: headerData.branchOriginId, medicineId: detail.medicineId, movementType: 'TRANSFER_DELETE_IN', quantityIn: qty, balanceAfter: originBalance, referenceType: 'STOCK_TRANSFER', referenceId: id, reason: 'Reversa por eliminacion de traspaso' });
     }
 
-    await detailRepo.delete({ movementId: id });
-    await manager.getRepository('MoveInventory').delete(id);
+    await manager.getRepository('MoveInventory').update(id, { status: 'I' });
   });
