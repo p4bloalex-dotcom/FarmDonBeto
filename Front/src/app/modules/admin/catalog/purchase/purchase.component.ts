@@ -15,7 +15,7 @@ import { TableAction, TableColumn } from '@fuse/components/table/table-column.mo
 import { TableComponent } from '@fuse/components/table/table.component';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
-import { debounceTime, distinctUntilChanged, startWith, Subject, takeUntil } from 'rxjs';
+import { debounceTime, distinctUntilChanged, forkJoin, of, startWith, Subject, takeUntil } from 'rxjs';
 import { PurchaseFormDialogComponent } from './purchase-form-dialog/purchase-form-dialog.component';
 
 @Component({
@@ -65,8 +65,10 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     expirationDate: null,
     qualityStatus: 'AVAILABLE'
   };
+  returnMode: 'accepted' | 'notAccepted' = 'accepted';
   networkQuery: any = { medicineId: null, branchId: null, quantity: null };
   networkResult: any = null;
+  replenishmentLines: any[] = [];
 
   flowActions = [
     { value: 'requests', label: 'Necesito abastecer', description: '1. Validar stock interno y faltante.', icon: 'heroicons_outline:clipboard-document-list' },
@@ -78,9 +80,9 @@ export class PurchaseComponent implements OnInit, OnDestroy {
 
   flowHelp: Record<string, string> = {
     requests: 'Valide stock interno antes de comprar.',
-    orders: 'Cree la orden con productos del proveedor.',
-    receipts: 'Registre lo que llego y lo que esta en buen estado.',
-    invoices: 'Registre factura solo para ordenes recibidas.',
+    orders: '',
+    receipts: '',
+    invoices: '',
     returns: 'Devuelva producto ya recibido.'
   };
 
@@ -170,10 +172,119 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     this._generalApi.getPurchaseNetworkAvailability(this.networkQuery).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: resp => {
         this.networkResult = resp.success ? resp.data : null;
+        if (this.networkResult) {
+          this.flowForm.branchId = this.networkQuery.branchId;
+          this.flowForm.medicineId = this.networkQuery.medicineId;
+          this.flowForm.quantity = this.networkResult.pendingExternalPurchase || this.networkQuery.quantity;
+        }
         this.finishLoad(resp.success ? undefined : (resp.error?.detail ?? 'No se pudo verificar disponibilidad.'));
       },
       error: () => this.finishLoad('Error inesperado al verificar inventario de red.')
     });
+  }
+
+  submitReplenishment(): void {
+    if (!this.networkResult && this.replenishmentLines.length === 0) {
+      this.runNetworkCheck();
+      return;
+    }
+
+    const lines = this.replenishmentLines.length ? this.replenishmentLines : [this.currentReplenishmentLine()];
+    const transferGroups = new Map<string, any>();
+    const purchaseGroups = new Map<number, any>();
+
+    lines.filter(Boolean).forEach(line => {
+      (line.transfers ?? []).forEach(branch => {
+        const key = `${line.branchId}-${branch.branchId}`;
+        const group = transferGroups.get(key) ?? {
+          requestingBranchId: line.branchId,
+          fulfillmentBranchId: branch.branchId,
+          notes: this.flowForm.reason,
+          details: []
+        };
+        group.details.push({ medicineId: line.medicineId, quantity: branch.suggested, unitCost: 0 });
+        transferGroups.set(key, group);
+      });
+
+      if (line.pendingExternalPurchase > 0) {
+        const group = purchaseGroups.get(line.branchId) ?? {
+          branchId: line.branchId,
+          priority: this.flowForm.priority ?? 'NORMAL',
+          reason: this.flowForm.reason,
+          details: []
+        };
+        group.details.push({ medicineId: line.medicineId, requestedQuantity: line.pendingExternalPurchase });
+        purchaseGroups.set(line.branchId, group);
+      }
+    });
+
+    const requests = [
+      ...Array.from(transferGroups.values()).map(group => this._generalApi.add('DeliveryRequest', group)),
+      ...Array.from(purchaseGroups.values()).map(group => this._generalApi.postPurchaseFlow('requests', group))
+    ];
+
+    if (requests.length === 0) return this.invalidFlow('No hay cantidad disponible para solicitar.');
+
+    this.isLoading = true;
+    forkJoin(requests).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: responses => {
+        const failed: any = responses.find((resp: any) => resp && !resp.success);
+        if (failed) {
+          this.finishLoad(failed.error?.detail ?? 'No se pudo registrar el abastecimiento.');
+          return;
+        }
+        this._toast.success(this.replenishmentActionLabel() + ' registrada.');
+        this.networkResult = null;
+        this.replenishmentLines = [];
+        this.loadDashboard();
+        this.loadReplenishmentSuggestions();
+      },
+      error: () => this.finishLoad('Error inesperado al registrar el abastecimiento.')
+    });
+  }
+
+  addReplenishmentLine(): void {
+    if (!this.networkResult) return;
+    const line = this.currentReplenishmentLine();
+    if (!line) return;
+    const existingIndex = this.replenishmentLines.findIndex(item => item.branchId === line.branchId && item.medicineId === line.medicineId);
+    if (existingIndex >= 0) this.replenishmentLines[existingIndex] = line;
+    else this.replenishmentLines.push(line);
+    this.networkResult = null;
+    this.networkQuery.medicineId = null;
+    this.networkQuery.quantity = null;
+  }
+
+  removeReplenishmentLine(index: number): void {
+    this.replenishmentLines.splice(index, 1);
+  }
+
+  currentReplenishmentLine(): any {
+    if (!this.networkResult) return null;
+    const medicine = this.medicines.find(item => Number(item.id) === Number(this.networkQuery.medicineId));
+    const branch = this.branches.find(item => Number(item.id) === Number(this.networkQuery.branchId));
+    return {
+      branchId: this.networkQuery.branchId,
+      branchName: branch?.name ?? `Sucursal #${this.networkQuery.branchId}`,
+      medicineId: this.networkQuery.medicineId,
+      medicineName: this.medicineOptionLabel(medicine) || `Medicamento #${this.networkQuery.medicineId}`,
+      requestedQuantity: Number(this.networkQuery.quantity ?? 0),
+      pendingExternalPurchase: Number(this.networkResult.pendingExternalPurchase ?? 0),
+      transfers: this.networkResult.suggestions ?? []
+    };
+  }
+
+  canReviewNetwork(): boolean {
+    return !!this.networkQuery.medicineId && !!this.networkQuery.branchId && Number(this.networkQuery.quantity ?? 0) > 0;
+  }
+
+  replenishmentActionLabel(): string {
+    if (!this.networkResult) return 'Buscar abastecimiento';
+    const hasTransfers = (this.networkResult.suggestions ?? []).length > 0;
+    const hasPurchase = Number(this.networkResult.pendingExternalPurchase ?? 0) > 0;
+    if (hasTransfers && hasPurchase) return 'Solicitar traslado y compra';
+    if (hasTransfers) return 'Solicitar traslado';
+    return 'Solicitar compra';
   }
 
   selectFlowAction(action: string): void {
@@ -311,15 +422,17 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     }
     if (this.flowAction === 'invoices') {
       if (!form.purchaseId || !form.supplierId || !form.invoiceNumber) return this.invalidFlow('Ingrese orden, proveedor y numero de factura.');
-      const subtotal = Number(form.subtotal ?? this.selectedOrder?.subtotal ?? this.selectedOrder?.total ?? 0);
+      const subtotal = this.acceptedTotal();
       const total = Number(form.total ?? subtotal);
       if (total <= 0) return this.invalidFlow('Ingrese un total de factura valido.');
       if (!['PARTIALLY_RECEIVED', 'RECEIVED', 'DISCREPANCY'].includes(this.selectedOrder?.status)) return this.invalidFlow('Solo puede facturar una orden con mercaderia recibida.');
       return { purchaseId: form.purchaseId, supplierId: form.supplierId, invoiceNumber: form.invoiceNumber, invoiceDate: new Date(), subtotal, tax: Number(form.tax ?? 0), discount: Number(form.discount ?? 0), total: Number(form.total ?? subtotal) };
     }
     if (this.flowAction === 'returns') {
-      if (!form.purchaseId || !form.supplierId || !form.medicineId || quantity <= 0 || !form.reason) return this.invalidFlow('Ingrese proveedor, compra, medicamento, cantidad y motivo.');
-      return { purchaseId: form.purchaseId, supplierId: form.supplierId, medicineId: form.medicineId, quantity, batchNumber: form.batchNumber || null, reason: form.reason };
+      if (!form.purchaseId || !form.supplierId || !form.medicineId || quantity <= 0 || !form.reason) return this.invalidFlow('Ingrese orden, producto, cantidad y motivo.');
+      const max = this.returnableQuantity();
+      if (quantity > max) return this.invalidFlow(`La cantidad a devolver no puede superar ${max} para esta linea.`);
+      return { purchaseId: form.purchaseId, supplierId: form.supplierId, medicineId: form.medicineId, quantity, batchNumber: form.batchNumber || null, returnMode: this.returnMode, reason: `${this.returnMode === 'accepted' ? 'Devolucion de producto en inventario' : 'Producto no aceptado en recepcion'}: ${form.reason}` };
     }
     return null;
   }
@@ -420,6 +533,10 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         this.flowForm.subtotal = Number(resp.data?.subtotal ?? 0);
         this.flowForm.total = Number(resp.data?.total ?? resp.data?.subtotal ?? 0);
         this.purchaseDetails = this.filterDetailsForCurrentStep(resp.data?.details ?? []);
+        if (this.flowAction === 'invoices') {
+          this.flowForm.subtotal = this.acceptedTotal();
+          this.flowForm.total = this.acceptedTotal();
+        }
         if (this.purchaseDetails.length === 1) {
           this.flowForm.purchaseDetailId = this.purchaseDetails[0].id;
           this.onPurchaseDetailSelected(this.purchaseDetails[0].id);
@@ -442,6 +559,10 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         this.flowForm.subtotal = Number(resp.data?.subtotal ?? 0);
         this.flowForm.total = Number(resp.data?.total ?? resp.data?.subtotal ?? 0);
         this.purchaseDetails = this.filterDetailsForCurrentStep(resp.data?.details ?? []);
+        if (this.flowAction === 'invoices') {
+          this.flowForm.subtotal = this.acceptedTotal();
+          this.flowForm.total = this.acceptedTotal();
+        }
         const stillPending = this.purchaseDetails.find(item => item.id === currentDetailId);
         this.flowForm.purchaseDetailId = stillPending?.id ?? null;
         if (stillPending) this.onPurchaseDetailSelected(stillPending.id);
@@ -563,14 +684,53 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     return { total, completed, pending: Math.max(0, total - completed) };
   }
 
+  orderedTotal(): number {
+    const details = this.selectedOrder?.details ?? [];
+    return details.reduce((sum, detail) => sum + (this.detailOrdered(detail) * Number(detail.unitPrice ?? 0)), 0);
+  }
+
+  acceptedTotal(): number {
+    const details = this.selectedOrder?.details ?? [];
+    return details.reduce((sum, detail) => sum + (this.detailAccepted(detail) * Number(detail.unitPrice ?? 0)), 0);
+  }
+
+  notAcceptedTotal(): number {
+    const details = this.selectedOrder?.details ?? [];
+    return details.reduce((sum, detail) => sum + (this.detailRejected(detail) * Number(detail.unitPrice ?? 0)), 0);
+  }
+
+  pendingReceiveTotal(): number {
+    const details = this.selectedOrder?.details ?? [];
+    return details.reduce((sum, detail) => sum + (this.detailPending(detail) * Number(detail.unitPrice ?? 0)), 0);
+  }
+
   invoiceDifference(): number {
-    const expected = Number(this.selectedOrder?.total ?? this.selectedOrder?.subtotal ?? 0);
+    const expected = this.acceptedTotal();
     const actual = Number(this.flowForm.total ?? expected);
     return Math.round((actual - expected) * 100) / 100;
   }
 
+  invoiceStatusMessage(): string {
+    const difference = this.invoiceDifference();
+    if (difference === 0) return 'Factura coincide con lo recibido en buen estado.';
+    if (difference > 0) return `Factura mayor a lo pagable por ${this.money(difference)}. Solicite correccion o nota de credito.`;
+    return `Factura menor a lo recibido en buen estado por ${this.money(Math.abs(difference))}. Revise descuentos o faltante de factura.`;
+  }
+
   rejectedQuantity(): number {
     return Math.max(0, Number(this.flowForm.quantityReceived ?? 0) - Number(this.flowForm.quantity ?? 0));
+  }
+
+  returnableAcceptedQuantity(detail: any = this.selectedDetail()): number {
+    return this.detailAccepted(detail);
+  }
+
+  returnableNotAcceptedQuantity(detail: any = this.selectedDetail()): number {
+    return this.detailRejected(detail);
+  }
+
+  returnableQuantity(): number {
+    return this.returnMode === 'accepted' ? this.returnableAcceptedQuantity() : this.returnableNotAcceptedQuantity();
   }
 
   availablePurchaseOrders(): any[] {

@@ -38,7 +38,9 @@ const validateDeliveryData = async payload => {
 
 const ensureScopeCanCreate = async payload => {
   const scope = await resolveDeliveryScope();
-  return !scope || scope === Number(payload.requestingBranchId) || scope === Number(payload.fulfillmentBranchId);
+  if (!scope || scope === Number(payload.requestingBranchId) || scope === Number(payload.fulfillmentBranchId)) return true;
+  const branch = await AppDataSource.getRepository('Branch').findOneBy({ id: scope, status: 'E' });
+  return Number(branch?.isMain ?? 0) === 1;
 };
 
 export const addDeliveryRequest = async (req, res) => {

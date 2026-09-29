@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { registerKardex } from '../inventory/inventory-kardex.service.js';
 import { addLotStock } from '../inventory/inventory-lot.service.js';
+import { calculateReceiptLine, determineInvoiceMatching } from './purchase-flow.js';
 
 const purchases = () => AppDataSource.getRepository('Purchase');
 const details = () => AppDataSource.getRepository('PurchaseDetail');
@@ -51,6 +52,13 @@ const toDto = item => ({
   status: item.status
 });
 
+export const findLatestSupplierInvoice = async purchaseId => AppDataSource.getRepository('SupplierInvoice')
+  .createQueryBuilder('invoice')
+  .where('invoice.purchaseId = :purchaseId', { purchaseId })
+  .orderBy('invoice.createdAt', 'DESC')
+  .addOrderBy('invoice.id', 'DESC')
+  .getOne();
+
 const detailQuery = () => details().createQueryBuilder('item')
   .leftJoin('item.medicine', 'medicine')
   .addSelect(['medicine.id', 'medicine.code', 'medicine.name']);
@@ -73,6 +81,8 @@ const queryBase = () => purchases().createQueryBuilder('item')
     .from('PurchaseDetail', 'detail')
     .where('detail.purchaseId = item.id'), 'itemsCount');
 
+const mapRowsWithCounts = result => result.entities.map((item, index) => toDto({ ...item, itemsCount: result.raw[index]?.itemsCount ?? result.raw[index]?.ITEMSCOUNT ?? 0 }));
+
 export const findPurchaseById = async id => queryBase().where('item.id = :id', { id }).getOne();
 
 export const findPurchaseByInvoice = async (supplierId, invoiceNumber, excludeId = null) => {
@@ -87,11 +97,11 @@ export const findPurchaseByInvoice = async (supplierId, invoiceNumber, excludeId
 };
 
 export const listPurchases = async () => {
-  const rows = await queryBase()
+  const result = await queryBase()
     .where('item.status <> :inactive', { inactive: 'I' })
     .orderBy('item.purchaseDate', 'DESC')
-    .getMany();
-  return rows.map(toDto);
+    .getRawAndEntities();
+  return mapRowsWithCounts(result);
 };
 
 export const paginatePurchases = async ({ offset, pageSize }) => {
@@ -99,8 +109,8 @@ export const paginatePurchases = async ({ offset, pageSize }) => {
     .orderBy('item.purchaseDate', 'DESC')
     .skip(offset)
     .take(pageSize);
-  const [rows, total] = await query.getManyAndCount();
-  return { rows: rows.map(toDto), total };
+  const [result, total] = await Promise.all([query.getRawAndEntities(), query.getCount()]);
+  return { rows: mapRowsWithCounts(result), total };
 };
 
 export const countDetails = async purchaseId => details().countBy({ purchaseId });
@@ -418,13 +428,12 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
     const accepted = Number(detail.quantityAccepted ?? 0);
     const rejected = Number(detail.quantityRejected ?? 0);
     const received = Number(detail.quantityReceived ?? accepted + rejected);
-    const verified = accepted + rejected;
-    const nextReceived = Number(purchaseDetail.quantityReceived ?? 0) + verified;
-    if (nextReceived > Number(purchaseDetail.quantityOrdered ?? purchaseDetail.quantity ?? 0)) throw new BusinessRuleError('La recepcion supera la cantidad ordenada.');
+    const receiptLine = calculateReceiptLine({ ordered: purchaseDetail.quantityOrdered ?? purchaseDetail.quantity, alreadyVerified: purchaseDetail.quantityReceived, arrived: received, good: accepted });
+    if (rejected !== receiptLine.notAccepted) throw new BusinessRuleError('La cantidad no aceptada no coincide con la cantidad que llego menos la cantidad en buen estado.');
     await receiptDetailRepo.save(receiptDetailRepo.create({ ...detail, receiptId: receipt.id, branchId: purchase.branchId, medicineId: purchaseDetail.medicineId, quantityReceived: received, quantityAccepted: accepted, quantityRejected: rejected }));
-    purchaseDetail.quantityReceived = nextReceived;
+    purchaseDetail.quantityReceived = receiptLine.verifiedAfter;
     purchaseDetail.quantityRejected = Number(purchaseDetail.quantityRejected ?? 0) + rejected;
-    purchaseDetail.quantityPending = Math.max(0, Number(purchaseDetail.quantityOrdered ?? purchaseDetail.quantity ?? 0) - nextReceived);
+    purchaseDetail.quantityPending = receiptLine.pendingAfter;
     purchaseDetail.status = purchaseDetail.quantityPending > 0 ? 'PARTIALLY_RECEIVED' : 'RECEIVED';
     await detailRepo.save(purchaseDetail);
     if (accepted > 0) {
@@ -445,11 +454,8 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
 export const registerSupplierInvoice = async payload => AppDataSource.transaction(async manager => {
   const invoiceRepo = manager.getRepository('SupplierInvoice');
   const detailsRows = await manager.getRepository('PurchaseDetail').findBy({ purchaseId: payload.purchaseId });
-  const orderTotal = detailsRows.reduce((sum, detail) => sum + Number(detail.total ?? detail.subtotal ?? 0), 0);
-  const receivedTotal = detailsRows.reduce((sum, detail) => sum + (Number(detail.quantityReceived ?? 0) * Number(detail.unitPrice ?? 0)), 0);
-  const tolerance = Number(payload.tolerance ?? 0.01);
-  const invoiceTotal = Number(payload.total ?? 0);
-  const matchingStatus = Math.abs(invoiceTotal - orderTotal) <= tolerance && invoiceTotal <= receivedTotal + tolerance ? 'MATCHED' : 'DISCREPANCY';
+  const reconciliation = determineInvoiceMatching({ details: detailsRows, invoiceTotal: payload.total, tolerance: payload.tolerance });
+  const matchingStatus = reconciliation.matchingStatus;
   const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
   const saved = await invoiceRepo.save(invoiceRepo.create({ ...payload, branchId: purchase?.branchId ?? payload.branchId ?? null, invoiceDate: payload.invoiceDate ? new Date(payload.invoiceDate) : new Date(), dueDate: payload.dueDate ? new Date(payload.dueDate) : null, matchingStatus, status: matchingStatus === 'MATCHED' ? 'APPROVED' : 'PENDING_APPROVAL' }));
   await manager.getRepository('Purchase').update(payload.purchaseId, { status: matchingStatus === 'MATCHED' ? 'INVOICED' : 'DISCREPANCY' });
@@ -459,6 +465,7 @@ export const registerSupplierInvoice = async payload => AppDataSource.transactio
 export const createSupplierReturn = async payload => AppDataSource.transaction(async manager => {
   const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
   const saved = await manager.getRepository('PurchaseReturn').save({ ...payload, branchId: purchase?.branchId ?? payload.branchId ?? null });
+  if (payload.returnMode === 'notAccepted') return saved.id;
   const stock = await manager.getRepository('Inventory').findOneBy({ branchId: purchase.branchId, medicineId: payload.medicineId });
   if (stock) {
     stock.stockAvailable = Math.max(0, Number(stock.stockAvailable ?? 0) - Number(payload.quantity ?? 0));

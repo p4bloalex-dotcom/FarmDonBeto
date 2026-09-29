@@ -38,17 +38,15 @@ export class StockTransferComponent implements OnInit, OnDestroy {
   isLoading = false;
 
   actions: TableAction[] = [
-    { action: 'view', label: 'Ver detalle', icon: 'feather:eye' },
-    { action: 'edit', label: 'Editar', icon: 'feather:edit' },
-    { action: 'delete', label: 'Eliminar', icon: 'delete_forever' }
+    { action: 'view', label: 'Ver movimiento', icon: 'feather:eye' }
   ];
 
   columns: TableColumn[] = [
-    { field: 'movementDateLabel', header: 'Fecha', width: '1.5fr' },
-    { field: 'branchOriginName', header: 'Origen', width: '1.5fr' },
-    { field: 'branchDestinationName', header: 'Destino', width: '1.5fr' },
+    { field: 'movementDateLabel', header: 'Fecha aplicada', width: '1.5fr' },
+    { field: 'branchOriginName', header: 'Salio de', width: '1.5fr' },
+    { field: 'branchDestinationName', header: 'Entro a', width: '1.5fr' },
     { field: 'itemsCount', header: 'Items', width: '70px' },
-    { field: 'description', header: 'Descripcion', width: '1.5fr' },
+    { field: 'description', header: 'Origen del movimiento', width: '1.5fr' },
     { field: 'statusLabel', header: 'Estado', width: '110px' }
   ];
 
@@ -137,7 +135,7 @@ export class StockTransferComponent implements OnInit, OnDestroy {
     return {
       ...item,
       movementDateLabel: item.movementDate ? new Date(item.movementDate).toLocaleString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '-',
-      statusLabel: item.status === 'E' ? 'Registrado' : item.status === 'I' ? 'Anulado' : item.status ?? '-'
+      statusLabel: item.status === 'E' ? 'Stock aplicado' : item.status === 'I' ? 'Anulado' : item.status ?? '-'
     };
   }
 

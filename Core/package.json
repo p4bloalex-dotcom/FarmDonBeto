@@ -19,7 +19,8 @@
     "codefirst:show": "typeorm migration:show -d src/config/data-source-code-first.js",
     "codefirst:create-user": "node scripts/create-codefirst-user.js",
     "tenant:sync-rls": "node scripts/sync-tenant-rls.js",
-    "tenant:fix-rls-context": "node scripts/fix-rls-context.js"
+    "tenant:fix-rls-context": "node scripts/fix-rls-context.js",
+    "test": "node --test tests/**/*.test.js"
   },
   "dependencies": {
     "compression": "^1.7.4",

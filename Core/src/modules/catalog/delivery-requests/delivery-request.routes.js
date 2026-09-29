@@ -13,7 +13,7 @@ export const permissions = registerScreen({
   category: 'Operation',
   controller: 'DeliveryRequest',
   routePath: 'delivery-request',
-  title: 'Entregas entre sucursales',
+  title: 'Traslados entre sucursales',
   icon: 'heroicons_solid:truck',
   actions: crudActions()
 });

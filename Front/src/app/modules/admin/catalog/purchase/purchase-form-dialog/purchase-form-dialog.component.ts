@@ -30,6 +30,7 @@ export class PurchaseFormDialogComponent implements OnInit {
   subtotal = 0;
   tax = 0;
   total = 0;
+  purchase: any = null;
   private isLoadingPurchase = false;
 
   constructor(
@@ -89,6 +90,7 @@ export class PurchaseFormDialogComponent implements OnInit {
           return;
         }
         const purchase = resp.data;
+        this.purchase = purchase;
         const details = Array.isArray(purchase.details) ? purchase.details : [];
         const subtotal = Number(purchase.subtotal ?? 0);
         const tax = Number(purchase.tax ?? 0);
@@ -97,7 +99,7 @@ export class PurchaseFormDialogComponent implements OnInit {
         this.dataForm.patchValue({
           supplierId: purchase.supplierId,
           branchId: purchase.branchId,
-          invoiceNumber: purchase.invoiceNumber,
+          invoiceNumber: purchase.supplierInvoice?.invoiceNumber ?? purchase.invoiceNumber,
           purchaseDate: this.toLocalInput(purchase.purchaseDate),
           taxRate: subtotal > 0 ? Math.round((tax / subtotal) * 1000) / 10 : 0
         }, { emitEvent: false });
@@ -116,7 +118,7 @@ export class PurchaseFormDialogComponent implements OnInit {
         } else {
           this.subtotal = subtotal;
           this.tax = tax;
-          this.total = subtotal + tax;
+          this.total = Number(purchase.supplierInvoice?.total ?? subtotal + tax);
         }
       },
       error: () => this._toast.error('Error inesperado al cargar la compra.')
@@ -225,6 +227,25 @@ export class PurchaseFormDialogComponent implements OnInit {
     return `Q ${Number(value ?? 0).toFixed(2)}`;
   }
 
+  supplierName(): string {
+    const id = this.dataForm?.get('supplierId')?.value;
+    return this.suppliers.find(item => item.id === id)?.name ?? this._data?.row?.supplierName ?? '-';
+  }
+
+  branchName(): string {
+    const id = this.dataForm?.get('branchId')?.value;
+    return this.branches.find(item => item.id === id)?.name ?? this._data?.row?.branchName ?? '-';
+  }
+
+  medicineName(row: any): string {
+    const id = row?.get('medicineId')?.value;
+    return this.medicineLabel(this.medicines.find(item => item.id === id)) || '-';
+  }
+
+  rowSubtotal(row: any): number {
+    return Number(row?.get('quantity')?.value ?? 0) * Number(row?.get('unitPrice')?.value ?? 0);
+  }
+
   onSupplierChanged(): void {
     if (this.isViewMode || this.isLoadingPurchase) return;
     this.detailRows.clear();
@@ -248,6 +269,42 @@ export class PurchaseFormDialogComponent implements OnInit {
       DISCREPANCY: 'Con discrepancia'
     };
     return labels[this._data?.row?.status] ?? this._data?.row?.status ?? '-';
+  }
+
+  orderedTotal(): number {
+    return this.detailRows.controls.reduce((sum, row) => sum + Number(row.get('quantity')?.value ?? 0) * Number(row.get('unitPrice')?.value ?? 0), 0);
+  }
+
+  payableTotal(): number {
+    const details = this.purchase?.details ?? [];
+    if (!details.length) return this.orderedTotal();
+    return details.reduce((sum, detail) => {
+      const verified = Number(detail.quantityReceived ?? 0);
+      const rejected = Number(detail.quantityRejected ?? 0);
+      return sum + Math.max(0, verified - rejected) * Number(detail.unitPrice ?? 0);
+    }, 0);
+  }
+
+  notAcceptedTotal(): number {
+    const details = this.purchase?.details ?? [];
+    return details.reduce((sum, detail) => sum + Number(detail.quantityRejected ?? 0) * Number(detail.unitPrice ?? 0), 0);
+  }
+
+  pendingTotal(): number {
+    const details = this.purchase?.details ?? [];
+    return details.reduce((sum, detail) => sum + Number(detail.quantityPending ?? 0) * Number(detail.unitPrice ?? 0), 0);
+  }
+
+  invoiceTotal(): number {
+    return Number(this.purchase?.supplierInvoice?.total ?? this.total ?? 0);
+  }
+
+  discrepancyMessage(): string {
+    if (this.purchase?.status !== 'DISCREPANCY') return '';
+    const difference = Math.round((this.invoiceTotal() - this.payableTotal()) * 100) / 100;
+    if (difference > 0) return `La factura es mayor a lo pagable por ${this.money(difference)}. Revise producto no aceptado o solicite nota de credito/correccion.`;
+    if (difference < 0) return `La factura es menor a lo recibido en buen estado por ${this.money(Math.abs(difference))}. Revise descuentos, bonificaciones o factura incompleta.`;
+    return 'La compra esta marcada con discrepancia. Revise la factura registrada y las cantidades recibidas.';
   }
 
   private filterMedicines(searchText: string = ''): void {

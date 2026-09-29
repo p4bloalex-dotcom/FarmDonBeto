@@ -14,6 +14,7 @@ import {
   findOpenSessionByBranch,
   findPurchaseByInvoice,
   findPurchaseById,
+  findLatestSupplierInvoice,
   hasCashMovement,
   listPurchaseDetails,
   listPurchaseRequests,
@@ -27,7 +28,23 @@ import {
 
 const toPurchaseResponse = async purchase => {
   const details = await listPurchaseDetails(purchase.id);
-  return { ...purchase, details };
+  const supplierInvoice = await findLatestSupplierInvoice(purchase.id);
+  return {
+    ...purchase,
+    invoiceNumber: supplierInvoice?.invoiceNumber ?? purchase.invoiceNumber,
+    supplierInvoice: supplierInvoice ? {
+      id: supplierInvoice.id,
+      invoiceNumber: supplierInvoice.invoiceNumber,
+      subtotal: Number(supplierInvoice.subtotal ?? 0),
+      tax: Number(supplierInvoice.tax ?? 0),
+      discount: Number(supplierInvoice.discount ?? 0),
+      total: Number(supplierInvoice.total ?? 0),
+      matchingStatus: supplierInvoice.matchingStatus,
+      status: supplierInvoice.status,
+      invoiceDate: supplierInvoice.invoiceDate
+    } : null,
+    details
+  };
 };
 
 const findEnabled = async (name, id) => AppDataSource.getRepository(name).findOneBy({ id, status: 'E' });

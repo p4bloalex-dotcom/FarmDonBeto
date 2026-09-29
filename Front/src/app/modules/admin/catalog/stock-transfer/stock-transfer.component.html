@@ -3,16 +3,15 @@
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }
     <div class="relative flex flex-0 flex-col gap-4 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
-        <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Traspasos de stock</div>
+        <div>
+            <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Movimientos de stock</div>
+            <div class="text-sm text-secondary">Registro de traslados ya aplicados al inventario.</div>
+        </div>
         <div class="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             <mat-form-field class="fuse-mat-dense fuse-mat-rounded w-full sm:min-w-64" [subscriptSizing]="'dynamic'">
                 <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
-                <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar traspaso'" />
+                <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar movimiento'" />
             </mat-form-field>
-            <button class="w-full sm:w-auto" mat-flat-button [color]="'primary'" (click)="openTransferDialog(null, 1)">
-                <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                <span class="ml-2 mr-1">Nuevo traspaso</span>
-            </button>
         </div>
     </div>
     <div class="flex flex-auto overflow-auto">

@@ -13,7 +13,7 @@ export const permissions = registerScreen({
   category: 'Operation',
   controller: 'StockTransfer',
   routePath: 'stock-transfer',
-  title: 'Traspasos de stock',
+  title: 'Movimientos de stock',
   icon: 'heroicons_solid:arrows-right-left',
   actions: crudActions()
 });
