@@ -35,6 +35,7 @@ export default [
 {path     : 'suppliermedicine',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.supplierMedicine }},
     {path     : 'unitmeasurement',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.unitMeasurement }},
     {path     : 'cashmovementtype',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.cashMovementType }},
+    {path     : 'movementtype',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.movementType }},
     {path     : 'cashregister',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.cashRegister }},
     {path     : 'purchase', redirectTo: '/operation/purchase', pathMatch: 'full'},
     {path     : 'stock-transfer', redirectTo: '/operation/stock-transfer', pathMatch: 'full'},

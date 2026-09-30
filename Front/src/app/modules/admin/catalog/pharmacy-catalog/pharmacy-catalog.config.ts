@@ -124,6 +124,15 @@ export const pharmacyCatalogConfigs: Record<string, PharmacyCatalogConfig> = {
       { name: 'operation', label: 'Operacion', type: 'select', required: true, options: [{ value: 'I', label: 'Ingreso' }, { value: 'E', label: 'Egreso' }] }
     ]
   },
+  movementType: {
+    title: 'Tipos de movimiento de inventario',
+    service: 'MovementType',
+    columns: [
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'status', header: 'Estado', width: '130px' }
+    ],
+    fields: [{ name: 'name', label: 'Nombre', required: true }]
+  },
   cashRegister: {
     title: 'Cajas',
     service: 'CashRegister',

@@ -1,6 +1,6 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { getRequestContext } from '../../../utils/request-context.js';
-import { createStockTransferWithDetails, findMovementType } from '../stock-transfers/stock-transfer.repository.js';
+import { BusinessRuleError as StockTransferBusinessRuleError, createStockTransferWithDetails, findMovementType } from '../stock-transfers/stock-transfer.repository.js';
 
 const requests = () => AppDataSource.getRepository('DeliveryRequest');
 const details = () => AppDataSource.getRepository('DeliveryRequestDetail');
@@ -152,16 +152,22 @@ export const changeDeliveryRequestStatus = async (request, nextStatus) => {
 
   let movementId = request.movementId;
   if (nextStatus === 'D') {
+    if (movementId) throw new BusinessRuleError('La entrega ya fue confirmada y tiene un movimiento de stock aplicado.');
     const movementType = await findMovementType('TRASPASO');
     if (!movementType) throw new BusinessRuleError('No se configuro el tipo de movimiento de traspaso.');
     const requestDetails = await listDeliveryRequestDetails(request.id);
-    movementId = await createStockTransferWithDetails({
-      branchOriginId: request.fulfillmentBranchId,
-      branchDestinationId: request.requestingBranchId,
-      movementDate: new Date(),
-      description: `Entrega a cliente desde solicitud ${request.id}`,
-      status: 'E'
-    }, requestDetails.map(detail => ({ medicineId: detail.medicineId, quantity: detail.quantity, unitCost: detail.unitCost })), movementType.id);
+    try {
+      movementId = await createStockTransferWithDetails({
+        branchOriginId: request.fulfillmentBranchId,
+        branchDestinationId: request.requestingBranchId,
+        movementDate: new Date(),
+        description: `Entrega a cliente desde solicitud ${request.id}`,
+        status: 'E'
+      }, requestDetails.map(detail => ({ medicineId: detail.medicineId, quantity: detail.quantity, unitCost: detail.unitCost })), movementType.id);
+    } catch (error) {
+      if (error instanceof StockTransferBusinessRuleError) throw new BusinessRuleError(error.message);
+      throw error;
+    }
   }
 
   await requests().update(request.id, {
