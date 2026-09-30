@@ -83,6 +83,7 @@ const queryBase = () => requests().createQueryBuilder('item')
 export const resolveDeliveryScope = async () => {
   const store = getRequestContext();
   if (!store?.user?.id) return null;
+  if (store.user.branchIsMain) return null;
   if (store.permissionName && store.user.role) {
     const permission = await AppDataSource.getRepository('Permission').findOneBy({ name: store.permissionName });
     if (permission) {

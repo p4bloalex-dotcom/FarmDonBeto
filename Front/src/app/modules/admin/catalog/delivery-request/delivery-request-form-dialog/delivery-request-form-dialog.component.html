@@ -1,15 +1,71 @@
 <form [formGroup]="dataForm" class="flex max-h-[90vh] w-full flex-col overflow-hidden">
     <div class="border-b px-4 py-3">
-        <h2 class="text-xl font-semibold sm:text-2xl">
-            @if (actionDialog === 1) {Nueva solicitud de entrega}
-            @else if (actionDialog === 2) {Editar solicitud}
-            @else {Detalle de solicitud}
-        </h2>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 class="text-xl font-semibold sm:text-2xl">
+                @if (actionDialog === 1) {Nueva solicitud de entrega}
+                @else if (actionDialog === 2) {Editar solicitud}
+                @else {Detalle de solicitud}
+            </h2>
+            @if (isViewMode && currentRequest) {
+                <span class="w-fit rounded-full px-3 py-1 text-sm font-semibold" [ngClass]="statusClass(currentRequest.status)">{{ statusLabel(currentRequest.status) }}</span>
+            }
+        </div>
     </div>
     <div class="flex-1 overflow-y-auto p-4">
-        @if (!isViewMode) {
-            <div class="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">La solicitud queda visible solo para la sucursal solicitante y la sucursal que entrega. Al marcarla como entregada se registra el traspaso real de inventario.</div>
+
+        @if (isViewMode && currentRequest) {
+            <div class="mb-5 grid gap-3 md:grid-cols-4">
+                <div class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-secondary">Solicitud</div>
+                    <div class="mt-1 text-2xl font-bold">#{{ currentRequest.id }}</div>
+                </div>
+                <div class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-secondary">Siguiente accion</div>
+                    <div class="mt-1 font-semibold">{{ nextStepLabel(currentRequest.status) }}</div>
+                </div>
+                <div class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-secondary">Unidades</div>
+                    <div class="mt-1 text-2xl font-bold">{{ totalUnits() | number:'1.0-3' }}</div>
+                </div>
+                <div class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-secondary">Costo estimado</div>
+                    <div class="mt-1 text-2xl font-bold">{{ totalCost() | currency:'GTQ':'symbol-narrow':'1.2-2' }}</div>
+                </div>
+            </div>
+            <div class="mb-5 grid gap-4 rounded-2xl border p-4 md:grid-cols-2">
+                <div>
+                    <div class="text-sm text-secondary">Sucursal que recibe</div>
+                    <div class="text-lg font-semibold">{{ branchName(currentRequest.requestingBranchId) }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-secondary">Sucursal que entrega</div>
+                    <div class="text-lg font-semibold">{{ branchName(currentRequest.fulfillmentBranchId) }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-secondary">Solicitado</div>
+                    <div class="font-medium">{{ currentRequest.requestedAt ? (currentRequest.requestedAt | date:'dd/MM/yyyy HH:mm') : '-' }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-secondary">Requerido</div>
+                    <div class="font-medium">{{ currentRequest.neededAt ? (currentRequest.neededAt | date:'dd/MM/yyyy HH:mm') : '-' }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-secondary">Cliente</div>
+                    <div class="font-medium">{{ currentRequest.customerName || '-' }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-secondary">Contacto</div>
+                    <div class="font-medium">{{ currentRequest.customerContact || '-' }}</div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="text-sm text-secondary">Notas</div>
+                    <div class="font-medium">{{ currentRequest.notes || '-' }}</div>
+                </div>
+            </div>
         }
+
+        @if (!isViewMode) {
+        <div class="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">La solicitud queda visible para usuarios de matriz y para las sucursales involucradas. Al marcarla como entregada se registra el traspaso real de inventario.</div>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <mat-form-field class="w-full">
                 <mat-label>Sucursal que solicita</mat-label>
@@ -48,6 +104,7 @@
                 <input matInput formControlName="notes" autocomplete="off" />
             </mat-form-field>
         </div>
+        }
         <div class="mb-3 mt-6 flex items-center justify-between">
             <div class="text-lg font-semibold">Medicamentos</div>
             @if (!isViewMode) {
@@ -57,6 +114,26 @@
                 </button>
             }
         </div>
+        @if (isViewMode) {
+            <div class="overflow-hidden rounded-2xl border">
+                <div class="grid grid-cols-12 bg-slate-100 px-4 py-3 text-sm font-semibold text-secondary dark:bg-slate-900">
+                    <div class="col-span-6">Medicamento</div>
+                    <div class="col-span-2 text-right">Cantidad</div>
+                    <div class="col-span-2 text-right">Costo</div>
+                    <div class="col-span-2 text-right">Subtotal</div>
+                </div>
+                @for (row of detailRows.controls; track $index) {
+                    <div class="grid grid-cols-12 border-t px-4 py-3 text-sm">
+                        <div class="col-span-6 font-medium">{{ medicineName(row.get('medicineId').value) }}</div>
+                        <div class="col-span-2 text-right">{{ row.get('quantity').value | number:'1.0-3' }}</div>
+                        <div class="col-span-2 text-right">{{ row.get('unitCost').value | currency:'GTQ':'symbol-narrow':'1.2-2' }}</div>
+                        <div class="col-span-2 text-right font-semibold">{{ (row.get('quantity').value * row.get('unitCost').value) | currency:'GTQ':'symbol-narrow':'1.2-2' }}</div>
+                    </div>
+                } @empty {
+                    <div class="p-6 text-center text-secondary">Sin medicamentos agregados</div>
+                }
+            </div>
+        } @else {
         <div class="flex flex-col gap-3" formArrayName="details">
             @for (row of detailRows.controls; track $index) {
                 <div class="grid grid-cols-12 items-start gap-3 rounded-xl border bg-card p-3" [formGroupName]="$index">
@@ -88,6 +165,7 @@
                 <div class="rounded-xl border border-dashed bg-card p-6 text-center text-secondary">Sin medicamentos agregados</div>
             }
         </div>
+        }
     </div>
     <div class="flex flex-col-reverse gap-3 border-t px-4 py-3 sm:flex-row sm:justify-end">
         <button mat-flat-button (click)="close()">Cerrar</button>

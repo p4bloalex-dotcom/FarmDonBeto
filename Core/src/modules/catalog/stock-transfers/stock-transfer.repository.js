@@ -78,6 +78,7 @@ const applyBranchScope = async query => {
 export const resolveTransferScope = async () => {
   const store = getRequestContext();
   if (!store?.user?.id) return null;
+  if (store.user.branchIsMain) return null;
 
   let isGlobal = false;
   if (store.permissionName && store.user.role) {

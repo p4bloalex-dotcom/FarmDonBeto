@@ -10,11 +10,9 @@
             <div class="grid gap-2 sm:grid-cols-2 lg:w-auto">
                 <button type="button" class="rounded-2xl border px-4 py-3 text-left transition" [class.border-primary-500]="activeView === 'requests'" [class.bg-primary-50]="activeView === 'requests'" [class.text-primary-800]="activeView === 'requests'" (click)="selectView('requests')">
                     <div class="font-semibold">Solicitudes de traslado</div>
-                    <div class="text-sm text-secondary">Pendientes, aceptadas, enviadas y entregadas</div>
                 </button>
                 <button type="button" class="rounded-2xl border px-4 py-3 text-left transition" [class.border-primary-500]="activeView === 'movements'" [class.bg-primary-50]="activeView === 'movements'" [class.text-primary-800]="activeView === 'movements'" (click)="selectView('movements')">
                     <div class="font-semibold">Movimientos aplicados</div>
-                    <div class="text-sm text-secondary">Stock que ya salio y entro a inventario</div>
                 </button>
             </div>
             <div class="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
@@ -34,15 +32,12 @@
     <div class="grid gap-3 border-b bg-slate-50 px-4 py-3 text-sm dark:bg-slate-900 md:px-8 lg:grid-cols-3">
         <div class="rounded-2xl bg-white p-3 shadow-sm dark:bg-slate-800">
             <div class="font-semibold">1. Solicitud</div>
-            <div class="text-secondary">Una sucursal necesita medicamento y otra puede entregarlo.</div>
         </div>
         <div class="rounded-2xl bg-white p-3 shadow-sm dark:bg-slate-800">
             <div class="font-semibold">2. Envio y entrega</div>
-            <div class="text-secondary">La sucursal origen acepta, envia y destino confirma entrega.</div>
         </div>
         <div class="rounded-2xl bg-white p-3 shadow-sm dark:bg-slate-800">
             <div class="font-semibold">3. Stock aplicado</div>
-            <div class="text-secondary">Al entregar, se crea el movimiento de inventario.</div>
         </div>
     </div>
     <div class="flex flex-auto overflow-auto">

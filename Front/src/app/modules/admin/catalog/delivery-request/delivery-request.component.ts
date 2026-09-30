@@ -166,13 +166,13 @@ export class DeliveryRequestComponent implements OnInit, OnDestroy {
     this._generalApi.changeStatus(this.service, id, { status }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         if (!resp.success) {
-          this.finishLoad(resp.error?.detail ?? 'No se pudo cambiar el estado.');
+          this.finishLoad(resp.error?.detail ?? resp.message ?? 'No se pudo cambiar el estado.');
           return;
         }
         this._toast.success(status === 'D' ? 'Entrega confirmada. Movimiento de stock aplicado.' : 'Solicitud actualizada.');
         this.loadCurrentView({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
       },
-      error: () => this.finishLoad('Error inesperado al cambiar el estado.')
+      error: failed => this.finishLoad(failed.error?.message ?? failed.error?.error?.detail ?? failed.error?.detail ?? 'Error inesperado al cambiar el estado.')
     });
   }
 

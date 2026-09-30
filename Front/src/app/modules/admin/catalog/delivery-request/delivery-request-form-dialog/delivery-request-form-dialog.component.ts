@@ -23,6 +23,7 @@ export class DeliveryRequestFormDialogComponent implements OnInit {
   branches: any[] = [];
   medicines: any[] = [];
   isViewMode = false;
+  currentRequest: any = null;
 
   constructor(
     @Inject(MAT_DIALOG_DATA) private _data: any,
@@ -71,6 +72,7 @@ export class DeliveryRequestFormDialogComponent implements OnInit {
           return;
         }
         const request = resp.data;
+        this.currentRequest = request;
         this.dataForm.patchValue({
           requestingBranchId: request.requestingBranchId,
           fulfillmentBranchId: request.fulfillmentBranchId,
@@ -146,6 +148,38 @@ export class DeliveryRequestFormDialogComponent implements OnInit {
 
   close(): void {
     this._matDialogRef.close();
+  }
+
+  statusLabel(status: string): string {
+    const labels: Record<string, string> = { P: 'Pendiente', A: 'Aceptada', R: 'Rechazada', S: 'En camino', D: 'Entregada', C: 'Cancelada' };
+    return labels[status] ?? status ?? '-';
+  }
+
+  nextStepLabel(status: string): string {
+    const labels: Record<string, string> = { P: 'Aceptar o rechazar', A: 'Marcar como enviado', S: 'Confirmar entrega', D: 'Stock aplicado', R: 'Sin accion', C: 'Sin accion' };
+    return labels[status] ?? '-';
+  }
+
+  statusClass(status: string): string {
+    const classes: Record<string, string> = { P: 'bg-amber-100 text-amber-800', A: 'bg-blue-100 text-blue-800', S: 'bg-indigo-100 text-indigo-800', D: 'bg-emerald-100 text-emerald-800', R: 'bg-red-100 text-red-800', C: 'bg-slate-100 text-slate-700' };
+    return classes[status] ?? 'bg-slate-100 text-slate-700';
+  }
+
+  branchName(id: number): string {
+    return this.branches.find(item => Number(item.id) === Number(id))?.name ?? '-';
+  }
+
+  medicineName(id: number): string {
+    const medicine = this.medicines.find(item => Number(item.id) === Number(id));
+    return medicine ? `${medicine.code} - ${medicine.name}` : `Medicamento #${id}`;
+  }
+
+  totalUnits(): number {
+    return this.detailRows.controls.reduce((sum, group) => sum + Number(group.get('quantity').value ?? 0), 0);
+  }
+
+  totalCost(): number {
+    return this.detailRows.controls.reduce((sum, group) => sum + (Number(group.get('quantity').value ?? 0) * Number(group.get('unitCost').value ?? 0)), 0);
   }
 
   private toLocalInput(value: any): string {
