@@ -1,7 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { badRequest, created, notFound, ok } from '../../../utils/api-response.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
-import { BusinessRuleError, createSaleWithDetails, findSaleById, listSaleDetails, listSales, paginateSales, toSaleDto } from './sale.repository.js';
+import { BusinessRuleError, createSaleWithDetails, findSaleById, findSaleReceipt, listSaleDetails, listSalePayments, listSales, paginateSales, toSaleDto } from './sale.repository.js';
 
 const enabled = async (name, id) => AppDataSource.getRepository(name).findOneBy({ id, status: 'E' });
 
@@ -39,7 +39,12 @@ const validateSale = async payload => {
   return null;
 };
 
-const response = async sale => ({ ...toSaleDto(sale), details: await listSaleDetails(sale.id) });
+const response = async sale => ({
+  ...toSaleDto(sale),
+  details: await listSaleDetails(sale.id),
+  payments: await listSalePayments(sale.id),
+  receipt: await findSaleReceipt(sale.id)
+});
 
 export const addSale = async (req, res) => {
   const error = await validateSale(req.body);

@@ -7,10 +7,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
+import { MatDialog } from '@angular/material/dialog';
 import { HotToastService } from '@fuse/components/hot-toast';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
 import { Subject, takeUntil } from 'rxjs';
+import { SaleReceiptDialogComponent } from './sale-receipt-dialog/sale-receipt-dialog.component';
 
 @Component({
   selector: 'app-sale',
@@ -29,7 +31,7 @@ export class SaleComponent implements OnInit, OnDestroy {
   isLoading = false;
   private _unsubscribeAll = new Subject<void>();
 
-  constructor(private _fb: UntypedFormBuilder, private _api: GeneralApiService, private _toast: HotToastService) { }
+  constructor(private _fb: UntypedFormBuilder, private _api: GeneralApiService, private _toast: HotToastService, private _matDialog: MatDialog) { }
 
   ngOnInit(): void {
     this.form = this._fb.group({
@@ -186,6 +188,7 @@ export class SaleComponent implements OnInit, OnDestroy {
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
         if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo registrar la venta.');
+        this.openReceiptDialog(resp.data);
         this._toast.success('Venta registrada.');
         this.form.reset({ paymentMethod: 'CASH', taxRate: 0 });
         this.customerForm.reset({ documentType: 'RECEIPT', taxId: 'CF', customerName: 'Consumidor final', customerPhone: '' });
@@ -211,12 +214,23 @@ export class SaleComponent implements OnInit, OnDestroy {
     const payload = this.form.getRawValue();
     return {
       ...payload,
+      ...this.customerForm.getRawValue(),
       payments: (payload.payments ?? []).map((payment: any) => ({
         method: payment.method,
         amount: Number(payment.amount ?? 0),
         ...(payment.authorizationCode ? { authorizationCode: payment.authorizationCode } : {})
       }))
     };
+  }
+
+  private openReceiptDialog(sale: any): void {
+    if (!sale?.receipt) return;
+    this._matDialog.open(SaleReceiptDialogComponent, {
+      autoFocus: false,
+      width: '520px',
+      maxWidth: '95vw',
+      data: { sale }
+    });
   }
 
   validateSale(): string | null {

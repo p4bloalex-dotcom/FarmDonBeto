@@ -11,6 +11,7 @@ export class BusinessRuleError extends Error {
 
 const sales = () => AppDataSource.getRepository('Sale');
 const details = () => AppDataSource.getRepository('SaleDetail');
+const receipts = () => AppDataSource.getRepository('SaleReceipt');
 
 const toDto = item => ({
   id: item.id,
@@ -40,6 +41,32 @@ const toDetailDto = item => ({
   total: Number(item.total ?? 0)
 });
 
+const toPaymentDto = item => ({
+  id: item.id,
+  saleId: item.saleId,
+  method: item.method,
+  amount: Number(item.amount ?? 0),
+  receivedAmount: item.receivedAmount == null ? null : Number(item.receivedAmount),
+  changeAmount: item.changeAmount == null ? null : Number(item.changeAmount),
+  authorizationCode: item.authorizationCode ?? null
+});
+
+const toReceiptDto = item => item ? ({
+  id: item.id,
+  saleId: item.saleId,
+  receiptNumber: item.receiptNumber,
+  documentType: item.documentType,
+  customerTaxId: item.customerTaxId ?? null,
+  customerName: item.customerName ?? null,
+  subtotal: Number(item.subtotal ?? 0),
+  tax: Number(item.tax ?? 0),
+  total: Number(item.total ?? 0),
+  paidTotal: Number(item.paidTotal ?? 0),
+  changeAmount: Number(item.changeAmount ?? 0),
+  issuedAt: item.issuedAt,
+  status: item.status
+}) : null;
+
 const queryBase = () => sales().createQueryBuilder('item')
   .leftJoin('item.branch', 'branch').addSelect(['branch.id', 'branch.name'])
   .leftJoin('item.employee', 'employee').addSelect(['employee.id', 'employee.firstName', 'employee.lastName'])
@@ -50,6 +77,10 @@ export const findSaleById = async id => queryBase().where('item.id = :id', { id 
 export const listSaleDetails = async saleId => (await details().createQueryBuilder('item')
   .leftJoin('item.medicine', 'medicine').addSelect(['medicine.id', 'medicine.code', 'medicine.name'])
   .where('item.saleId = :saleId', { saleId }).orderBy('item.id', 'ASC').getMany()).map(toDetailDto);
+
+export const listSalePayments = async saleId => (await AppDataSource.getRepository('SalePayment').find({ where: { saleId, status: 'E' }, order: { id: 'ASC' } })).map(toPaymentDto);
+
+export const findSaleReceipt = async saleId => toReceiptDto(await receipts().findOneBy({ saleId, status: 'E' }));
 
 export const paginateSales = async ({ offset, pageSize }) => {
   const [rows, total] = await queryBase().orderBy('item.saleDate', 'DESC').skip(offset).take(pageSize).getManyAndCount();
@@ -124,7 +155,7 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
     createdBy: userId
   }));
 
-  await manager.getRepository('SalePayment').save(rawPayments.map(payment => {
+  const savedPayments = await manager.getRepository('SalePayment').save(rawPayments.map(payment => {
     const method = String(payment.method).toUpperCase();
     const receivedAmount = payment.receivedAmount == null ? null : Number(payment.receivedAmount);
     const amount = Number(payment.amount);
@@ -142,6 +173,25 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
       status: 'E',
       createdBy: userId
     });
+  }));
+
+  const paidTotal = Math.round(savedPayments.reduce((sum, payment) => sum + Number(payment.receivedAmount ?? payment.amount ?? 0), 0) * 100) / 100;
+  const changeAmount = Math.round(savedPayments.reduce((sum, payment) => sum + Number(payment.changeAmount ?? 0), 0) * 100) / 100;
+  await manager.getRepository('SaleReceipt').save(manager.getRepository('SaleReceipt').create({
+    saleId: sale.id,
+    branchId: header.branchId,
+    receiptNumber: `REC-${String(sale.id).padStart(8, '0')}`,
+    documentType: header.documentType ?? 'RECEIPT',
+    customerTaxId: header.taxId ?? 'CF',
+    customerName: header.customerName ?? 'Consumidor final',
+    subtotal,
+    tax,
+    total,
+    paidTotal,
+    changeAmount,
+    issuedAt: header.saleDate,
+    status: 'E',
+    createdBy: userId
   }));
 
   const savedDetails = await manager.getRepository('SaleDetail').save(normalized.map(item => manager.getRepository('SaleDetail').create({ medicineId: item.medicineId, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total, saleId: sale.id, status: 'E', createdBy: userId })));

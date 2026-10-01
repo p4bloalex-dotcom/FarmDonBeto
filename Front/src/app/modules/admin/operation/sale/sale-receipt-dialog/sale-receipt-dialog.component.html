@@ -1,0 +1,77 @@
+<div class="flex max-h-[90vh] w-full flex-col overflow-hidden">
+    <div class="flex items-center justify-between border-b px-5 py-4 print:hidden">
+        <div>
+            <h2 class="text-xl font-semibold">Recibo generado</h2>
+            <div class="text-sm text-secondary">{{ receipt.receiptNumber }}</div>
+        </div>
+        <div class="flex gap-2">
+            <button mat-flat-button color="primary" type="button" (click)="print()">Imprimir</button>
+            <button mat-flat-button type="button" (click)="close()">Cerrar</button>
+        </div>
+    </div>
+
+    <div class="overflow-y-auto p-5">
+        <div id="sale-receipt-print" class="mx-auto max-w-md rounded-2xl border bg-white p-5 text-slate-900 shadow-sm print:border-0 print:shadow-none">
+            <div class="text-center">
+                <div class="text-2xl font-bold">Recibo de venta</div>
+                <div class="mt-1 font-semibold">{{ receipt.receiptNumber }}</div>
+                <div class="text-xs text-slate-500">{{ receipt.issuedAt | date:'dd/MM/yyyy HH:mm' }}</div>
+            </div>
+
+            <div class="mt-4 rounded-xl bg-slate-50 p-3 text-sm">
+                <div><strong>Cliente:</strong> {{ receipt.customerName || 'Consumidor final' }}</div>
+                <div><strong>NIT:</strong> {{ receipt.customerTaxId || 'CF' }}</div>
+                <div><strong>Venta:</strong> #{{ sale.id }}</div>
+            </div>
+
+            <table class="mt-4 w-full border-collapse text-sm">
+                <thead>
+                    <tr class="border-b text-left text-xs uppercase text-slate-500">
+                        <th class="py-2">Producto</th>
+                        <th class="py-2 text-right">Cant.</th>
+                        <th class="py-2 text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (item of details; track item.id) {
+                        <tr class="border-b">
+                            <td class="py-2">
+                                <div class="font-medium">{{ item.medicineName }}</div>
+                                <div class="text-xs text-slate-500">Q {{ item.unitPrice | number:'1.2-2' }} c/u</div>
+                            </td>
+                            <td class="py-2 text-right">{{ item.quantity | number:'1.2-2' }}</td>
+                            <td class="py-2 text-right">Q {{ item.total | number:'1.2-2' }}</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="mt-4 space-y-2 text-sm">
+                <div class="flex justify-between"><span>Subtotal</span><strong>Q {{ receipt.subtotal | number:'1.2-2' }}</strong></div>
+                <div class="flex justify-between"><span>Impuesto</span><strong>Q {{ receipt.tax | number:'1.2-2' }}</strong></div>
+                <div class="flex justify-between border-t pt-2 text-lg"><span>Total</span><strong>Q {{ receipt.total | number:'1.2-2' }}</strong></div>
+                <div class="flex justify-between"><span>Pagado</span><strong>Q {{ receipt.paidTotal | number:'1.2-2' }}</strong></div>
+                <div class="flex justify-between text-emerald-700"><span>Cambio</span><strong>Q {{ receipt.changeAmount | number:'1.2-2' }}</strong></div>
+            </div>
+
+            <table class="mt-4 w-full border-collapse text-sm">
+                <thead>
+                    <tr class="border-b text-left text-xs uppercase text-slate-500">
+                        <th class="py-2">Pago</th>
+                        <th class="py-2 text-right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (payment of payments; track payment.id) {
+                        <tr class="border-b">
+                            <td class="py-2">{{ paymentMethodLabel(payment.method) }}</td>
+                            <td class="py-2 text-right">Q {{ (payment.receivedAmount || payment.amount) | number:'1.2-2' }}</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="mt-5 text-center text-xs text-slate-500">Gracias por su compra</div>
+        </div>
+    </div>
+</div>

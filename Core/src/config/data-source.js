@@ -53,6 +53,7 @@ import { PayrollAdjustmentEntity } from '../entities/payroll-adjustment.entity.j
 import { AuditFieldsSubscriber, installAuditHooks } from '../subscribers/audit-fields.subscriber.js';
 import { SupplierInvoiceEntity } from '../entities/supplier-invoice.entity.js';
 import { SalePaymentEntity } from '../entities/sale-payment.entity.js';
+import { SaleReceiptEntity } from '../entities/sale-receipt.entity.js';
 import { SaleReturnEntity } from '../entities/sale-return.entity.js';
 import { SaleReturnDetailEntity } from '../entities/sale-return-detail.entity.js';
 import { CashReconciliationEntity } from '../entities/cash-reconciliation.entity.js';
@@ -109,6 +110,7 @@ export const AppDataSource = new DataSource({
     PurchaseReturnEntity,
     SaleDetailEntity,
     SalePaymentEntity,
+    SaleReceiptEntity,
     SaleReturnEntity,
     SaleReturnDetailEntity,
     CashReconciliationEntity,
