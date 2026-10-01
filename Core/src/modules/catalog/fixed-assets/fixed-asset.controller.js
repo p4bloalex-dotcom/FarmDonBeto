@@ -14,6 +14,7 @@ const validateFixedAsset = async (payload, excludeId = null) => {
 };
 
 export const addFixedAsset = async (req, res) => {
+  if (req.body.status === 'D') return badRequest(res, 'Use la baja controlada para registrar fecha y motivo de baja.');
   const { ok: valid, message } = await validateFixedAsset(req.body);
   if (!valid) return badRequest(res, message);
   return created(res, await createFixedAsset(req.body), 'Activo fijo registrado correctamente.');
@@ -40,9 +41,10 @@ export const editFixedAsset = async (req, res) => {
   const existing = await findFixedAssetById(id);
   if (!existing) return notFound(res);
   if (existing.status === 'D') return conflict(res, 'No se puede editar un activo dado de baja.');
+  if (req.body.status === 'D') return badRequest(res, 'Use la baja controlada para registrar fecha y motivo de baja.');
   const { ok: valid, message } = await validateFixedAsset(req.body, id);
   if (!valid) return badRequest(res, message);
-  await updateFixedAsset(id, req.body);
+  await updateFixedAsset(existing, req.body, req.user?.id ?? null);
   return ok(res, toFixedAssetDto(await findFixedAssetById(id)), 'Activo fijo actualizado correctamente.');
 };
 

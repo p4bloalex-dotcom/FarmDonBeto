@@ -7,8 +7,11 @@
             <div class="mb-3 text-sm font-semibold uppercase text-secondary">Identificacion</div>
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <mat-form-field class="w-full"><mat-label>Codigo / placa</mat-label><input matInput formControlName="code" autocomplete="off" /></mat-form-field>
-                <mat-form-field class="w-full"><mat-label>Categoria</mat-label><input matInput formControlName="category" autocomplete="off" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Categoria</mat-label><mat-select formControlName="category">@for (option of categoryOptions; track option) { <mat-option [value]="option">{{ option }}</mat-option> }</mat-select></mat-form-field>
                 <mat-form-field class="w-full md:col-span-2"><mat-label>Nombre</mat-label><input matInput formControlName="name" autocomplete="off" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Marca</mat-label><input matInput formControlName="brand" autocomplete="off" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Modelo</mat-label><input matInput formControlName="model" autocomplete="off" /></mat-form-field>
+                <mat-form-field class="w-full md:col-span-2"><mat-label>Numero de serie</mat-label><input matInput formControlName="serialNumber" autocomplete="off" /></mat-form-field>
             </div>
         </section>
         <section class="rounded-2xl border p-4">
@@ -20,19 +23,36 @@
             </div>
         </section>
         <section class="rounded-2xl border p-4">
-            <div class="mb-3 text-sm font-semibold uppercase text-secondary">Valor contable</div>
+            <div class="mb-3 text-sm font-semibold uppercase text-secondary">Compra</div>
             <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <mat-form-field class="w-full"><mat-label>Fecha compra</mat-label><input matInput formControlName="purchaseDate" type="date" /></mat-form-field>
                 <mat-form-field class="w-full"><mat-label>Costo compra</mat-label><input matInput formControlName="purchaseCost" type="number" min="0" /></mat-form-field>
-                <mat-form-field class="w-full"><mat-label>Depreciacion</mat-label><input matInput formControlName="accumulatedDepreciation" type="number" min="0" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Proveedor</mat-label><input matInput formControlName="supplier" autocomplete="off" /></mat-form-field>
                 <mat-form-field class="w-full"><mat-label>Vida util (meses)</mat-label><input matInput formControlName="usefulLifeMonths" type="number" min="1" /></mat-form-field>
             </div>
-            <div class="mt-2 rounded-xl bg-gray-50 p-3 text-sm dark:bg-gray-800">Valor libros: <strong>Q {{ bookValue.toFixed(2) }}</strong></div>
+        </section>
+        @if (currentAttributeFields.length) {
+            <section class="rounded-2xl border p-4" formGroupName="attributes">
+                <div class="mb-3 text-sm font-semibold uppercase text-secondary">Datos adicionales</div>
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    @for (field of currentAttributeFields; track field.key) {
+                        <mat-form-field class="w-full"><mat-label>{{ field.label }}</mat-label><input matInput [type]="field.type || 'text'" [formControlName]="field.key" autocomplete="off" /></mat-form-field>
+                    }
+                </div>
+            </section>
+        }
+        <section class="rounded-2xl border p-4">
+            <div class="mb-3 text-sm font-semibold uppercase text-secondary">Valor actual</div>
+            <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">Depreciacion acumulada: <strong>Q {{ accumulatedDepreciation.toFixed(2) }}</strong></div>
+                <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">Valor en libros: <strong>Q {{ bookValue.toFixed(2) }}</strong></div>
+            </div>
         </section>
         <section class="rounded-2xl border p-4">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <mat-form-field class="w-full"><mat-label>Estado</mat-label><mat-select formControlName="status"><mat-option value="E">Activo</mat-option><mat-option value="D">Baja</mat-option><mat-option value="I">Inactivo</mat-option></mat-select></mat-form-field>
-                <mat-form-field class="w-full"><mat-label>Notas</mat-label><input matInput formControlName="notes" autocomplete="off" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Estado</mat-label><mat-select formControlName="status"><mat-option value="E">Activo</mat-option><mat-option value="M">En mantenimiento</mat-option>@if (isViewMode) { <mat-option value="D">Dado de baja</mat-option> }</mat-select></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Condicion</mat-label><mat-select formControlName="condition"><mat-option value="BUENO">Bueno</mat-option><mat-option value="REGULAR">Regular</mat-option><mat-option value="MALO">Malo</mat-option></mat-select></mat-form-field>
+                <mat-form-field class="w-full md:col-span-2"><mat-label>Notas</mat-label><input matInput formControlName="notes" autocomplete="off" /></mat-form-field>
             </div>
         </section>
         @if (isTransferMode) {
@@ -43,7 +63,7 @@
         }
     </div>
     <div class="flex flex-col-reverse gap-3 border-t px-4 py-3 sm:flex-row sm:justify-end">
-        <button mat-flat-button type="button" (click)="close()">Cerrar</button>
+        <button mat-flat-button type="button" (click)="close()">Cancelar</button>
         @if (!isViewMode) {
             <button mat-flat-button color="primary" type="button" [disabled]="dataForm.invalid" (click)="save()">Guardar</button>
         }

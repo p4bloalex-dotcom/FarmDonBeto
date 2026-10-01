@@ -30,8 +30,8 @@
                 <mat-select [formControl]="statusFilterControl">
                     <mat-option value="ALL">Todos</mat-option>
                     <mat-option value="E">Activo</mat-option>
-                    <mat-option value="D">Baja</mat-option>
-                    <mat-option value="I">Inactivo</mat-option>
+                    <mat-option value="M">En mantenimiento</mat-option>
+                    <mat-option value="D">Dado de baja</mat-option>
                 </mat-select>
             </mat-form-field>
             <button mat-stroked-button type="button" (click)="clearFilters()">Limpiar</button>
@@ -91,12 +91,13 @@
                             <div class="mt-1 text-xl font-bold">{{ selectedAsset.name }}</div>
                             <div class="text-sm text-secondary">{{ selectedAsset.category || 'Sin categoria' }}</div>
                         </div>
-                        <span class="rounded-full px-3 py-1 text-sm" [class.bg-green-50]="selectedAsset.status === 'E'" [class.text-green-700]="selectedAsset.status === 'E'" [class.bg-red-50]="selectedAsset.status === 'D'" [class.text-red-700]="selectedAsset.status === 'D'">{{ selectedAsset.statusLabel }}</span>
+                        <span class="rounded-full px-3 py-1 text-sm" [class.bg-green-50]="selectedAsset.status === 'E'" [class.text-green-700]="selectedAsset.status === 'E'" [class.bg-amber-50]="selectedAsset.status === 'M'" [class.text-amber-700]="selectedAsset.status === 'M'" [class.bg-red-50]="selectedAsset.status === 'D'" [class.text-red-700]="selectedAsset.status === 'D'">{{ selectedAsset.statusLabel }}</span>
                     </div>
                     <div class="mt-5 grid gap-3 text-sm">
                         <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Sucursal</div><strong>{{ selectedAsset.branchName }}</strong></div>
                         <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Ubicacion</div><strong>{{ selectedAsset.location || '-' }}</strong></div>
                         <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Responsable</div><strong>{{ selectedAsset.responsible || '-' }}</strong></div>
+                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Condicion</div><strong>{{ selectedAsset.conditionLabel }}</strong></div>
                     </div>
                     <div class="mt-5 grid grid-cols-2 gap-3 text-sm">
                         <div class="rounded-xl border p-3"><div class="text-secondary">Costo</div><strong>{{ selectedAsset.purchaseCostLabel }}</strong></div>

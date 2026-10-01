@@ -81,6 +81,7 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
   get totalCost(): number { return this.filteredData.reduce((sum, item) => sum + Number(item.purchaseCost ?? 0), 0); }
   get totalBookValue(): number { return this.filteredData.reduce((sum, item) => sum + Number(item.bookValue ?? 0), 0); }
   get activeCount(): number { return this.filteredData.filter(item => item.status === 'E').length; }
+  get maintenanceCount(): number { return this.filteredData.filter(item => item.status === 'M').length; }
   get retiredCount(): number { return this.filteredData.filter(item => item.status === 'D').length; }
   get branchOptions(): any[] {
     const branches = new Map<number, string>();
@@ -138,7 +139,7 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
     this._generalApi.getAction(this.service, id, 'history').pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => this.historyRows = (resp.success ? resp.data ?? [] : []).map((item: any) => ({
         ...item,
-        actionLabel: item.action === 'TRANSFERRED' ? 'Traslado' : item.action === 'RETIRED' ? 'Baja' : item.action
+        actionLabel: item.action === 'TRANSFERRED' || item.action === 'ASSIGNMENT' ? 'Asignacion' : item.action === 'RETIRED' ? 'Baja' : item.action
       })),
       error: () => this._toast.error('No se pudo cargar historial del activo.')
     });
@@ -170,7 +171,8 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
       ...item,
       purchaseCostLabel: money(item.purchaseCost),
       bookValueLabel: money(item.bookValue),
-      statusLabel: item.status === 'E' ? 'Activo' : item.status === 'D' ? 'Baja' : 'Inactivo'
+      statusLabel: item.status === 'E' ? 'Activo' : item.status === 'M' ? 'Mantenimiento' : 'Baja',
+      conditionLabel: item.condition === 'REGULAR' ? 'Regular' : item.condition === 'MALO' ? 'Malo' : 'Bueno'
     };
   }
 
@@ -180,7 +182,7 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
     const status = this.statusFilterControl.value;
     const category = this.categoryFilterControl.value;
     this.pagedData = this.filteredData.filter(item => {
-      const matchesText = !text || [item.code, item.name, item.branchName, item.category, item.location, item.responsible].some(value => String(value ?? '').toLowerCase().includes(text));
+      const matchesText = !text || [item.code, item.name, item.branchName, item.category, item.brand, item.model, item.serialNumber, item.location, item.responsible].some(value => String(value ?? '').toLowerCase().includes(text));
       const matchesBranch = branchId === 'ALL' || item.branchId === branchId;
       const matchesStatus = status === 'ALL' || item.status === status;
       const matchesCategory = category === 'ALL' || item.category === category;

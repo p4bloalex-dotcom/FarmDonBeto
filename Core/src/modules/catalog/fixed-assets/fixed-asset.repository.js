@@ -3,9 +3,31 @@ import { AppDataSource } from '../../../config/data-source.js';
 const fixedAssets = () => AppDataSource.getRepository('FixedAsset');
 const fixedAssetHistory = manager => manager.getRepository('FixedAssetHistory');
 
+const parseJson = value => {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try { return JSON.parse(value); } catch { return {}; }
+};
+
+const calculateDepreciation = item => {
+  const purchaseCost = Number(item.purchaseCost ?? 0);
+  const usefulLifeMonths = Number(item.usefulLifeMonths ?? 0);
+  const purchaseDate = item.purchaseDate ? new Date(item.purchaseDate) : null;
+  if (!purchaseCost || !usefulLifeMonths || !purchaseDate || isNaN(purchaseDate.getTime())) return 0;
+  const now = new Date();
+  const months = Math.max((now.getFullYear() - purchaseDate.getFullYear()) * 12 + now.getMonth() - purchaseDate.getMonth() + (now.getDate() >= purchaseDate.getDate() ? 0 : -1), 0);
+  return Math.min(Number(((purchaseCost / usefulLifeMonths) * months).toFixed(2)), purchaseCost);
+};
+
+const normalizeAssetData = data => ({
+  ...data,
+  accumulatedDepreciation: calculateDepreciation(data),
+  attributes: data.attributes ? JSON.stringify(data.attributes) : null
+});
+
 const toDto = item => {
   const purchaseCost = Number(item.purchaseCost ?? 0);
-  const accumulatedDepreciation = Number(item.accumulatedDepreciation ?? 0);
+  const accumulatedDepreciation = calculateDepreciation(item);
   return {
     id: item.id,
     branchId: item.branchId,
@@ -14,6 +36,10 @@ const toDto = item => {
     code: item.code,
     name: item.name,
     category: item.category,
+    brand: item.brand,
+    model: item.model,
+    serialNumber: item.serialNumber,
+    serial_number: item.serialNumber,
     location: item.location,
     responsible: item.responsible,
     purchaseDate: item.purchaseDate,
@@ -26,6 +52,9 @@ const toDto = item => {
     book_value: Math.max(purchaseCost - accumulatedDepreciation, 0),
     usefulLifeMonths: item.usefulLifeMonths,
     useful_life_months: item.usefulLifeMonths,
+    supplier: item.supplier,
+    condition: item.condition,
+    attributes: parseJson(item.attributes),
     notes: item.notes,
     retiredAt: item.retiredAt,
     retired_at: item.retiredAt,
@@ -69,8 +98,27 @@ export const findFixedAssetByCode = async (code, excludeId = null) => {
   if (excludeId) query.andWhere('item.id <> :excludeId', { excludeId });
   return query.getOne();
 };
-export const createFixedAsset = async data => toDto(await fixedAssets().save(fixedAssets().create(data)));
-export const updateFixedAsset = async (id, data) => (await fixedAssets().update(id, data)).affected > 0;
+export const createFixedAsset = async data => toDto(await fixedAssets().save(fixedAssets().create(normalizeAssetData(data))));
+export const updateFixedAsset = async (asset, data, userId = null) => AppDataSource.transaction(async manager => {
+  const normalized = normalizeAssetData({ ...data, updatedBy: userId });
+  await manager.getRepository('FixedAsset').update(asset.id, normalized);
+  const changedAssignment = asset.branchId !== data.branchId || (asset.location ?? null) !== (data.location ?? null) || (asset.responsible ?? null) !== (data.responsible ?? null);
+  if (changedAssignment) {
+    await fixedAssetHistory(manager).save(fixedAssetHistory(manager).create({
+      fixedAssetId: asset.id,
+      action: 'ASSIGNMENT',
+      branchFromId: asset.branchId,
+      branchToId: data.branchId,
+      locationFrom: asset.location,
+      locationTo: data.location,
+      responsibleFrom: asset.responsible,
+      responsibleTo: data.responsible,
+      reason: 'Cambio de asignacion',
+      createdBy: userId
+    }));
+  }
+  return true;
+});
 export const changeFixedAssetStatus = async (id, status) => (await fixedAssets().update(id, { status })).affected > 0;
 export const listFixedAssetHistory = async fixedAssetId => (await AppDataSource.getRepository('FixedAssetHistory')
   .createQueryBuilder('item')

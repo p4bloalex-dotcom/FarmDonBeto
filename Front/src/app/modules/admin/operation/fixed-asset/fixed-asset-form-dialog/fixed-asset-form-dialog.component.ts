@@ -22,6 +22,12 @@ export class FixedAssetFormDialogComponent implements OnInit {
   branches: any[] = [];
   isViewMode = false;
   isTransferMode = false;
+  categoryOptions = ['Equipo de computo', 'Vehiculo', 'Refrigeracion', 'Mobiliario', 'Lector', 'Otro'];
+  attributeFields: Record<string, { key: string; label: string; type?: string }[]> = {
+    'Vehiculo': [{ key: 'placa', label: 'Placa' }, { key: 'anio', label: 'Año', type: 'number' }, { key: 'kilometraje', label: 'Kilometraje', type: 'number' }],
+    'Equipo de computo': [{ key: 'procesador', label: 'Procesador' }, { key: 'ram', label: 'RAM' }, { key: 'almacenamiento', label: 'Almacenamiento' }],
+    'Refrigeracion': [{ key: 'capacidad', label: 'Capacidad' }, { key: 'temperaturaMinima', label: 'Temperatura minima', type: 'number' }, { key: 'temperaturaMaxima', label: 'Temperatura maxima', type: 'number' }]
+  };
 
   constructor(
     @Inject(MAT_DIALOG_DATA) private _data: any,
@@ -39,18 +45,24 @@ export class FixedAssetFormDialogComponent implements OnInit {
       branchId: [{ value: '', disabled: this.isViewMode }, Validators.required],
       code: [{ value: '', disabled: this.isViewMode || this.isTransferMode }, Validators.required],
       name: [{ value: '', disabled: this.isViewMode || this.isTransferMode }, Validators.required],
-      category: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
+      category: [{ value: '', disabled: this.isViewMode || this.isTransferMode }, Validators.required],
+      brand: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
+      model: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
+      serialNumber: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
       location: [{ value: '', disabled: this.isViewMode }],
       responsible: [{ value: '', disabled: this.isViewMode }],
-      purchaseDate: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
+      purchaseDate: [{ value: '', disabled: this.isViewMode || this.isTransferMode }, Validators.required],
       purchaseCost: [{ value: 0, disabled: this.isViewMode || this.isTransferMode }, [Validators.required, Validators.min(0)]],
-      accumulatedDepreciation: [{ value: 0, disabled: this.isViewMode || this.isTransferMode }, [Validators.required, Validators.min(0)]],
+      supplier: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
       usefulLifeMonths: [{ value: null, disabled: this.isViewMode || this.isTransferMode }],
+      condition: [{ value: 'BUENO', disabled: this.isViewMode || this.isTransferMode }, Validators.required],
+      attributes: this._formBuilder.group({}),
       status: [{ value: 'E', disabled: this.isViewMode || this.isTransferMode }, Validators.required],
       notes: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
       reason: [{ value: '', disabled: !this.isTransferMode }, this.isTransferMode ? Validators.required : []]
     });
     this.loadBranches();
+    this.dataForm.get('category')?.valueChanges.subscribe(() => this.rebuildAttributes());
     if (this._data?.row) this.loadAsset(this._data.row.id);
   }
 
@@ -66,15 +78,29 @@ export class FixedAssetFormDialogComponent implements OnInit {
       next: (resp: ApiResponse<any>) => {
         if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo cargar el activo.');
         this.dataForm.patchValue({ ...resp.data, purchaseDate: this.toDateInput(resp.data.purchaseDate) });
+        this.rebuildAttributes(resp.data.attributes ?? {});
       },
       error: () => this._toast.error('Error inesperado al cargar activo fijo.')
     });
   }
 
   get bookValue(): number {
-    const value = this.dataForm?.getRawValue?.() ?? {};
-    return Math.max(Number(value.purchaseCost ?? 0) - Number(value.accumulatedDepreciation ?? 0), 0);
+    return Math.max(this.purchaseCost - this.accumulatedDepreciation, 0);
   }
+
+  get purchaseCost(): number { return Number(this.dataForm?.getRawValue?.().purchaseCost ?? 0); }
+  get accumulatedDepreciation(): number {
+    const value = this.dataForm?.getRawValue?.() ?? {};
+    const cost = Number(value.purchaseCost ?? 0);
+    const life = Number(value.usefulLifeMonths ?? 0);
+    const purchaseDate = value.purchaseDate ? new Date(value.purchaseDate) : null;
+    if (!cost || !life || !purchaseDate || isNaN(purchaseDate.getTime())) return 0;
+    const now = new Date();
+    const months = Math.max((now.getFullYear() - purchaseDate.getFullYear()) * 12 + now.getMonth() - purchaseDate.getMonth() + (now.getDate() >= purchaseDate.getDate() ? 0 : -1), 0);
+    return Math.min(Number(((cost / life) * months).toFixed(2)), cost);
+  }
+
+  get currentAttributeFields(): { key: string; label: string; type?: string }[] { return this.attributeFields[this.dataForm?.getRawValue?.().category] ?? []; }
 
   get title(): string {
     if (this.actionDialog === 1) return 'Nuevo activo fijo';
@@ -86,10 +112,6 @@ export class FixedAssetFormDialogComponent implements OnInit {
   save(): void {
     if (this.dataForm.invalid) return;
     const payload = this.dataForm.getRawValue();
-    if (!this.isTransferMode && Number(payload.accumulatedDepreciation ?? 0) > Number(payload.purchaseCost ?? 0)) {
-      this._toast.error('La depreciacion no puede superar el costo de compra.');
-      return;
-    }
     const request = this.isTransferMode ? this._generalApi.postAction('FixedAsset', this._data.row.id, 'transfer', {
       branchId: payload.branchId,
       location: payload.location,
@@ -109,5 +131,12 @@ export class FixedAssetFormDialogComponent implements OnInit {
   private toDateInput(value: any): string {
     const date = new Date(value);
     return isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+  }
+
+  private rebuildAttributes(values: any = null): void {
+    const group = this._formBuilder.group({});
+    const source = values ?? this.dataForm.getRawValue().attributes ?? {};
+    this.currentAttributeFields.forEach(field => group.addControl(field.key, this._formBuilder.control({ value: source[field.key] ?? '', disabled: this.isViewMode || this.isTransferMode })));
+    this.dataForm.setControl('attributes', group);
   }
 }
