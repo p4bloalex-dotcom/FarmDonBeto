@@ -1,0 +1,31 @@
+<div class="min-w-[70vw] max-w-[92vw] overflow-hidden rounded-2xl bg-white text-[#1b1533]">
+    <div class="border-b border-[#4633B9]/15 bg-[#4633B9]/10 px-6 py-5">
+        <div class="text-xl font-bold">Detalle de auditoría</div>
+        <div class="mt-1 text-sm text-[#1b1533]/70">Registro {{ detail.auditId }} · {{ detail.objectName }} · {{ detail.actionName }}</div>
+    </div>
+
+    <div class="max-h-[72vh] space-y-5 overflow-auto p-6">
+        <div class="grid gap-3 rounded-xl border border-[#4633B9]/10 bg-[#4633B9]/5 p-4 text-sm md:grid-cols-5">
+            <div><div class="font-semibold">Fecha</div><div>{{ detail.createdAt }}</div></div>
+            <div><div class="font-semibold">Usuario</div><div>{{ detail.userId }}</div></div>
+            <div><div class="font-semibold">Objeto</div><div>{{ detail.objectName }}</div></div>
+            <div><div class="font-semibold">Acción</div><div>{{ detail.actionName }}</div></div>
+            <div><div class="font-semibold">Registro</div><div>{{ detail.recordId }}</div></div>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-xl border border-red-200 bg-red-50/60">
+                <div class="border-b border-red-200 px-4 py-3 font-semibold text-red-900">Antes</div>
+                <pre class="max-h-[44vh] overflow-auto whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed text-[#1b1533]">{{ pretty(detail.oldValues) }}</pre>
+            </div>
+            <div class="rounded-xl border border-[#4633B9]/20 bg-[#4633B9]/5">
+                <div class="border-b border-[#4633B9]/20 px-4 py-3 font-semibold text-[#4633B9]">Después</div>
+                <pre class="max-h-[44vh] overflow-auto whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed text-[#1b1533]">{{ pretty(detail.newValues) }}</pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex justify-end border-t bg-[#1b1533]/5 px-6 py-4">
+        <button mat-flat-button type="button" color="primary" (click)="close()">Cerrar</button>
+    </div>
+</div>

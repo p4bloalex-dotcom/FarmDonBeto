@@ -112,6 +112,27 @@ export const runSecuritySeeders = async () => {
         }
       }
     }
+
+    const obsoleteParents = await menuRepository.createQueryBuilder('menu')
+      .where('menu.idMenuFather IS NULL')
+      .andWhere('menu.status = :active', { active: 'E' })
+      .andWhere('menu.path NOT IN (:...categories)', { categories })
+      .getMany();
+    for (const parent of obsoleteParents) {
+      const obsoleteChildren = await menuRepository.findBy({ idMenuFather: parent.id });
+      const obsoleteMenuIds = [parent.id, ...obsoleteChildren.map(child => child.id)];
+      await menuRepository.update(parent.id, { status: 'D' });
+      await menuRepository.createQueryBuilder()
+        .update()
+        .set({ status: 'D' })
+        .where('idMenuFather = :parentId', { parentId: parent.id })
+        .execute();
+      await permissionRepository.createQueryBuilder()
+        .update()
+        .set({ status: 'D' })
+        .where('menuId IN (:...menuIds)', { menuIds: obsoleteMenuIds })
+        .execute();
+    }
   });
 
   logger.info({ screens: screens.length }, 'Security menus and permissions generated from screen metadata');

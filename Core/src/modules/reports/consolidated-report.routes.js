@@ -3,15 +3,43 @@ import { asyncHandler } from '../../middlewares/async-handler.js';
 import { authenticate } from '../../middlewares/authenticate.js';
 import { permissionRequired } from '../../middlewares/permission-required.js';
 import { registerScreen } from '../../routes/route-registry.js';
-import { readOnlyActions } from '../security/permissions/permission-actions.js';
-import { getCashFlowReport, getFixedAssetReport, getInventoryKardexReport, getPayrollReport, getTransferReport } from './consolidated-report.controller.js';
+import { getReport } from './consolidated-report.controller.js';
 
 export const consolidatedReportRoutes = Router();
-export const permissions = registerScreen({ category: 'Reports', controller: 'ConsolidatedReport', routePath: 'consolidated-report', title: 'Reportes consolidados', icon: 'heroicons_solid:chart-bar-square', actions: readOnlyActions() });
+
+const reportCatalog = {
+  'sales-period': 'Ventas por periodo',
+  'sales-branch': 'Ventas por sucursal',
+  'sales-medicine': 'Ventas por medicamento',
+  'top-products': 'Productos mas vendidos',
+  'low-movement-products': 'Productos con baja rotacion',
+  'inventory-branch': 'Inventario por sucursal',
+  'inventory-consolidated': 'Inventario consolidado',
+  'expiring-medicines': 'Medicamentos proximos a vencer',
+  'expired-medicines': 'Medicamentos vencidos',
+  'minimum-stock': 'Stock minimo',
+  'inventory-kardex': 'Kardex de inventario',
+  'stock-transfers': 'Traslados entre sucursales',
+  'cash-flow': 'Flujo de efectivo',
+  'cash-closing': 'Cierre y diferencias de caja',
+  'purchases-supplier': 'Compras por proveedor',
+  'profitability-branch': 'Rentabilidad por sucursal',
+  'fixed-assets': 'Activos fijos',
+  'fixed-assets-detail': 'Detalle de activos fijos',
+  payroll: 'Planilla',
+  audit: 'Auditoria'
+};
+
+const reportActions = Object.entries(reportCatalog).map(([key, name]) => ({ key: `report_${key}`, name }));
+
+export const permissions = registerScreen({ category: 'Reports', controller: 'ConsolidatedReport', routePath: 'consolidated-report', title: 'Reportes', icon: 'heroicons_solid:chart-bar-square', actions: reportActions });
+
+const reportPermission = (req, res, next) => {
+  const report = req.params.report === 'audit-detail' ? 'audit' : req.params.report;
+  const key = `report_${report}`;
+  const routePermission = permissions[key];
+  return permissionRequired(routePermission)(req, res, next);
+};
 
 consolidatedReportRoutes.use(authenticate);
-consolidatedReportRoutes.get('/cash-flow', permissionRequired(permissions.view), asyncHandler(getCashFlowReport));
-consolidatedReportRoutes.get('/inventory-kardex', permissionRequired(permissions.view), asyncHandler(getInventoryKardexReport));
-consolidatedReportRoutes.get('/stock-transfers', permissionRequired(permissions.view), asyncHandler(getTransferReport));
-consolidatedReportRoutes.get('/fixed-assets', permissionRequired(permissions.view), asyncHandler(getFixedAssetReport));
-consolidatedReportRoutes.get('/payroll', permissionRequired(permissions.view), asyncHandler(getPayrollReport));
+consolidatedReportRoutes.get('/:report', reportPermission, asyncHandler(getReport));

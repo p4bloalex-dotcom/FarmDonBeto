@@ -2,7 +2,6 @@
     @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
     <div class="border-b px-4 py-4 md:px-8">
         <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Reportes consolidados</div>
-        <div class="text-sm text-secondary">Caja, inventario/kardex, traspasos, activos fijos y nomina.</div>
     </div>
     <div class="space-y-4 overflow-auto p-4 md:p-8">
         <div class="grid gap-3 rounded-2xl border p-4 shadow-sm md:grid-cols-5">
@@ -10,10 +9,26 @@
             <mat-form-field><mat-label>Sucursal</mat-label><mat-select [(ngModel)]="filters.branchId"><mat-option value="">Todas</mat-option><mat-option *ngFor="let branch of branches" [value]="branch.id">{{ branch.name }}</mat-option></mat-select></mat-form-field>
             <mat-form-field><mat-label>Desde</mat-label><input matInput type="date" [(ngModel)]="filters.startDate" /></mat-form-field>
             <mat-form-field><mat-label>Hasta</mat-label><input matInput type="date" [(ngModel)]="filters.endDate" /></mat-form-field>
-            <div class="flex items-center"><button mat-flat-button color="primary" type="button" (click)="loadReport()">Consultar</button></div>
+            <div class="flex items-center gap-2"><button mat-flat-button color="primary" type="button" (click)="loadReport()">Consultar</button><button mat-stroked-button type="button" (click)="downloadReport('xlsx')">XLSX</button><button mat-stroked-button type="button" (click)="downloadReport('pdf')">PDF</button></div>
         </div>
+        @if (selectedReport === 'audit') {
+            <div class="grid gap-3 rounded-2xl border p-4 shadow-sm md:grid-cols-7">
+                <mat-form-field><mat-label>Id auditoria</mat-label><input matInput type="number" [(ngModel)]="filters.auditId" /></mat-form-field>
+                <mat-form-field><mat-label>Usuario</mat-label><input matInput type="number" [(ngModel)]="filters.userId" /></mat-form-field>
+                <mat-form-field><mat-label>Objeto</mat-label><mat-select [(ngModel)]="filters.module"><mat-option *ngFor="let module of auditModules" [value]="module.value">{{ module.label }}</mat-option></mat-select></mat-form-field>
+                <mat-form-field><mat-label>Accion</mat-label><mat-select [(ngModel)]="filters.action"><mat-option *ngFor="let action of auditActions" [value]="action.value">{{ action.label }}</mat-option></mat-select></mat-form-field>
+                <mat-form-field><mat-label>Registro</mat-label><input matInput [(ngModel)]="filters.recordId" /></mat-form-field>
+                <mat-form-field><mat-label>Pagina</mat-label><input matInput type="number" min="1" [(ngModel)]="filters.page" /></mat-form-field>
+                <mat-form-field><mat-label>Limite</mat-label><input matInput type="number" min="1" max="200" [(ngModel)]="filters.limit" /></mat-form-field>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button mat-stroked-button type="button" (click)="previousPage()">Anterior</button>
+                <span class="text-sm text-secondary">Pagina {{ filters.page }}</span>
+                <button mat-stroked-button type="button" (click)="nextPage()">Siguiente</button>
+            </div>
+        }
         <div class="rounded-2xl border p-4 shadow-sm">
-            <app-table [columns]="columns" [data]="rows"></app-table>
+            <app-table [columns]="columns" [data]="rows" [actions]="actions" (rowAction)="onRowAction($event)"></app-table>
         </div>
     </div>
 </div>

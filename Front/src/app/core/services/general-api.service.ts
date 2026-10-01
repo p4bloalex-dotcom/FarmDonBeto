@@ -61,6 +61,14 @@ getList(endpoint: string) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/reports/consolidated/${report}`, { params });
   }
 
+  downloadConsolidatedReport(report: string, format: 'xlsx' | 'pdf', filters: any = {}) {
+    let params = new HttpParams().set('format', format);
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') params = params.set(key, filters[key]);
+    });
+    return this._httpClient.get(`${environment.apiUrl}/reports/consolidated/${report}`, { params, responseType: 'blob' });
+  }
+
   getInventoryKardex(filters: any = {}) {
     let params = new HttpParams();
     Object.keys(filters).forEach(key => { if (filters[key]) params = params.set(key, filters[key]); });

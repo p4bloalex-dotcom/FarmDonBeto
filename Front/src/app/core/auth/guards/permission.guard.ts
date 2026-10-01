@@ -6,7 +6,7 @@ import { environment } from 'environments/environment';
 import { catchError, map, of } from 'rxjs';
 
 const publicPaths = new Set(['home', 'change-password', 'sign-out', 'unlock-session']);
-const modulePaths = new Set(['security', 'catalog', 'operation', 'configuration', 'reports', 'audit', 'query']);
+const modulePaths = new Set(['security', 'catalog', 'operation', 'configuration', 'reports', 'query']);
 
 const menuPathFromUrl = (url: string): string | null => {
     const segments = url.split('?')[0].split('/').filter(Boolean);

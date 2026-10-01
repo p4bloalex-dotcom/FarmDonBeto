@@ -12,6 +12,5 @@ export default [
     {path     : 'menu',component: MenuComponent,},
     {path     : 'menurol',component: RoleMenuComponent,},
     {path     : 'roleaction', component: RoleActionComponent},
-    {path     : 'user', component: UserComponent},
-    {path     : 'audit', redirectTo: '/audit/audit', pathMatch: 'full'}
+    {path     : 'user', component: UserComponent}
 ] as Routes;
