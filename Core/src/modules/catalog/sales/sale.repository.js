@@ -92,9 +92,23 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
   const subtotal = Math.round(normalized.reduce((sum, item) => sum + item.total, 0) * 100) / 100;
   const tax = header.tax == null ? Math.round(subtotal * (Number(header.taxRate ?? 0) / 100) * 100) / 100 : Number(header.tax);
   const total = Math.round((subtotal + tax) * 100) / 100;
-  const rawPayments = header.payments?.length ? header.payments : [{ method: header.paymentMethod, amount: total }];
-  const paymentTotal = Math.round(rawPayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0) * 100) / 100;
-  if (Math.abs(paymentTotal - total) > 0.01) throw new BusinessRuleError('La suma de pagos debe coincidir con el total de la venta.');
+  const rawPayments = (header.payments?.length ? header.payments : [{ method: header.paymentMethod, amount: total }])
+    .map(payment => {
+      const method = String(payment.method).toUpperCase();
+      const amount = Number(payment.amount ?? 0);
+      return { ...payment, method, amount, receivedAmount: method === 'CASH' && payment.receivedAmount == null ? amount : payment.receivedAmount };
+    });
+  const paymentTotal = Math.round(rawPayments.reduce((sum, payment) => sum + payment.amount, 0) * 100) / 100;
+  if (paymentTotal + 0.01 < total) throw new BusinessRuleError('La suma de pagos debe cubrir el total de la venta.');
+  let overpaid = Math.round((paymentTotal - total) * 100) / 100;
+  if (overpaid > 0.01 && !rawPayments.some(payment => payment.method === 'CASH')) throw new BusinessRuleError('El excedente de pago solo puede devolverse como cambio en efectivo.');
+  for (const payment of rawPayments) {
+    if (overpaid <= 0.01 || payment.method !== 'CASH') continue;
+    const discount = Math.min(payment.amount, overpaid);
+    payment.amount = Math.round((payment.amount - discount) * 100) / 100;
+    overpaid = Math.round((overpaid - discount) * 100) / 100;
+  }
+  if (overpaid > 0.01 || rawPayments.some(payment => payment.amount <= 0)) throw new BusinessRuleError('Los montos de pago no son validos para el total de la venta.');
 
   const sale = await manager.getRepository('Sale').save(manager.getRepository('Sale').create({
     branchId: header.branchId,

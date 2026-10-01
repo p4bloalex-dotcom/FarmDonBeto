@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSortModule } from '@angular/material/sort';
 import { HotToastService } from '@fuse/components/hot-toast';
 import { TableAction, TableColumn } from '@fuse/components/table/table-column.model';
@@ -16,19 +17,24 @@ import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
 import { debounceTime, distinctUntilChanged, startWith, Subject, takeUntil } from 'rxjs';
 import { InventoryEditDialogComponent } from './inventory-edit-dialog/inventory-edit-dialog.component';
+import { InventoryReserveDialogComponent } from './inventory-reserve-dialog/inventory-reserve-dialog.component';
 
 @Component({
   selector: 'app-inventory',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule, MatSortModule, TableComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule, MatSelectModule, MatSortModule, TableComponent],
   templateUrl: './inventory.component.html',
   styleUrl: './inventory.component.scss'
 })
 export class InventoryComponent implements OnInit, OnDestroy {
   searchInputControl: UntypedFormControl = new UntypedFormControl();
+  branchFilterControl: UntypedFormControl = new UntypedFormControl('ALL');
+  statusFilterControl: UntypedFormControl = new UntypedFormControl('ALL');
   pagedData: any[] = [];
   filteredData: any[] = [];
   detailRows: any[] = [];
   detailTitle = '';
+  activeInsight = 'Inventario general';
+  selectedRow: any = null;
   pageSize = 10;
   pageIndex = 0;
   totalItems = 0;
@@ -62,15 +68,24 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
-    this.searchInputControl.valueChanges.pipe(takeUntil(this._unsubscribeAll), startWith(''), debounceTime(300), distinctUntilChanged()).subscribe(searchText => {
-      const text = searchText?.toLowerCase() || '';
-      this.pagedData = this.filteredData.filter(item => JSON.stringify(item).toLowerCase().includes(text));
-    });
+    this.searchInputControl.valueChanges.pipe(takeUntil(this._unsubscribeAll), startWith(''), debounceTime(300), distinctUntilChanged()).subscribe(() => this.applyFilters());
+    this.branchFilterControl.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(() => this.applyFilters());
+    this.statusFilterControl.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(() => this.applyFilters());
   }
 
   ngOnDestroy(): void {
     this._unsubscribeAll.next(null);
     this._unsubscribeAll.complete();
+  }
+
+  get totalAvailable(): number { return this.filteredData.reduce((sum, item) => sum + Number(item.stockAvailable ?? 0), 0); }
+  get totalReserved(): number { return this.filteredData.reduce((sum, item) => sum + Number(item.reserve ?? 0), 0); }
+  get lowStockCount(): number { return this.filteredData.filter(item => Number(item.stockAvailable ?? 0) <= Number(item.stockMin ?? 0)).length; }
+  get overStockCount(): number { return this.filteredData.filter(item => Number(item.stockMax ?? 0) > 0 && Number(item.stockAvailable ?? 0) > Number(item.stockMax ?? 0)).length; }
+  get branchOptions(): any[] {
+    const branches = new Map<number, string>();
+    this.filteredData.forEach(item => { if (item.branchId) branches.set(item.branchId, item.branchName); });
+    return Array.from(branches.entries()).map(([id, name]) => ({ id, name }));
   }
 
   onPageChange(event: PageEvent): void {
@@ -83,9 +98,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
           this.finishLoad(resp.error?.detail ?? 'Error al cargar inventario.');
           return;
         }
-        this.filteredData = (resp.data?.data ?? []).map(this.decorateRow);
+        this.filteredData = (resp.data?.data ?? []).map((item: any) => this.decorateRow(item));
         this.totalItems = resp.data?.meta?.totalItemCount ?? 0;
-        this.pagedData = this.filteredData;
+        this.applyFilters();
+        this.activeInsight = 'Inventario general';
         this.finishLoad();
       },
       error: () => this.finishLoad('Error inesperado al cargar inventario.')
@@ -93,6 +109,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   handleRowAction(event: { action: string; row: any }): void {
+    this.selectedRow = event.row;
     if (event.action === 'edit') this.openEditDialog(event.row);
     if (event.action === 'kardex') this.loadKardex(event.row);
     if (event.action === 'lots') this.loadLots(event.row);
@@ -101,14 +118,20 @@ export class InventoryComponent implements OnInit, OnDestroy {
     if (event.action === 'adjust') this.adjustStock(event.row);
   }
 
+  selectRow(row: any): void {
+    this.selectedRow = row;
+    this.loadAvailability(row);
+  }
+
   loadLowStockAlerts(): void {
     this.isLoading = true;
     this._generalApi.getLowStockAlerts().pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
         this.detailTitle = 'Alertas de stock bajo';
+        this.activeInsight = 'Stock bajo';
         this.detailColumns = this.columns;
-        this.detailRows = (resp.data ?? []).map(this.decorateRow);
+        this.detailRows = (resp.data ?? []).map((item: any) => this.decorateRow(item));
       },
       error: () => this.finishLoad('No se pudieron cargar alertas.')
     });
@@ -120,8 +143,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
         this.detailTitle = 'Lotes por vencer en 60 dias';
+        this.activeInsight = 'Lotes por vencer';
         this.detailColumns = this.lotColumns();
-        this.detailRows = resp.data ?? [];
+        this.detailRows = (resp.data ?? []).map((item: any) => ({ ...item, movementType: this.movementTypeLabel(item.movementType) }));
       },
       error: () => this.finishLoad('No se pudieron cargar lotes por vencer.')
     });
@@ -134,6 +158,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
         this.detailTitle = row ? `Disponible para prometer - ${row.medicineName}` : 'Disponible para prometer por sucursal';
+        this.activeInsight = row ? 'ATP del medicamento' : 'ATP por sucursal';
         this.detailColumns = [
           { field: 'branchName', header: 'Sucursal', width: '1fr' },
           { field: 'medicineName', header: 'Medicamento', width: '1.5fr' },
@@ -144,6 +169,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           { field: 'quarantine', header: 'Cuarentena', width: '110px' }
         ];
         this.detailRows = resp.data ?? [];
+        if (row) this.selectedRow = { ...this.selectedRow, atpRows: this.detailRows };
       },
       error: () => this.finishLoad('No se pudo cargar disponibilidad.')
     });
@@ -155,6 +181,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
         this.detailTitle = 'Sugerencias de reabastecimiento';
+        this.activeInsight = 'Reabastecimiento';
         this.detailColumns = [
           { field: 'branchName', header: 'Sucursal', width: '1fr' },
           { field: 'medicineName', header: 'Medicamento', width: '1.4fr' },
@@ -180,6 +207,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
         this.detailTitle = `Kardex - ${row.medicineName}`;
+        this.activeInsight = 'Kardex';
         this.detailColumns = [
           { field: 'movementDate', header: 'Fecha', width: '1fr' },
           { field: 'movementType', header: 'Tipo', width: '120px' },
@@ -200,6 +228,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
         this.detailTitle = `Lotes - ${row.medicineName}`;
+        this.activeInsight = 'Lotes';
         this.detailColumns = this.lotColumns();
         this.detailRows = resp.data ?? [];
       },
@@ -210,35 +239,38 @@ export class InventoryComponent implements OnInit, OnDestroy {
   adjustStock(row: any): void {
     const rawQuantity = window.prompt(`Nuevo stock disponible para ${row.medicineName}`, row.stockAvailable);
     if (rawQuantity === null) return;
+    const quantityAfter = Number(rawQuantity);
+    if (!Number.isFinite(quantityAfter) || quantityAfter < 0) {
+      this._toast.error('El stock debe ser un numero mayor o igual a cero.');
+      return;
+    }
     const reason = window.prompt('Motivo del ajuste');
     if (!reason) {
       this._toast.error('El motivo es obligatorio.');
       return;
     }
-    this._generalApi.addInventoryAdjustment({ branchId: row.branchId, medicineId: row.medicineId, quantityAfter: Number(rawQuantity), reason }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+    this._generalApi.addInventoryAdjustment({ branchId: row.branchId, medicineId: row.medicineId, quantityAfter, reason }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => resp.success ? this.onPageChange({ pageIndex: this.pageIndex, pageSize: this.pageSize } as PageEvent) : this._toast.error(resp.error?.detail ?? 'No se pudo ajustar inventario.'),
       error: () => this._toast.error('Error inesperado al ajustar inventario.')
     });
   }
 
   reserveStock(row: any): void {
-    const rawQuantity = window.prompt(`Cantidad a reservar para ${row.medicineName}`);
-    if (rawQuantity === null) return;
-    const quantity = Number(rawQuantity);
-    if (!quantity || quantity <= 0) {
-      this._toast.error('La cantidad debe ser mayor a cero.');
-      return;
-    }
-    this._generalApi.createInventoryReservation({ branchId: row.branchId, medicineId: row.medicineId, quantity }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: (resp: ApiResponse<any>) => {
-        if (!resp.success) {
-          this._toast.error(resp.error?.detail ?? 'No se pudo reservar inventario.');
-          return;
-        }
-        this._toast.success('Reserva registrada correctamente.');
-        this.loadAvailability(row);
-      },
-      error: () => this._toast.error('Error inesperado al reservar inventario.')
+    const dialogRef = this._matDialog.open(InventoryReserveDialogComponent, { autoFocus: false, data: { row }, width: '420px', disableClose: true });
+    dialogRef.afterClosed().pipe(takeUntil(this._unsubscribeAll)).subscribe(result => {
+      if (!result) return;
+      const quantity = Number(result.quantity);
+      this._generalApi.createInventoryReservation({ branchId: row.branchId, medicineId: row.medicineId, quantity }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+        next: (resp: ApiResponse<any>) => {
+          if (!resp.success) {
+            this._toast.error(resp.error?.detail ?? 'No se pudo reservar inventario.');
+            return;
+          }
+          this._toast.success('Reserva registrada correctamente.');
+          this.loadAvailability(row);
+        },
+        error: () => this._toast.error('Error inesperado al reservar inventario.')
+      });
     });
   }
 
@@ -258,8 +290,63 @@ export class InventoryComponent implements OnInit, OnDestroy {
       stockAvailableLabel: format(item.stockAvailable),
       reserveLabel: format(item.reserve),
       stockMinLabel: format(item.stockMin),
-      stockMaxLabel: format(item.stockMax)
+      stockMaxLabel: format(item.stockMax),
+      statusLabel: this.inventoryStatus(item)
     };
+  }
+
+  clearDetail(): void {
+    this.detailRows = [];
+    this.detailColumns = [];
+    this.detailTitle = '';
+    this.activeInsight = 'Inventario general';
+  }
+
+  clearFilters(): void {
+    this.searchInputControl.setValue('', { emitEvent: false });
+    this.branchFilterControl.setValue('ALL', { emitEvent: false });
+    this.statusFilterControl.setValue('ALL', { emitEvent: false });
+    this.applyFilters();
+  }
+
+  private applyFilters(): void {
+    const text = String(this.searchInputControl.value ?? '').toLowerCase().trim();
+    const branchId = this.branchFilterControl.value;
+    const status = this.statusFilterControl.value;
+    this.pagedData = this.filteredData.filter(item => {
+      const matchesText = !text || [item.branchName, item.medicineName, item.statusLabel].some(value => String(value ?? '').toLowerCase().includes(text));
+      const matchesBranch = branchId === 'ALL' || item.branchId === branchId;
+      const matchesStatus = status === 'ALL' || item.statusLabel === status;
+      return matchesText && matchesBranch && matchesStatus;
+    });
+  }
+
+  private inventoryStatus(item: any): string {
+    const available = Number(item.stockAvailable ?? 0);
+    const min = Number(item.stockMin ?? 0);
+    const max = Number(item.stockMax ?? 0);
+    if (available <= 0) return 'Sin stock';
+    if (available <= min) return 'Bajo minimo';
+    if (max > 0 && available > max) return 'Sobre maximo';
+    return 'Disponible';
+  }
+
+  private movementTypeLabel(value: string): string {
+    const labels: Record<string, string> = {
+      TRANSFER_IN: 'Entrada por traspaso',
+      TRANSFER_OUT: 'Salida por traspaso',
+      TRANSFER_EDIT_IN: 'Ajuste de entrada por traspaso',
+      TRANSFER_EDIT_OUT: 'Ajuste de salida por traspaso',
+      TRANSFER_EDIT_REVERSE_IN: 'Reversa de entrada por traspaso',
+      TRANSFER_EDIT_REVERSE_OUT: 'Reversa de salida por traspaso',
+      TRANSFER_DELETE_IN: 'Reversa por anulacion de traspaso',
+      TRANSFER_DELETE_OUT: 'Salida por anulacion de traspaso',
+      SALE: 'Venta',
+      PURCHASE_RECEIPT: 'Recepcion de compra',
+      ADJUSTMENT: 'Ajuste',
+      RESERVATION: 'Reserva'
+    };
+    return labels[value] ?? value ?? '-';
   }
 
   private lotColumns(): TableColumn[] {

@@ -61,10 +61,7 @@
                     <div class="rounded-xl bg-primary-100 p-2 text-primary-700 dark:bg-primary-900 dark:text-primary-200">
                         <mat-icon [svgIcon]="selectedFlow.icon"></mat-icon>
                     </div>
-                    <div>
-                        <div class="text-lg font-bold">{{ selectedFlow.label }}</div>
-                        <div class="text-sm text-secondary">{{ flowHelp[flowAction] }}</div>
-                    </div>
+                    <div class="text-lg font-bold">{{ selectedFlow.label }}</div>
                 </div>
 
                 @if (flowAction === 'requests') {
@@ -78,7 +75,7 @@
                         <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal que necesita</mat-label><mat-select [(ngModel)]="networkQuery.branchId">@for (branch of branches; track branch.id) { <mat-option [value]="branch.id">{{ branch.name }}</mat-option> }</mat-select></mat-form-field>
                         <mat-form-field class="fuse-mat-dense"><mat-label>Cantidad necesaria</mat-label><input matInput type="number" [(ngModel)]="networkQuery.quantity" /></mat-form-field>
                     </div>
-                    <button class="mb-3 w-full sm:w-auto" mat-flat-button color="primary" [disabled]="!canReviewNetwork()" (click)="runNetworkCheck()">Buscar abastecimiento</button>
+                    <button class="mb-3 w-full sm:w-auto" mat-flat-button color="primary" [disabled]="!canReviewNetwork()" (click)="runNetworkCheck()">Revisar disponibilidad</button>
                 }
 
                 @if (flowAction === 'orders' || flowAction === 'returns') {
@@ -176,9 +173,9 @@
                     <div class="mt-3 text-right text-lg font-bold">Total orden: {{ money(orderSubtotal()) }}</div>
                 </div>
             }
-            @if (flowAction !== 'requests' || networkResult || replenishmentLines.length > 0) {
+            @if (flowAction !== 'requests' || replenishmentLines.length > 0) {
                 <div class="purchase-submit mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <button class="w-full sm:w-auto" mat-flat-button color="primary" (click)="flowAction === 'requests' ? submitReplenishment() : submitFlow()">{{ flowAction === 'requests' ? replenishmentActionLabel() : flowAction === 'orders' ? 'Crear orden completa' : selectedFlow.label }}</button>
+                    <button class="w-full sm:w-auto" mat-flat-button color="primary" (click)="flowAction === 'requests' ? submitReplenishment() : submitFlow()">{{ flowAction === 'requests' ? 'Registrar solicitud' : flowAction === 'orders' ? 'Crear orden completa' : selectedFlow.label }}</button>
                 </div>
             }
             </div>
@@ -262,7 +259,6 @@
                 @if (flowAction === 'requests' && replenishmentSuggestions.length > 0) {
                     <div class="mt-3 rounded-2xl border p-4">
                         <div class="mb-2 font-bold">Recomendaciones por bajo inventario</div>
-                        <div class="mb-3 text-sm text-secondary">Las sucursales solicitan reposicion; matriz decide traslado interno o compra al proveedor.</div>
                         <div class="grid gap-2">
                             @for (suggestion of replenishmentSuggestions; track suggestion.branchId + '-' + suggestion.medicineId) {
                                 <div class="rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800">
@@ -279,11 +275,16 @@
                     </div>
                 }
                 @if (flowAction === 'requests' && networkResult) {
-                    <div class="mb-3 rounded-2xl p-4" [class.bg-green-50]="networkResult.canTransfer" [class.text-green-900]="networkResult.canTransfer" [class.bg-amber-50]="!networkResult.canTransfer" [class.text-amber-900]="!networkResult.canTransfer">
-                        <div class="font-bold">{{ networkResult.canTransfer ? 'Solicitar traslado interno' : 'Solicitar traslado interno y compra por faltante' }}</div>
-                        <div class="text-sm">Pendiente para compra externa: {{ networkResult.pendingExternalPurchase }}</div>
+                    <div class="mb-3 rounded-2xl p-4" [class.bg-green-50]="networkResult.canTransfer" [class.text-green-900]="networkResult.canTransfer" [class.bg-amber-50]="!networkResult.canTransfer || networkResult.pendingExternalPurchase > 0" [class.text-amber-900]="!networkResult.canTransfer || networkResult.pendingExternalPurchase > 0">
+                        <div class="font-bold">{{ networkResult.canTransfer ? 'Traspaso interno disponible' : 'Requiere compra externa' }}</div>
+                        <div class="text-sm">Compra externa: {{ networkResult.pendingExternalPurchase }}</div>
                     </div>
-                    <button class="mb-3 w-full" mat-stroked-button color="primary" type="button" (click)="addReplenishmentLine()">Agregar medicamento a esta solicitud</button>
+                    @if (networkResult.suggestions?.length) {
+                        <button class="mb-3 w-full" mat-flat-button color="primary" type="button" (click)="addReplenishmentLine()">Agregar a solicitud de traspaso</button>
+                    }
+                    @if (networkResult.pendingExternalPurchase > 0) {
+                        <button class="mb-3 w-full" mat-stroked-button color="primary" type="button" (click)="createOrderFromExternalNeed()">Crear orden de compra</button>
+                    }
                     <div class="grid gap-2">
                         @for (branch of networkResult.suggestions; track branch.branchId) {
                             <div class="rounded-2xl border p-3">

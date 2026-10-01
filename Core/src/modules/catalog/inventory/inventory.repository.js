@@ -155,19 +155,21 @@ export const getAvailability = async ({ branchId = null, medicineId = null } = {
     .addSelect('branch.name', 'branchName')
     .leftJoin('lot.medicine', 'medicine')
     .addSelect('medicine.name', 'medicineName')
+    .addSelect('medicine.priceSell', 'priceSell')
     .where('lot.status = :status', { status: 'E' })
     .andWhere('lot.expirationDate >= :today', { today: new Date() })
     .groupBy('lot.branchId')
     .addGroupBy('lot.medicineId')
     .addGroupBy('branch.name')
     .addGroupBy('medicine.name')
+    .addGroupBy('medicine.priceSell')
     .orderBy('branch.name', 'ASC')
     .addOrderBy('medicine.name', 'ASC');
 
   if (branchId) query.andWhere('lot.branchId = :branchId', { branchId: Number(branchId) });
   if (medicineId) query.andWhere('lot.medicineId = :medicineId', { medicineId: Number(medicineId) });
 
-  return (await query.getRawMany()).map(row => {
+  const lotRows = (await query.getRawMany()).map(row => {
     const available = Number(row.available ?? 0);
     const reserved = Number(row.reserved ?? 0);
     return {
@@ -175,6 +177,7 @@ export const getAvailability = async ({ branchId = null, medicineId = null } = {
       branchName: row.branchName,
       medicineId: Number(row.medicineId),
       medicineName: row.medicineName,
+      priceSell: Number(row.priceSell ?? 0),
       available,
       reserved,
       availableToPromise: available - reserved,
@@ -182,6 +185,40 @@ export const getAvailability = async ({ branchId = null, medicineId = null } = {
       quarantine: Number(row.quarantine ?? 0)
     };
   });
+
+  const existingKeys = new Set(lotRows.map(row => `${row.branchId}-${row.medicineId}`));
+  const stockQuery = AppDataSource.getRepository('Inventory').createQueryBuilder('item')
+    .leftJoin('item.branch', 'branch')
+    .addSelect(['branch.id', 'branch.name'])
+    .leftJoin('item.medicine', 'medicine')
+    .addSelect(['medicine.id', 'medicine.name', 'medicine.priceSell'])
+    .where('(item.stockAvailable - item.reserve) > 0')
+    .orderBy('branch.name', 'ASC')
+    .addOrderBy('medicine.name', 'ASC');
+
+  if (branchId) stockQuery.andWhere('item.branchId = :branchId', { branchId: Number(branchId) });
+  if (medicineId) stockQuery.andWhere('item.medicineId = :medicineId', { medicineId: Number(medicineId) });
+
+  const stockRows = (await stockQuery.getMany())
+    .filter(item => !existingKeys.has(`${item.branchId}-${item.medicineId}`))
+    .map(item => {
+      const available = Number(item.stockAvailable ?? 0);
+      const reserved = Number(item.reserve ?? 0);
+      return {
+        branchId: Number(item.branchId),
+        branchName: item.branch?.name ?? null,
+        medicineId: Number(item.medicineId),
+        medicineName: item.medicine?.name ?? null,
+        priceSell: Number(item.medicine?.priceSell ?? 0),
+        available,
+        reserved,
+        availableToPromise: available - reserved,
+        inTransit: 0,
+        quarantine: 0
+      };
+    });
+
+  return [...lotRows, ...stockRows];
 };
 
 export const createReservation = async (data, userId = null) => AppDataSource.transaction(async manager => {

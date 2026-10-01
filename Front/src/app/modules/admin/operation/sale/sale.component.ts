@@ -7,42 +7,27 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
-import { PageEvent } from '@angular/material/paginator';
 import { HotToastService } from '@fuse/components/hot-toast';
-import { TableColumn } from '@fuse/components/table/table-column.model';
-import { TableComponent } from '@fuse/components/table/table.component';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-sale',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, TableComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule],
   templateUrl: './sale.component.html'
 })
 export class SaleComponent implements OnInit, OnDestroy {
   form: UntypedFormGroup;
+  customerForm: UntypedFormGroup;
   medicines: any[] = [];
   medicineSearchControl: UntypedFormControl = new UntypedFormControl('');
   medicineSearchText = '';
   branches: any[] = [];
   employees: any[] = [];
   sessions: any[] = [];
-  rows: any[] = [];
-  pageSize = 10;
-  pageIndex = 0;
-  totalItems = 0;
   isLoading = false;
   private _unsubscribeAll = new Subject<void>();
-
-  columns: TableColumn[] = [
-    { field: 'id', header: 'Venta', width: '80px' },
-    { field: 'saleDate', header: 'Fecha', width: '1fr' },
-    { field: 'branchName', header: 'Sucursal', width: '1.2fr' },
-    { field: 'employeeName', header: 'Empleado', width: '1.2fr' },
-    { field: 'paymentMethod', header: 'Pago', width: '100px' },
-    { field: 'totalLabel', header: 'Total', width: '100px' }
-  ];
 
   constructor(private _fb: UntypedFormBuilder, private _api: GeneralApiService, private _toast: HotToastService) { }
 
@@ -56,6 +41,12 @@ export class SaleComponent implements OnInit, OnDestroy {
       taxRate: [0, [Validators.required, Validators.min(0)]],
       details: this._fb.array([])
     });
+    this.customerForm = this._fb.group({
+      documentType: ['RECEIPT', Validators.required],
+      taxId: ['CF'],
+      customerName: ['Consumidor final'],
+      customerPhone: ['']
+    });
     this.addItem();
     this.addPayment();
     this.form.get('branchId')!.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(() => {
@@ -63,19 +54,69 @@ export class SaleComponent implements OnInit, OnDestroy {
       this.loadAvailableMedicines();
     });
     this.medicineSearchControl.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(value => this.medicineSearchText = value ?? '');
+    this.customerForm.get('documentType')!.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(type => this.applyDocumentDefaults(type));
     this.loadCatalogs();
-    this.loadSales();
   }
 
   ngOnDestroy(): void { this._unsubscribeAll.next(null); this._unsubscribeAll.complete(); }
   get details(): UntypedFormArray { return this.form.get('details') as UntypedFormArray; }
   get payments(): UntypedFormArray { return this.form.get('payments') as UntypedFormArray; }
   get openSessions(): any[] { return this.sessions.filter(item => item.status === 'A' && item.branchId === this.form.value.branchId); }
+  get subtotal(): number { return this.details.controls.reduce((sum, group) => sum + Number(group.value.quantity ?? 0) * Number(group.value.unitPrice ?? 0), 0); }
+  get tax(): number { return this.subtotal * (Number(this.form.value.taxRate ?? 0) / 100); }
+  get total(): number { return Math.round((this.subtotal + this.tax) * 100) / 100; }
+  get paidTotal(): number { return Math.round(this.payments.controls.reduce((sum, group) => sum + Number(group.value.amount ?? 0), 0) * 100) / 100; }
+  get balanceDue(): number { return Math.max(0, Math.round((this.total - this.paidTotal) * 100) / 100); }
+  get isInvoice(): boolean { return this.customerForm?.value?.documentType === 'INVOICE'; }
+  get hasSaleContext(): boolean { return !!this.form?.value?.branchId && !!this.form?.value?.employeeId && !!this.form?.value?.cashSessionId; }
+  get canRegisterSale(): boolean { return !this.isLoading && this.form?.valid && this.customerForm?.valid && this.total > 0 && !this.validateSale(); }
+  get saleStepHint(): string {
+    if (!this.form?.value?.branchId) return 'Seleccione una sucursal para cargar medicamentos disponibles.';
+    if (this.openSessions.length === 0) return 'Abra o seleccione una caja activa antes de vender.';
+    if (!this.form?.value?.employeeId) return 'Seleccione el cajero responsable.';
+    if (!this.form?.value?.cashSessionId) return 'Seleccione la sesion de caja abierta.';
+    if (this.isInvoice) return 'Factura FEL activa: complete NIT y nombre antes de cobrar.';
+    return 'Recibo consumidor final activo: NIT y nombre no son necesarios.';
+  }
+  get cashChange(): number {
+    return Math.max(0, Math.round((this.paidTotal - this.total) * 100) / 100);
+  }
 
   addItem(): void { this.details.push(this._fb.group({ medicineId: ['', Validators.required], quantity: [1, [Validators.required, Validators.min(0.01)]], unitPrice: [null] })); }
   removeItem(index: number): void { if (this.details.length > 1) this.details.removeAt(index); }
-  addPayment(): void { this.payments.push(this._fb.group({ method: ['CASH', Validators.required], amount: [0, [Validators.required, Validators.min(0.01)]], receivedAmount: [null], cardBrand: [''], cardLast4: [''], authorizationCode: [''] })); }
-  removePayment(index: number): void { if (this.payments.length > 1) this.payments.removeAt(index); }
+  addPayment(): void {
+    const amount = this.payments.length === 0 ? this.total : Math.max(0, this.balanceDue);
+    this.payments.push(this._fb.group({ method: ['CASH', Validators.required], amount: [amount, [Validators.required, Validators.min(0.01)]], receivedAmount: [null], cardBrand: [''], cardLast4: [''], authorizationCode: [''] }));
+    this.updateMainPaymentMethod();
+  }
+  removePayment(index: number): void { if (this.payments.length > 1) { this.payments.removeAt(index); this.updateMainPaymentMethod(); } }
+
+  onPaymentMethodSelected(index: number): void {
+    const group = this.payments.at(index);
+    if (!group) return;
+    group.patchValue({ receivedAmount: null }, { emitEvent: false });
+    this.updateMainPaymentMethod();
+  }
+
+  showPaymentReference(index: number): boolean {
+    return String(this.payments.at(index)?.value?.method ?? '').toUpperCase() !== 'CASH';
+  }
+
+  paymentReferenceLabel(index: number): string {
+    const method = String(this.payments.at(index)?.value?.method ?? '').toUpperCase();
+    if (method === 'CARD') return 'Autorizacion';
+    if (method === 'TRANSFER') return 'No. transferencia';
+    if (method === 'QR') return 'Codigo QR';
+    if (method === 'ONLINE') return 'Referencia online';
+    if (method === 'COD') return 'Referencia entrega';
+    return 'Referencia';
+  }
+
+  private updateMainPaymentMethod(): void {
+    if (!this.payments?.length) return;
+    const method = this.payments.length > 1 ? 'MIXED' : this.payments.at(0).value.method;
+    this.form.get('paymentMethod')?.setValue(method, { emitEvent: false });
+  }
 
   loadCatalogs(): void {
     this._api.comboList(['Branch', 'Personal']).pipe(takeUntil(this._unsubscribeAll)).subscribe({
@@ -97,7 +138,7 @@ export class SaleComponent implements OnInit, OnDestroy {
       next: (resp: ApiResponse<any>) => {
         this.medicines = (resp.success ? resp.data ?? [] : [])
           .filter((item: any) => Number(item.availableToPromise ?? 0) > 0)
-          .map((item: any) => ({ id: item.medicineId, name: item.medicineName, availableToPromise: item.availableToPromise }));
+          .map((item: any) => ({ id: item.medicineId, name: item.medicineName, availableToPromise: item.availableToPromise, priceSell: Number(item.priceSell ?? 0) }));
       },
       error: () => this._toast.error('No se pudieron cargar medicamentos disponibles.')
     });
@@ -105,8 +146,22 @@ export class SaleComponent implements OnInit, OnDestroy {
 
   filteredMedicines(): any[] {
     const text = this.medicineSearchText.toLowerCase().trim();
-    if (!text) return this.medicines;
-    return this.medicines.filter(item => String(item.name ?? '').toLowerCase().includes(text));
+    const list = text ? this.medicines.filter(item => String(item.name ?? '').toLowerCase().includes(text)) : this.medicines;
+    return list.slice(0, 25);
+  }
+
+  addMedicineToSale(medicine: any): void {
+    const empty = this.details.controls.find(group => !group.value.medicineId);
+    const target = empty ?? this._fb.group({ medicineId: ['', Validators.required], quantity: [1, [Validators.required, Validators.min(0.01)]], unitPrice: [null] });
+    if (!empty) this.details.push(target);
+    target.patchValue({ medicineId: medicine.id, quantity: 1, unitPrice: Number(medicine.priceSell ?? 0) });
+    this.medicineSearchControl.setValue('');
+  }
+
+  onMedicineLineSelected(index: number, medicineId: number): void {
+    const medicine = this.medicines.find(item => Number(item.id) === Number(medicineId));
+    if (!medicine) return;
+    this.details.at(index).patchValue({ unitPrice: Number(medicine.priceSell ?? 0) });
   }
 
   loadSessions(): void {
@@ -117,7 +172,7 @@ export class SaleComponent implements OnInit, OnDestroy {
   }
 
   createSale(): void {
-    if (this.form.invalid) {
+    if (this.form.invalid || this.customerForm.invalid) {
       this._toast.error('Complete los datos de la venta.');
       return;
     }
@@ -127,36 +182,49 @@ export class SaleComponent implements OnInit, OnDestroy {
       return;
     }
     this.isLoading = true;
-    this._api.add('Sale', this.form.getRawValue()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+    this._api.add('Sale', this.salePayload()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
         if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo registrar la venta.');
         this._toast.success('Venta registrada.');
         this.form.reset({ paymentMethod: 'CASH', taxRate: 0 });
+        this.customerForm.reset({ documentType: 'RECEIPT', taxId: 'CF', customerName: 'Consumidor final', customerPhone: '' });
         this.details.clear();
         this.payments.clear();
         this.addItem();
         this.addPayment();
-        this.loadSales();
       },
-      error: () => { this.isLoading = false; this._toast.error('Error inesperado al registrar venta.'); }
-    });
-  }
-
-  loadSales(event?: PageEvent): void {
-    if (event) { this.pageIndex = event.pageIndex; this.pageSize = event.pageSize; }
-    this.isLoading = true;
-    this._api.getPaged('Sale', this.pageIndex + 1, this.pageSize).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: (resp: ApiResponse<any>) => {
+      error: error => {
         this.isLoading = false;
-        this.rows = (resp.data?.data ?? []).map((item: any) => ({ ...item, totalLabel: `Q ${Number(item.total ?? 0).toFixed(2)}` }));
-        this.totalItems = resp.data?.meta?.totalItemCount ?? 0;
-      },
-      error: () => { this.isLoading = false; this._toast.error('No se pudieron cargar ventas.'); }
+        this._toast.error(this.saleErrorMessage(error));
+      }
     });
   }
 
-  private validateSale(): string | null {
+  private saleErrorMessage(error: any): string {
+    const body = error?.error;
+    if (Array.isArray(body?.errors) && body.errors.length) return body.errors.join(' ');
+    return body?.message ?? body?.error?.detail ?? error?.message ?? 'Error inesperado al registrar venta.';
+  }
+
+  private salePayload(): any {
+    const payload = this.form.getRawValue();
+    return {
+      ...payload,
+      payments: (payload.payments ?? []).map((payment: any) => ({
+        method: payment.method,
+        amount: Number(payment.amount ?? 0),
+        ...(payment.authorizationCode ? { authorizationCode: payment.authorizationCode } : {})
+      }))
+    };
+  }
+
+  validateSale(): string | null {
+    const documentType = this.customerForm.value.documentType;
+    if (documentType === 'INVOICE') {
+      if (!String(this.customerForm.value.taxId ?? '').trim() || String(this.customerForm.value.taxId).toUpperCase() === 'CF') return 'Para factura ingrese NIT o identificacion fiscal del cliente.';
+      if (!String(this.customerForm.value.customerName ?? '').trim() || String(this.customerForm.value.customerName).toLowerCase() === 'consumidor final') return 'Para factura ingrese el nombre del cliente.';
+    }
     const branchId = this.form.value.branchId;
     const sessionId = this.form.value.cashSessionId;
     if (!this.sessions.some(item => item.id === sessionId && item.status === 'A' && item.branchId === branchId)) {
@@ -176,12 +244,25 @@ export class SaleComponent implements OnInit, OnDestroy {
     const total = Math.round((subtotal + subtotal * (Number(this.form.value.taxRate ?? 0) / 100)) * 100) / 100;
     const payments = this.payments.controls.map(group => group.getRawValue());
     const paymentTotal = Math.round(payments.reduce((sum, item) => sum + Number(item.amount ?? 0), 0) * 100) / 100;
-    if (Math.abs(paymentTotal - total) > 0.01) return `La suma de pagos debe ser Q ${total.toFixed(2)}.`;
-    for (const payment of payments) {
-      if (String(payment.method).toUpperCase() === 'CASH' && payment.receivedAmount != null && payment.receivedAmount !== '' && Number(payment.receivedAmount) < Number(payment.amount)) {
-        return 'El efectivo recibido no puede ser menor al monto cobrado.';
-      }
-    }
+    if (paymentTotal + 0.01 < total) return `La suma de pagos debe cubrir Q ${total.toFixed(2)}.`;
+    if (paymentTotal - total > 0.01 && !payments.some(item => String(item.method).toUpperCase() === 'CASH')) return 'Solo el efectivo puede quedar como cambio.';
     return null;
+  }
+
+  private applyDocumentDefaults(type: string): void {
+    const taxId = this.customerForm.get('taxId')!;
+    const customerName = this.customerForm.get('customerName')!;
+    if (type === 'RECEIPT') {
+      this.customerForm.patchValue({ taxId: 'CF', customerName: 'Consumidor final' }, { emitEvent: false });
+      taxId.clearValidators();
+      customerName.clearValidators();
+    } else {
+      taxId.setValidators([Validators.required]);
+      customerName.setValidators([Validators.required]);
+      if (String(taxId.value ?? '').toUpperCase() === 'CF') taxId.setValue('', { emitEvent: false });
+      if (String(customerName.value ?? '').toLowerCase() === 'consumidor final') customerName.setValue('', { emitEvent: false });
+    }
+    taxId.updateValueAndValidity({ emitEvent: false });
+    customerName.updateValueAndValidity({ emitEvent: false });
   }
 }

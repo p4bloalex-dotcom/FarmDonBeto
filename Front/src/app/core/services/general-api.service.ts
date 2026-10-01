@@ -43,6 +43,11 @@ getList(endpoint: string) {
       .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
   }
 
+  getAction(endpoint: string, id: any, action: string) {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}/${action}`)
+      .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
+  }
+
   customerOrderAvailability(data: any) {
     return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath('CustomerOrder')}/availability`, data)
       .pipe(map(resp => this.normalizeResponse('CustomerOrder', resp)));

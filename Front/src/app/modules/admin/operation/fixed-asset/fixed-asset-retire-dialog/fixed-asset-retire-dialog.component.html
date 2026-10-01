@@ -1,0 +1,18 @@
+<form [formGroup]="dataForm" class="flex w-full flex-col">
+    <div class="border-b px-4 py-3">
+        <h2 class="text-xl font-semibold">Dar de baja</h2>
+        <div class="text-sm text-secondary">{{ data.row.code }} - {{ data.row.name }}</div>
+    </div>
+    <div class="p-4">
+        <mat-form-field class="w-full">
+            <mat-label>Motivo</mat-label>
+            <textarea matInput formControlName="reason" rows="4"></textarea>
+            @if (dataForm.get('reason')?.hasError('required')) { <mat-error>Motivo requerido.</mat-error> }
+            @if (dataForm.get('reason')?.hasError('minlength')) { <mat-error>Ingrese un motivo valido.</mat-error> }
+        </mat-form-field>
+    </div>
+    <div class="flex flex-col-reverse gap-3 border-t px-4 py-3 sm:flex-row sm:justify-end">
+        <button mat-flat-button type="button" (click)="close()">Cancelar</button>
+        <button mat-flat-button color="warn" type="button" [disabled]="dataForm.invalid" (click)="save()">Dar de baja</button>
+    </div>
+</form>

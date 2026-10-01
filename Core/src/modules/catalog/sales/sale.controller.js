@@ -5,6 +5,12 @@ import { BusinessRuleError, createSaleWithDetails, findSaleById, listSaleDetails
 
 const enabled = async (name, id) => AppDataSource.getRepository(name).findOneBy({ id, status: 'E' });
 
+const saleTotalFromPayload = payload => {
+  const subtotal = (payload.details ?? []).reduce((sum, item) => sum + Number(item.quantity ?? 0) * Number(item.unitPrice ?? 0), 0);
+  const tax = payload.tax == null ? subtotal * (Number(payload.taxRate ?? 0) / 100) : Number(payload.tax ?? 0);
+  return Math.round((subtotal + tax) * 100) / 100;
+};
+
 const validateSale = async payload => {
   const branch = await enabled('Branch', payload.branchId);
   if (!branch) return 'La sucursal seleccionada no existe o esta desactivada.';
@@ -23,7 +29,11 @@ const validateSale = async payload => {
       .setParameter('income', 'I')
       .getRawOne();
     const currentCash = Number(session.openingAmount ?? 0) + Number(raw?.balance ?? 0);
-    const saleCash = (payload.payments ?? [{ method: payload.paymentMethod, amount: 0 }]).filter(payment => String(payment.method).toUpperCase() === 'CASH').reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+    const payments = payload.payments ?? [{ method: payload.paymentMethod, amount: saleTotalFromPayload(payload) }];
+    const saleTotal = saleTotalFromPayload(payload);
+    const nonCash = payments.filter(payment => String(payment.method).toUpperCase() !== 'CASH').reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+    const cashReceived = payments.filter(payment => String(payment.method).toUpperCase() === 'CASH').reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+    const saleCash = Math.min(cashReceived, Math.max(0, saleTotal - nonCash));
     if (currentCash + saleCash > Number(cashRegister.cashLimit)) return 'La caja supera el limite de efectivo permitido. Registre un retiro a boveda antes de continuar.';
   }
   return null;

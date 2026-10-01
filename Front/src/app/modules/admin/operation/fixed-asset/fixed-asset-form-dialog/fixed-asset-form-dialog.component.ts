@@ -71,9 +71,25 @@ export class FixedAssetFormDialogComponent implements OnInit {
     });
   }
 
+  get bookValue(): number {
+    const value = this.dataForm?.getRawValue?.() ?? {};
+    return Math.max(Number(value.purchaseCost ?? 0) - Number(value.accumulatedDepreciation ?? 0), 0);
+  }
+
+  get title(): string {
+    if (this.actionDialog === 1) return 'Nuevo activo fijo';
+    if (this.actionDialog === 2) return 'Editar activo fijo';
+    if (this.actionDialog === 8) return 'Trasladar activo fijo';
+    return 'Detalle de activo fijo';
+  }
+
   save(): void {
     if (this.dataForm.invalid) return;
     const payload = this.dataForm.getRawValue();
+    if (!this.isTransferMode && Number(payload.accumulatedDepreciation ?? 0) > Number(payload.purchaseCost ?? 0)) {
+      this._toast.error('La depreciacion no puede superar el costo de compra.');
+      return;
+    }
     const request = this.isTransferMode ? this._generalApi.postAction('FixedAsset', this._data.row.id, 'transfer', {
       branchId: payload.branchId,
       location: payload.location,

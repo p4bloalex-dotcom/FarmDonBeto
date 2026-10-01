@@ -1,0 +1,25 @@
+<form [formGroup]="dataForm" class="flex w-full flex-col">
+    <div class="border-b px-4 py-3">
+        <h2 class="text-xl font-semibold">Reservar inventario</h2>
+        <div class="text-sm text-secondary">{{ data.row.branchName }} - {{ data.row.medicineName }}</div>
+    </div>
+    <div class="space-y-4 p-4">
+        <div class="rounded-xl bg-blue-50 p-3 text-sm text-blue-800">
+            Disponible para reservar: <strong>{{ data.row.stockAvailableLabel }}</strong>
+        </div>
+        <mat-form-field class="w-full">
+            <mat-label>Cantidad a reservar</mat-label>
+            <input matInput formControlName="quantity" type="number" min="0.01" [max]="data.row.stockAvailable" />
+            @if (dataForm.get('quantity')?.hasError('max')) {
+                <mat-error>No puede reservar mas de lo disponible.</mat-error>
+            }
+            @if (dataForm.get('quantity')?.hasError('min')) {
+                <mat-error>La cantidad debe ser mayor a cero.</mat-error>
+            }
+        </mat-form-field>
+    </div>
+    <div class="flex flex-col-reverse gap-3 border-t px-4 py-3 sm:flex-row sm:justify-end">
+        <button mat-flat-button type="button" (click)="close()">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" [disabled]="dataForm.invalid" (click)="save()">Reservar</button>
+    </div>
+</form>

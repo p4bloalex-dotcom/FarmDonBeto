@@ -38,6 +38,6 @@ export default [
     {path     : 'movementtype',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.movementType }},
     {path     : 'cashregister',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.cashRegister }},
     {path     : 'purchase', redirectTo: '/operation/purchase', pathMatch: 'full'},
-    {path     : 'stock-transfer', redirectTo: '/operation/stock-transfer', pathMatch: 'full'},
+    {path     : 'stock-transfer', redirectTo: '/operation/delivery-request', pathMatch: 'full'},
     {path     : 'delivery-request', redirectTo: '/operation/delivery-request', pathMatch: 'full'},
 ] as Routes;

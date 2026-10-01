@@ -1,71 +1,42 @@
 <form [formGroup]="dataForm" class="flex max-h-[90vh] w-full flex-col overflow-hidden">
     <div class="border-b px-4 py-3">
-        <h2 class="text-xl font-semibold sm:text-2xl">
-            @if (actionDialog === 1) {Nuevo activo fijo}
-            @else if (actionDialog === 2) {Editar activo fijo}
-            @else if (actionDialog === 8) {Trasladar activo fijo}
-            @else {Detalle de activo fijo}
-        </h2>
+        <h2 class="text-xl font-semibold sm:text-2xl">{{ title }}</h2>
     </div>
-    <div class="grid grid-cols-1 gap-4 overflow-y-auto p-4 md:grid-cols-2">
-        <mat-form-field class="w-full">
-            <mat-label>Sucursal</mat-label>
-            <mat-select formControlName="branchId">
-                @for (option of branches; track option.id) {
-                    <mat-option [value]="option.id">{{ option.name }}</mat-option>
-                }
-            </mat-select>
-        </mat-form-field>
-        <mat-form-field class="w-full">
-            <mat-label>Codigo</mat-label>
-            <input matInput formControlName="code" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field class="w-full md:col-span-2">
-            <mat-label>Nombre</mat-label>
-            <input matInput formControlName="name" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field class="w-full">
-            <mat-label>Categoria</mat-label>
-            <input matInput formControlName="category" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field class="w-full">
-            <mat-label>Ubicacion</mat-label>
-            <input matInput formControlName="location" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field class="w-full">
-            <mat-label>Responsable</mat-label>
-            <input matInput formControlName="responsible" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field class="w-full">
-            <mat-label>Fecha compra</mat-label>
-            <input matInput formControlName="purchaseDate" type="date" />
-        </mat-form-field>
-        <mat-form-field class="w-full">
-            <mat-label>Costo compra</mat-label>
-            <input matInput formControlName="purchaseCost" type="number" min="0" />
-        </mat-form-field>
-        <mat-form-field class="w-full">
-            <mat-label>Depreciacion acumulada</mat-label>
-            <input matInput formControlName="accumulatedDepreciation" type="number" min="0" />
-        </mat-form-field>
-        <mat-form-field class="w-full">
-            <mat-label>Vida util (meses)</mat-label>
-            <input matInput formControlName="usefulLifeMonths" type="number" min="1" />
-        </mat-form-field>
-        <mat-form-field class="w-full">
-            <mat-label>Estado</mat-label>
-            <mat-select formControlName="status">
-                <mat-option value="E">Activo</mat-option>
-                <mat-option value="D">Baja</mat-option>
-                <mat-option value="I">Inactivo</mat-option>
-            </mat-select>
-        </mat-form-field>
-        <mat-form-field class="w-full md:col-span-2">
-            <mat-label>Notas</mat-label>
-            <input matInput formControlName="notes" autocomplete="off" />
-        </mat-form-field>
+    <div class="space-y-4 overflow-y-auto p-4">
+        <section class="rounded-2xl border p-4">
+            <div class="mb-3 text-sm font-semibold uppercase text-secondary">Identificacion</div>
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <mat-form-field class="w-full"><mat-label>Codigo / placa</mat-label><input matInput formControlName="code" autocomplete="off" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Categoria</mat-label><input matInput formControlName="category" autocomplete="off" /></mat-form-field>
+                <mat-form-field class="w-full md:col-span-2"><mat-label>Nombre</mat-label><input matInput formControlName="name" autocomplete="off" /></mat-form-field>
+            </div>
+        </section>
+        <section class="rounded-2xl border p-4">
+            <div class="mb-3 text-sm font-semibold uppercase text-secondary">Asignacion</div>
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <mat-form-field class="w-full"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId">@for (option of branches; track option.id) { <mat-option [value]="option.id">{{ option.name }}</mat-option> }</mat-select></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Ubicacion</mat-label><input matInput formControlName="location" autocomplete="off" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Responsable</mat-label><input matInput formControlName="responsible" autocomplete="off" /></mat-form-field>
+            </div>
+        </section>
+        <section class="rounded-2xl border p-4">
+            <div class="mb-3 text-sm font-semibold uppercase text-secondary">Valor contable</div>
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <mat-form-field class="w-full"><mat-label>Fecha compra</mat-label><input matInput formControlName="purchaseDate" type="date" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Costo compra</mat-label><input matInput formControlName="purchaseCost" type="number" min="0" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Depreciacion</mat-label><input matInput formControlName="accumulatedDepreciation" type="number" min="0" /></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Vida util (meses)</mat-label><input matInput formControlName="usefulLifeMonths" type="number" min="1" /></mat-form-field>
+            </div>
+            <div class="mt-2 rounded-xl bg-gray-50 p-3 text-sm dark:bg-gray-800">Valor libros: <strong>Q {{ bookValue.toFixed(2) }}</strong></div>
+        </section>
+        <section class="rounded-2xl border p-4">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <mat-form-field class="w-full"><mat-label>Estado</mat-label><mat-select formControlName="status"><mat-option value="E">Activo</mat-option><mat-option value="D">Baja</mat-option><mat-option value="I">Inactivo</mat-option></mat-select></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Notas</mat-label><input matInput formControlName="notes" autocomplete="off" /></mat-form-field>
+            </div>
+        </section>
         @if (isTransferMode) {
-            <mat-form-field class="w-full md:col-span-2">
+            <mat-form-field class="w-full">
                 <mat-label>Motivo del traslado</mat-label>
                 <input matInput formControlName="reason" autocomplete="off" />
             </mat-form-field>

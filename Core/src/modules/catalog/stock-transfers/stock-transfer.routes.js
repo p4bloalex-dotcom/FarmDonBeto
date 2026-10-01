@@ -11,9 +11,9 @@ export const stockTransferRoutes = Router();
 export const permissions = deliveryRequestPermissions;
 
 stockTransferRoutes.use(authenticate);
-stockTransferRoutes.post('/', permissionRequired(permissions.authorize), validate(stockTransferSchema), asyncHandler(addStockTransfer));
+stockTransferRoutes.post('/', permissionRequired(permissions.create), validate(stockTransferSchema), asyncHandler(addStockTransfer));
 stockTransferRoutes.get('/', permissionRequired(permissions.view), asyncHandler(getStockTransfers));
 stockTransferRoutes.get('/pagination', permissionRequired(permissions.view), asyncHandler(getPagedStockTransfers));
 stockTransferRoutes.get('/:id', permissionRequired(permissions.view), asyncHandler(getStockTransferDetail));
-stockTransferRoutes.put('/:id', permissionRequired(permissions.authorize), validate(stockTransferSchema), asyncHandler(editStockTransfer));
-stockTransferRoutes.delete('/:id', permissionRequired(permissions.authorize), asyncHandler(removeStockTransfer));
+stockTransferRoutes.put('/:id', permissionRequired(permissions.edit), validate(stockTransferSchema), asyncHandler(editStockTransfer));
+stockTransferRoutes.delete('/:id', permissionRequired(permissions.delete), asyncHandler(removeStockTransfer));

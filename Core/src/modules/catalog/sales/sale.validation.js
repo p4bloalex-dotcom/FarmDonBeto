@@ -20,8 +20,8 @@ const detailSchema = Joi.object({
 const paymentSchema = Joi.object({
   method: Joi.string().trim().max(30).required(),
   amount: Joi.number().precision(2).min(0.01).required(),
-  receivedAmount: Joi.number().precision(2).min(0),
-  received_amount: Joi.number().precision(2).min(0),
+  receivedAmount: Joi.number().precision(2).min(0).allow(null),
+  received_amount: Joi.number().precision(2).min(0).allow(null),
   cardBrand: Joi.string().trim().max(30).allow(null, ''),
   card_brand: Joi.string().trim().max(30).allow(null, ''),
   cardLast4: Joi.string().trim().pattern(/^\d{4}$/).allow(null, ''),

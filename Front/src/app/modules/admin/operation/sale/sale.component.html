@@ -1,50 +1,114 @@
 <div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
     @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
     <div class="border-b px-4 py-4 md:px-8">
-        <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Ventas</div>
+        <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Punto de venta</div>
     </div>
-    <div class="grid gap-4 overflow-auto p-4 md:grid-cols-[420px_1fr] md:p-8">
-        <form [formGroup]="form" class="rounded-2xl border p-4 shadow-sm">
-            <div class="mb-3 text-lg font-semibold">Nueva venta</div>
-            <mat-form-field class="w-full"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option *ngFor="let branch of branches" [value]="branch.id">{{ branch.name }}</mat-option></mat-select></mat-form-field>
-            <mat-form-field class="w-full"><mat-label>Empleado</mat-label><mat-select formControlName="employeeId"><mat-option *ngFor="let employee of employees" [value]="employee.id">{{ employee.name || (employee.firstName + ' ' + employee.lastName) }}</mat-option></mat-select></mat-form-field>
-            <mat-form-field class="w-full"><mat-label>Sesion de caja</mat-label><mat-select formControlName="cashSessionId"><mat-option *ngFor="let session of openSessions" [value]="session.id">{{ session.cashRegisterName }} - {{ session.openingDate }}</mat-option></mat-select></mat-form-field>
-            <div formArrayName="details" class="space-y-3">
-                @for (item of details.controls; track $index) {
-                    <div [formGroupName]="$index" class="grid grid-cols-[1fr_80px_90px_40px] gap-2">
-                        <mat-form-field><mat-label>Medicamento</mat-label><mat-select formControlName="medicineId">
-                            <mat-option>
-                                <input matInput placeholder="Buscar medicamento" [formControl]="medicineSearchControl" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()" />
-                            </mat-option>
-                            <mat-option *ngFor="let med of filteredMedicines()" [value]="med.id">{{ med.name }} - Disp. {{ med.availableToPromise }}</mat-option>
-                        </mat-select></mat-form-field>
-                        <mat-form-field><mat-label>Cant.</mat-label><input matInput type="number" formControlName="quantity" /></mat-form-field>
-                        <mat-form-field><mat-label>Precio</mat-label><input matInput type="number" formControlName="unitPrice" /></mat-form-field>
-                        <button mat-icon-button type="button" (click)="removeItem($index)"><mat-icon svgIcon="heroicons_outline:trash"></mat-icon></button>
-                    </div>
+    <div class="grid gap-4 overflow-auto p-4 xl:grid-cols-[360px_minmax(0,1fr)_320px] md:p-8">
+        <div class="space-y-4">
+            <form [formGroup]="form" class="rounded-2xl border bg-white p-4 shadow-sm dark:bg-transparent">
+                <div class="mb-3 text-lg font-semibold">Caja y sucursal</div>
+                <mat-form-field class="w-full"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option *ngFor="let branch of branches" [value]="branch.id">{{ branch.name }}</mat-option></mat-select></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Cajero / empleado</mat-label><mat-select formControlName="employeeId"><mat-option *ngFor="let employee of employees" [value]="employee.id">{{ employee.name || (employee.firstName + ' ' + employee.lastName) }}</mat-option></mat-select></mat-form-field>
+                <mat-form-field class="w-full"><mat-label>Sesion de caja abierta</mat-label><mat-select formControlName="cashSessionId"><mat-option *ngFor="let session of openSessions" [value]="session.id">{{ session.cashRegisterName }} - {{ session.openingDate }}</mat-option></mat-select></mat-form-field>
+                @if (form.value.branchId && openSessions.length === 0) { <div class="rounded-xl bg-red-50 p-3 text-sm text-red-700">No hay caja abierta para esta sucursal. Segun caja, no se debe vender sin sesion abierta.</div> }
+            </form>
+
+            <form [formGroup]="customerForm" class="rounded-2xl border bg-white p-4 shadow-sm dark:bg-transparent">
+                <div class="mb-3 text-lg font-semibold">Cliente y comprobante</div>
+                <mat-form-field class="w-full"><mat-label>Tipo</mat-label><mat-select formControlName="documentType"><mat-option value="RECEIPT">Recibo / ticket consumidor final</mat-option><mat-option value="INVOICE">Factura FEL</mat-option></mat-select></mat-form-field>
+                @if (isInvoice) {
+                    <mat-form-field class="w-full"><mat-label>NIT o identificacion</mat-label><input matInput formControlName="taxId" placeholder="Ej. 1234567-8" /></mat-form-field>
+                    <mat-form-field class="w-full"><mat-label>Nombre del cliente</mat-label><input matInput formControlName="customerName" placeholder="Nombre para FEL" /></mat-form-field>
+                    <mat-form-field class="w-full"><mat-label>Telefono opcional</mat-label><input matInput formControlName="customerPhone" /></mat-form-field>
+                    <div class="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Factura FEL requiere NIT/identificacion y nombre validos. No se acepta CF ni Consumidor final.</div>
                 }
-            </div>
-            <button mat-button type="button" (click)="addItem()"><mat-icon svgIcon="heroicons_outline:plus"></mat-icon>Agregar medicamento</button>
-            <div class="mt-3 grid grid-cols-2 gap-2">
-                <mat-form-field><mat-label>Pago principal</mat-label><mat-select formControlName="paymentMethod"><mat-option value="CASH">Efectivo</mat-option><mat-option value="CARD">Tarjeta</mat-option><mat-option value="TRANSFER">Transferencia</mat-option><mat-option value="QR">Pago QR</mat-option><mat-option value="ONLINE">Pago en linea</mat-option><mat-option value="COD">Contra entrega</mat-option></mat-select></mat-form-field>
-                <mat-form-field><mat-label>% impuesto</mat-label><input matInput type="number" formControlName="taxRate" /></mat-form-field>
-            </div>
-            <div formArrayName="payments" class="mt-3 space-y-3 rounded-xl border p-3">
-                <div class="font-semibold">Pagos combinados</div>
-                @for (payment of payments.controls; track $index) {
-                    <div [formGroupName]="$index" class="grid grid-cols-[1fr_90px_90px_40px] gap-2">
-                        <mat-form-field><mat-label>Metodo</mat-label><mat-select formControlName="method"><mat-option value="CASH">Efectivo</mat-option><mat-option value="CARD">Tarjeta</mat-option><mat-option value="TRANSFER">Transferencia</mat-option><mat-option value="QR">Pago QR</mat-option><mat-option value="ONLINE">Pago en linea</mat-option><mat-option value="COD">Contra entrega</mat-option></mat-select></mat-form-field>
-                        <mat-form-field><mat-label>Monto</mat-label><input matInput type="number" formControlName="amount" /></mat-form-field>
-                        <mat-form-field><mat-label>Recibido</mat-label><input matInput type="number" formControlName="receivedAmount" /></mat-form-field>
-                        <button mat-icon-button type="button" (click)="removePayment($index)"><mat-icon svgIcon="heroicons_outline:trash"></mat-icon></button>
+            </form>
+        </div>
+
+        <form [formGroup]="form" class="min-w-0 space-y-4">
+            @if (hasSaleContext) {
+            <div class="rounded-2xl border bg-white p-4 shadow-sm dark:bg-transparent">
+                <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <div class="text-lg font-semibold">Buscar medicamento</div>
                     </div>
-                }
-                <button mat-button type="button" (click)="addPayment()"><mat-icon svgIcon="heroicons_outline:plus"></mat-icon>Agregar pago</button>
+                    <mat-form-field class="w-full sm:w-80"><mat-label>Busqueda rapida</mat-label><input matInput [formControl]="medicineSearchControl" placeholder="Ej. amoxicilina" /></mat-form-field>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    @for (med of filteredMedicines(); track med.id) {
+                        <button class="rounded-xl border p-3 text-left hover:border-primary hover:bg-primary-50 dark:hover:bg-gray-800" type="button" (click)="addMedicineToSale(med)">
+                            <div class="font-medium">{{ med.name }}</div>
+                            <div class="text-sm text-secondary">Disponible {{ med.availableToPromise }}</div>
+                        </button>
+                    }
+                    @if (form.value.branchId && filteredMedicines().length === 0) { <div class="rounded-xl border p-3 text-sm text-secondary">Sin resultados disponibles para la busqueda.</div> }
+                </div>
             </div>
-            <button mat-flat-button color="primary" type="button" (click)="createSale()">Registrar venta</button>
+            }
+
+            @if (hasSaleContext) {
+            <div class="rounded-2xl border bg-white p-4 shadow-sm dark:bg-transparent">
+                <div class="mb-3 flex items-center justify-between">
+                    <div class="text-lg font-semibold">Medicamentos a dispensar</div>
+                    <button mat-button type="button" (click)="addItem()"><mat-icon svgIcon="heroicons_outline:plus"></mat-icon>Linea manual</button>
+                </div>
+                <div formArrayName="details" class="space-y-3">
+                    @for (item of details.controls; track $index) {
+                        <div [formGroupName]="$index" class="grid gap-2 rounded-xl border p-3 md:grid-cols-[minmax(220px,1fr)_90px_110px_44px]">
+                            <mat-form-field><mat-label>Medicamento</mat-label><mat-select formControlName="medicineId" (selectionChange)="onMedicineLineSelected($index, $event.value)"><mat-option *ngFor="let med of medicines" [value]="med.id">{{ med.name }} - Disp. {{ med.availableToPromise }}</mat-option></mat-select></mat-form-field>
+                            <mat-form-field><mat-label>Cant.</mat-label><input matInput type="number" min="0.01" formControlName="quantity" /></mat-form-field>
+                            <mat-form-field><mat-label>Precio</mat-label><input matInput type="number" min="0" formControlName="unitPrice" /></mat-form-field>
+                            <button mat-icon-button type="button" (click)="removeItem($index)" aria-label="Quitar medicamento"><mat-icon svgIcon="heroicons_outline:trash"></mat-icon></button>
+                        </div>
+                    }
+                </div>
+            </div>
+            }
+
+            @if (hasSaleContext && subtotal > 0) {
+            <div class="rounded-2xl border bg-white p-4 shadow-sm dark:bg-transparent">
+                <div class="mb-3 flex items-center justify-between">
+                    <div>
+                        <div class="text-lg font-semibold">Cobro</div>
+                        <div class="text-sm text-secondary">Agregue uno o varios pagos. En efectivo, el monto puede ser mayor al total y la diferencia sera cambio.</div>
+                    </div>
+                    <button mat-button type="button" (click)="addPayment()"><mat-icon svgIcon="heroicons_outline:plus"></mat-icon>Pago</button>
+                </div>
+                <div formArrayName="payments" class="space-y-3">
+                    @for (payment of payments.controls; track $index) {
+                        <div [formGroupName]="$index" class="grid gap-2 rounded-xl border p-3 md:grid-cols-[1fr_140px_160px_44px]">
+                            <mat-form-field><mat-label>Metodo</mat-label><mat-select formControlName="method" (selectionChange)="onPaymentMethodSelected($index)"><mat-option value="CASH">Efectivo</mat-option><mat-option value="CARD">Tarjeta</mat-option><mat-option value="TRANSFER">Transferencia</mat-option><mat-option value="QR">Pago QR</mat-option><mat-option value="ONLINE">Pago en linea</mat-option><mat-option value="COD">Contra entrega</mat-option></mat-select></mat-form-field>
+                            <mat-form-field><mat-label>Monto</mat-label><input matInput type="number" min="0.01" formControlName="amount" /></mat-form-field>
+                            @if (showPaymentReference($index)) {
+                                <mat-form-field><mat-label>{{ paymentReferenceLabel($index) }}</mat-label><input matInput formControlName="authorizationCode" /></mat-form-field>
+                            } @else {
+                                <div></div>
+                            }
+                            <button mat-icon-button type="button" (click)="removePayment($index)" aria-label="Quitar pago"><mat-icon svgIcon="heroicons_outline:trash"></mat-icon></button>
+                        </div>
+                        }
+                </div>
+                <div class="mt-3 grid gap-2 md:grid-cols-2">
+                    <mat-form-field><mat-label>% impuesto</mat-label><input matInput type="number" min="0" formControlName="taxRate" /></mat-form-field>
+                </div>
+            </div>
+            }
         </form>
-        <div class="min-w-0 rounded-2xl border p-4 shadow-sm">
-            <app-table [columns]="columns" [data]="rows" [length]="totalItems" (pageChange)="loadSales($event)"></app-table>
+
+        <div class="space-y-4">
+            <div class="sticky top-0 rounded-2xl border bg-white p-4 shadow-sm dark:bg-transparent">
+                <div class="text-lg font-semibold">Resumen de venta</div>
+                <div class="mt-4 space-y-2 text-sm">
+                    <div class="flex justify-between"><span>Subtotal</span><strong>Q {{ subtotal.toFixed(2) }}</strong></div>
+                    <div class="flex justify-between"><span>Impuesto</span><strong>Q {{ tax.toFixed(2) }}</strong></div>
+                    <div class="flex justify-between border-t pt-2 text-xl"><span>Total</span><strong>Q {{ total.toFixed(2) }}</strong></div>
+                    <div class="flex justify-between"><span>Pagado</span><strong>Q {{ paidTotal.toFixed(2) }}</strong></div>
+                    <div class="flex justify-between" [class.text-red-600]="balanceDue > 0"><span>Falta</span><strong>Q {{ balanceDue > 0 ? balanceDue.toFixed(2) : '0.00' }}</strong></div>
+                    <div class="flex justify-between text-green-700"><span>Cambio</span><strong>Q {{ cashChange.toFixed(2) }}</strong></div>
+                </div>
+                <button class="mt-4 w-full" mat-flat-button color="primary" type="button" (click)="createSale()" [disabled]="!canRegisterSale">Registrar venta</button>
+            </div>
+
         </div>
     </div>
 </div>

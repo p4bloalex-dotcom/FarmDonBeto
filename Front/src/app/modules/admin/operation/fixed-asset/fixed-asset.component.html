@@ -2,24 +2,67 @@
     @if (isLoading) {
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }
-    <div class="relative flex flex-0 flex-col gap-4 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+    <div class="relative flex flex-0 flex-col gap-4 border-b px-4 py-4 md:px-8">
         <div>
             <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Activos fijos</div>
-            <div class="text-sm text-secondary">Control del valor de activos por sucursal.</div>
         </div>
-        <div class="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-            <mat-form-field class="fuse-mat-dense fuse-mat-rounded w-full sm:min-w-64" [subscriptSizing]="'dynamic'">
+        <div class="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_200px_180px_180px_auto]">
+            <mat-form-field class="fuse-mat-dense fuse-mat-rounded" [subscriptSizing]="'dynamic'">
                 <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
-                <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar activo o sucursal'" />
+                <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Codigo, activo, ubicacion o responsable'" />
             </mat-form-field>
-            <button class="w-full sm:w-auto" mat-flat-button [color]="'primary'" (click)="openDialog(null, 1)">
+            <mat-form-field class="fuse-mat-dense fuse-mat-rounded" [subscriptSizing]="'dynamic'">
+                <mat-label>Sucursal</mat-label>
+                <mat-select [formControl]="branchFilterControl">
+                    <mat-option value="ALL">Todas</mat-option>
+                    @for (branch of branchOptions; track branch.id) { <mat-option [value]="branch.id">{{ branch.name }}</mat-option> }
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field class="fuse-mat-dense fuse-mat-rounded" [subscriptSizing]="'dynamic'">
+                <mat-label>Categoria</mat-label>
+                <mat-select [formControl]="categoryFilterControl">
+                    <mat-option value="ALL">Todas</mat-option>
+                    @for (category of categoryOptions; track category) { <mat-option [value]="category">{{ category }}</mat-option> }
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field class="fuse-mat-dense fuse-mat-rounded" [subscriptSizing]="'dynamic'">
+                <mat-label>Estado</mat-label>
+                <mat-select [formControl]="statusFilterControl">
+                    <mat-option value="ALL">Todos</mat-option>
+                    <mat-option value="E">Activo</mat-option>
+                    <mat-option value="D">Baja</mat-option>
+                    <mat-option value="I">Inactivo</mat-option>
+                </mat-select>
+            </mat-form-field>
+            <button mat-stroked-button type="button" (click)="clearFilters()">Limpiar</button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <button mat-flat-button [color]="'primary'" (click)="openDialog(null, 1)">
                 <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                <span class="ml-2 mr-1">Nuevo activo</span>
+                <span class="ml-2 mr-1">Nuevo</span>
             </button>
         </div>
     </div>
-    <div class="flex flex-auto overflow-auto">
-        <div class="flex min-w-full flex-auto flex-col overflow-auto sm:mb-18">
+    <div class="grid gap-3 border-b p-4 md:grid-cols-4 md:px-8">
+        <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-transparent">
+            <div class="text-xs uppercase text-secondary">Activos</div>
+            <div class="mt-1 text-2xl font-bold">{{ activeCount }}</div>
+        </div>
+        <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-transparent">
+            <div class="text-xs uppercase text-secondary">Costo</div>
+            <div class="mt-1 text-2xl font-bold">Q {{ totalCost.toFixed(2) }}</div>
+        </div>
+        <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-transparent">
+            <div class="text-xs uppercase text-secondary">Valor libros</div>
+            <div class="mt-1 text-2xl font-bold">Q {{ totalBookValue.toFixed(2) }}</div>
+        </div>
+        <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-transparent">
+            <div class="text-xs uppercase text-secondary">Bajas</div>
+            <div class="mt-1 text-2xl font-bold">{{ retiredCount }}</div>
+        </div>
+    </div>
+    <div class="grid flex-auto overflow-hidden xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div class="flex min-w-0 flex-auto flex-col overflow-auto sm:mb-18">
             <app-table
                 [columns]="columns"
                 [data]="pagedData"
@@ -29,6 +72,48 @@
                 (pageChange)="onPageChange($event)"
                 (rowAction)="handleRowAction($event)"
             ></app-table>
+            @if (!pagedData.length && !isLoading) {
+                <div class="border-t p-4 text-sm text-secondary">Sin activos para los filtros actuales.</div>
+            }
+            @if (historyRows.length) {
+                <div class="border-t p-4">
+                    <div class="mb-3 text-lg font-semibold">Historial</div>
+                    <app-table [columns]="historyColumns" [data]="historyRows"></app-table>
+                </div>
+            }
         </div>
+        <aside class="hidden border-l bg-white p-4 dark:bg-transparent xl:block">
+            @if (selectedAsset) {
+                <div class="rounded-2xl border p-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <div class="text-xs uppercase text-secondary">{{ selectedAsset.code }}</div>
+                            <div class="mt-1 text-xl font-bold">{{ selectedAsset.name }}</div>
+                            <div class="text-sm text-secondary">{{ selectedAsset.category || 'Sin categoria' }}</div>
+                        </div>
+                        <span class="rounded-full px-3 py-1 text-sm" [class.bg-green-50]="selectedAsset.status === 'E'" [class.text-green-700]="selectedAsset.status === 'E'" [class.bg-red-50]="selectedAsset.status === 'D'" [class.text-red-700]="selectedAsset.status === 'D'">{{ selectedAsset.statusLabel }}</span>
+                    </div>
+                    <div class="mt-5 grid gap-3 text-sm">
+                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Sucursal</div><strong>{{ selectedAsset.branchName }}</strong></div>
+                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Ubicacion</div><strong>{{ selectedAsset.location || '-' }}</strong></div>
+                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Responsable</div><strong>{{ selectedAsset.responsible || '-' }}</strong></div>
+                    </div>
+                    <div class="mt-5 grid grid-cols-2 gap-3 text-sm">
+                        <div class="rounded-xl border p-3"><div class="text-secondary">Costo</div><strong>{{ selectedAsset.purchaseCostLabel }}</strong></div>
+                        <div class="rounded-xl border p-3"><div class="text-secondary">Valor libros</div><strong>{{ selectedAsset.bookValueLabel }}</strong></div>
+                        <div class="rounded-xl border p-3"><div class="text-secondary">Depreciacion</div><strong>Q {{ selectedAsset.accumulatedDepreciation.toFixed(2) }}</strong></div>
+                        <div class="rounded-xl border p-3"><div class="text-secondary">Vida util</div><strong>{{ selectedAsset.usefulLifeMonths || '-' }}</strong></div>
+                    </div>
+                    <div class="mt-5 grid gap-2">
+                        <button mat-flat-button color="primary" type="button" (click)="openDialog(selectedAsset, 2)">Editar</button>
+                        <button mat-stroked-button type="button" (click)="openDialog(selectedAsset, 8)" [disabled]="selectedAsset.status !== 'E'">Trasladar</button>
+                        <button mat-stroked-button type="button" (click)="loadHistory(selectedAsset.id)">Historial</button>
+                        <button mat-stroked-button color="warn" type="button" (click)="retireAsset(selectedAsset)" [disabled]="selectedAsset.status === 'D'">Baja</button>
+                    </div>
+                </div>
+            } @else {
+                <div class="rounded-2xl border border-dashed p-6 text-center text-secondary">Seleccione un activo</div>
+            }
+        </aside>
     </div>
 </div>

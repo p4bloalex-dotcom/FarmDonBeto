@@ -5,7 +5,6 @@ import { LoanComponent } from "./loan/loan.component";
 import { AppointmentComponent } from "./appointment/appointment.component";
 import { CashFlowComponent } from "../catalog/cash-flow/cash-flow.component";
 import { PurchaseComponent } from "../catalog/purchase/purchase.component";
-import { StockTransferComponent } from "../catalog/stock-transfer/stock-transfer.component";
 import { DeliveryRequestComponent } from "../catalog/delivery-request/delivery-request.component";
 import { FixedAssetComponent } from "./fixed-asset/fixed-asset.component";
 import { CustomerOrderComponent } from "./customer-order/customer-order.component";
@@ -17,7 +16,7 @@ export default [
     {path     : 'cashsession',component: CashFlowComponent},
     {path     : 'cash-advanced',component: CashFlowComponent},
     {path     : 'purchase',component: PurchaseComponent},
-    {path     : 'stock-transfer',component: StockTransferComponent},
+    {path     : 'stock-transfer',redirectTo: 'delivery-request', pathMatch: 'full'},
     {path     : 'delivery-request',component: DeliveryRequestComponent},
     {path     : 'fixed-asset',component: FixedAssetComponent},
     {path     : 'customer-order',component: CustomerOrderComponent},

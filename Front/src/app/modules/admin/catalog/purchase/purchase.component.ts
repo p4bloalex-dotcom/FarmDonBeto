@@ -71,20 +71,12 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   replenishmentLines: any[] = [];
 
   flowActions = [
-    { value: 'requests', label: 'Necesito abastecer', description: '1. Validar stock interno y faltante.', icon: 'heroicons_outline:clipboard-document-list' },
-    { value: 'orders', label: 'Crear orden', description: '2. Generar pedido al proveedor.', icon: 'heroicons_outline:shopping-cart' },
-    { value: 'receipts', label: 'Recibir mercaderia', description: '3. Registrar lo que llego y lo que esta en buen estado.', icon: 'heroicons_outline:archive-box-arrow-down' },
-    { value: 'invoices', label: 'Registrar factura', description: '4. Conciliar factura contra orden/recepcion.', icon: 'heroicons_outline:document-currency-dollar' },
-    { value: 'returns', label: 'Devolver proveedor', description: '5. Registrar devolucion si hay rechazo o no conformidad.', icon: 'heroicons_outline:arrow-uturn-left' }
+    { value: 'requests', label: 'Necesito abastecer', icon: 'heroicons_outline:clipboard-document-list' },
+    { value: 'orders', label: 'Crear orden', icon: 'heroicons_outline:shopping-cart' },
+    { value: 'receipts', label: 'Recibir mercaderia', icon: 'heroicons_outline:archive-box-arrow-down' },
+    { value: 'invoices', label: 'Registrar factura', icon: 'heroicons_outline:document-currency-dollar' },
+    { value: 'returns', label: 'Devolver proveedor', icon: 'heroicons_outline:arrow-uturn-left' }
   ];
-
-  flowHelp: Record<string, string> = {
-    requests: 'Valide stock interno antes de comprar.',
-    orders: '',
-    receipts: '',
-    invoices: '',
-    returns: 'Devuelva producto ya recibido.'
-  };
 
   actions: TableAction[] = [
     { action: 'view', label: 'Ver detalle', icon: 'feather:eye' },
@@ -184,14 +176,16 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   }
 
   submitReplenishment(): void {
-    if (!this.networkResult && this.replenishmentLines.length === 0) {
-      this.runNetworkCheck();
+    if (this.networkResult) {
+      this.addReplenishmentLine();
+    }
+    if (this.replenishmentLines.length === 0) {
+      this.invalidFlow('Agregue al menos un medicamento a la solicitud.');
       return;
     }
 
-    const lines = this.replenishmentLines.length ? this.replenishmentLines : [this.currentReplenishmentLine()];
+    const lines = this.replenishmentLines;
     const transferGroups = new Map<string, any>();
-    const purchaseGroups = new Map<number, any>();
 
     lines.filter(Boolean).forEach(line => {
       (line.transfers ?? []).forEach(branch => {
@@ -206,24 +200,13 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         transferGroups.set(key, group);
       });
 
-      if (line.pendingExternalPurchase > 0) {
-        const group = purchaseGroups.get(line.branchId) ?? {
-          branchId: line.branchId,
-          priority: this.flowForm.priority ?? 'NORMAL',
-          reason: this.flowForm.reason,
-          details: []
-        };
-        group.details.push({ medicineId: line.medicineId, requestedQuantity: line.pendingExternalPurchase });
-        purchaseGroups.set(line.branchId, group);
-      }
     });
 
     const requests = [
-      ...Array.from(transferGroups.values()).map(group => this._generalApi.add('DeliveryRequest', group)),
-      ...Array.from(purchaseGroups.values()).map(group => this._generalApi.postPurchaseFlow('requests', group))
+      ...Array.from(transferGroups.values()).map(group => this._generalApi.add('DeliveryRequest', group))
     ];
 
-    if (requests.length === 0) return this.invalidFlow('No hay cantidad disponible para solicitar.');
+    if (requests.length === 0) return this.invalidFlow('No hay disponibilidad interna para traspaso. Cree una orden de compra.');
 
     this.isLoading = true;
     forkJoin(requests).pipe(takeUntil(this._unsubscribeAll)).subscribe({
@@ -236,6 +219,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         this._toast.success(this.replenishmentActionLabel() + ' registrada.');
         this.networkResult = null;
         this.replenishmentLines = [];
+        this.networkQuery = { medicineId: null, branchId: this.networkQuery.branchId, quantity: null };
         this.loadDashboard();
         this.loadReplenishmentSuggestions();
       },
@@ -247,6 +231,10 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     if (!this.networkResult) return;
     const line = this.currentReplenishmentLine();
     if (!line) return;
+    if (!line.transfers.length) {
+      this._toast.error('Este medicamento requiere compra externa. Cree una orden de compra.');
+      return;
+    }
     const existingIndex = this.replenishmentLines.findIndex(item => item.branchId === line.branchId && item.medicineId === line.medicineId);
     if (existingIndex >= 0) this.replenishmentLines[existingIndex] = line;
     else this.replenishmentLines.push(line);
@@ -274,12 +262,23 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     };
   }
 
+  createOrderFromExternalNeed(): void {
+    if (!this.networkResult || Number(this.networkResult.pendingExternalPurchase ?? 0) <= 0) return;
+    this.flowAction = 'orders';
+    this.flowForm.branchId = this.networkQuery.branchId;
+    this.flowForm.medicineId = this.networkQuery.medicineId;
+    this.flowForm.quantity = Number(this.networkResult.pendingExternalPurchase ?? this.networkQuery.quantity ?? 1);
+    this.flowForm.unitPrice = 0;
+    this.networkResult = null;
+  }
+
   canReviewNetwork(): boolean {
     return !!this.networkQuery.medicineId && !!this.networkQuery.branchId && Number(this.networkQuery.quantity ?? 0) > 0;
   }
 
   replenishmentActionLabel(): string {
-    if (!this.networkResult) return 'Buscar abastecimiento';
+    if (this.replenishmentLines.length > 0) return 'Registrar solicitud';
+    if (!this.networkResult) return 'Registrar solicitud';
     const hasTransfers = (this.networkResult.suggestions ?? []).length > 0;
     const hasPurchase = Number(this.networkResult.pendingExternalPurchase ?? 0) > 0;
     if (hasTransfers && hasPurchase) return 'Solicitar traslado y compra';

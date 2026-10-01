@@ -15,8 +15,18 @@ export const permissions = registerScreen({
   routePath: 'delivery-request',
   title: 'Traslados entre sucursales',
   icon: 'heroicons_solid:truck',
-  actions: [...crudActions(), actions.authorize]
+  actions: [...crudActions(), actions.accept, actions.send, actions.deliver, actions.reject, actions.cancel]
 });
+
+const statusPermissions = {
+  A: permissions.accept,
+  S: permissions.send,
+  D: permissions.deliver,
+  R: permissions.reject,
+  C: permissions.cancel
+};
+
+const statusPermissionRequired = (req, res, next) => permissionRequired(statusPermissions[req.body?.status] ?? permissions.edit)(req, res, next);
 
 deliveryRequestRoutes.use(authenticate);
 deliveryRequestRoutes.post('/', permissionRequired(permissions.create), validate(deliveryRequestSchema), asyncHandler(addDeliveryRequest));
@@ -24,5 +34,5 @@ deliveryRequestRoutes.get('/', permissionRequired(permissions.view), asyncHandle
 deliveryRequestRoutes.get('/pagination', permissionRequired(permissions.view), asyncHandler(getPagedDeliveryRequests));
 deliveryRequestRoutes.get('/:id', permissionRequired(permissions.view), asyncHandler(getDeliveryRequestDetail));
 deliveryRequestRoutes.put('/:id', permissionRequired(permissions.edit), validate(deliveryRequestSchema), asyncHandler(editDeliveryRequest));
-deliveryRequestRoutes.patch('/:id/status', permissionRequired(permissions.authorize), validate(deliveryRequestStatusSchema), asyncHandler(updateDeliveryRequestStatus));
+deliveryRequestRoutes.patch('/:id/status', validate(deliveryRequestStatusSchema), statusPermissionRequired, asyncHandler(updateDeliveryRequestStatus));
 deliveryRequestRoutes.delete('/:id', permissionRequired(permissions.delete), asyncHandler(removeDeliveryRequest));
