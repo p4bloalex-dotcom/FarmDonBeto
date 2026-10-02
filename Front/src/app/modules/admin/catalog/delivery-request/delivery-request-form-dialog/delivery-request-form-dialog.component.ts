@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, Inject, OnInit } from '@angular/core';
-import { FormArray, FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { FormArray, FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -22,6 +22,7 @@ export class DeliveryRequestFormDialogComponent implements OnInit {
   dataForm: UntypedFormGroup;
   branches: any[] = [];
   medicines: any[] = [];
+  medicineSearchControl = new UntypedFormControl('');
   isViewMode = false;
   currentRequest: any = null;
 
@@ -59,6 +60,7 @@ export class DeliveryRequestFormDialogComponent implements OnInit {
       next: ([branches, medicines]) => {
         this.branches = branches;
         this.medicines = medicines;
+        this.applyBranchDefaults();
       },
       error: () => this._toast.error('Error inesperado al cargar los catalogos.')
     });
@@ -102,6 +104,35 @@ export class DeliveryRequestFormDialogComponent implements OnInit {
     const control = group.get('medicineId');
     control.valueChanges.subscribe(medicineId => this.onMedicineChange(group, medicineId));
     this.detailRows.push(group);
+  }
+
+  filteredMedicines(): any[] {
+    const text = String(this.medicineSearchControl.value ?? '').trim().toLowerCase();
+    const list = text ? this.medicines.filter(item => this.medicineName(item.id).toLowerCase().includes(text)) : this.medicines;
+    return list.slice(0, 30);
+  }
+
+  addFirstFilteredMedicine(): void {
+    const first = this.filteredMedicines()[0];
+    if (first) this.addMedicineToRequest(first);
+  }
+
+  addMedicineToRequest(medicine: any): void {
+    const existing = this.detailRows.controls.find(group => Number(group.get('medicineId').value) === Number(medicine.id));
+    if (existing) {
+      existing.get('quantity').setValue(Number(existing.get('quantity').value ?? 0) + 1);
+      if (Number(existing.get('unitCost').value ?? 0) === 0) existing.get('unitCost').setValue(Number(medicine.priceBuy ?? 0));
+      this.medicineSearchControl.setValue('');
+      return;
+    }
+    const empty = this.detailRows.controls.find(group => !group.get('medicineId').value);
+    const target = empty ?? null;
+    if (target) {
+      target.patchValue({ medicineId: medicine.id, quantity: 1, unitCost: Number(medicine.priceBuy ?? 0) });
+    } else {
+      this.addDetailRow({ medicineId: medicine.id, quantity: 1, unitCost: Number(medicine.priceBuy ?? 0) });
+    }
+    this.medicineSearchControl.setValue('');
   }
 
   onMedicineChange(group: UntypedFormGroup, medicineId: number): void {
@@ -180,6 +211,13 @@ export class DeliveryRequestFormDialogComponent implements OnInit {
 
   totalCost(): number {
     return this.detailRows.controls.reduce((sum, group) => sum + (Number(group.get('quantity').value ?? 0) * Number(group.get('unitCost').value ?? 0)), 0);
+  }
+
+  private applyBranchDefaults(): void {
+    if (this.isViewMode || this._data?.row) return;
+    if (this.branches.length === 2) {
+      this.dataForm.patchValue({ requestingBranchId: this.branches[0].id, fulfillmentBranchId: this.branches[1].id }, { emitEvent: false });
+    }
   }
 
   private toLocalInput(value: any): string {

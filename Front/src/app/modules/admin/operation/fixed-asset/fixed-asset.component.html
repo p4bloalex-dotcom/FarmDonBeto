@@ -41,6 +41,9 @@
                 <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                 <span class="ml-2 mr-1">Nuevo</span>
             </button>
+            <button mat-stroked-button type="button" (click)="quickStatus('E')">Solo activos</button>
+            <button mat-stroked-button type="button" (click)="quickStatus('M')">Mantenimiento</button>
+            <button mat-stroked-button type="button" (click)="quickStatus('D')">Bajas</button>
         </div>
     </div>
     <div class="grid gap-3 border-b p-4 md:grid-cols-4 md:px-8">

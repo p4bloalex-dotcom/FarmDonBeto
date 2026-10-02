@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, Inject, OnInit } from '@angular/core';
-import { FormArray, FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { FormArray, FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -22,6 +22,7 @@ export class StockTransferFormDialogComponent implements OnInit {
   dataForm: UntypedFormGroup;
   branches: any[] = [];
   medicines: any[] = [];
+  medicineSearchControl = new UntypedFormControl('');
   isViewMode = false;
 
   constructor(
@@ -59,6 +60,7 @@ export class StockTransferFormDialogComponent implements OnInit {
       next: ([branches, medicines]) => {
         this.branches = branches;
         this.medicines = medicines;
+        this.applyBranchDefaults();
       },
       error: () => this._toast.error('Error inesperado al cargar los catalogos.')
     });
@@ -104,6 +106,31 @@ export class StockTransferFormDialogComponent implements OnInit {
     control.valueChanges.subscribe(medicineId => this.onMedicineChange(group, medicineId));
 
     this.detailRows.push(group);
+  }
+
+  filteredMedicines(): any[] {
+    const text = String(this.medicineSearchControl.value ?? '').trim().toLowerCase();
+    const list = text ? this.medicines.filter(item => this.medicineName(item.id).toLowerCase().includes(text)) : this.medicines;
+    return list.slice(0, 30);
+  }
+
+  addFirstFilteredMedicine(): void {
+    const first = this.filteredMedicines()[0];
+    if (first) this.addMedicineToTransfer(first);
+  }
+
+  addMedicineToTransfer(medicine: any): void {
+    const existing = this.detailRows.controls.find(group => Number(group.get('medicineId').value) === Number(medicine.id));
+    if (existing) {
+      existing.get('quantity').setValue(Number(existing.get('quantity').value ?? 0) + 1);
+      if (Number(existing.get('unitCost').value ?? 0) === 0) existing.get('unitCost').setValue(Number(medicine.priceBuy ?? 0));
+      this.medicineSearchControl.setValue('');
+      return;
+    }
+    const empty = this.detailRows.controls.find(group => !group.get('medicineId').value);
+    if (empty) empty.patchValue({ medicineId: medicine.id, quantity: 1, unitCost: Number(medicine.priceBuy ?? 0) });
+    else this.addDetailRow({ medicineId: medicine.id, quantity: 1, unitCost: Number(medicine.priceBuy ?? 0) });
+    this.medicineSearchControl.setValue('');
   }
 
   onMedicineChange(group: UntypedFormGroup, medicineId: number): void {
@@ -176,6 +203,18 @@ export class StockTransferFormDialogComponent implements OnInit {
 
   close(): void {
     this._matDialogRef.close();
+  }
+
+  medicineName(id: number): string {
+    const medicine = this.medicines.find(item => Number(item.id) === Number(id));
+    return medicine ? `${medicine.code} - ${medicine.name}` : `Medicamento #${id}`;
+  }
+
+  private applyBranchDefaults(): void {
+    if (this.isViewMode || this._data?.row) return;
+    if (this.branches.length === 2) {
+      this.dataForm.patchValue({ branchOriginId: this.branches[0].id, branchDestinationId: this.branches[1].id }, { emitEvent: false });
+    }
   }
 
   private toLocalInput(value: any): string {

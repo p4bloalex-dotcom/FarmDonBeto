@@ -4,6 +4,11 @@
         <div class="text-sm text-secondary">{{ data.row.code }} - {{ data.row.name }}</div>
     </div>
     <div class="p-4">
+        <div class="mb-3 flex flex-wrap gap-2">
+            <button mat-stroked-button type="button" (click)="useReason('Activo obsoleto, no apto para operacion')">Obsoleto</button>
+            <button mat-stroked-button type="button" (click)="useReason('Activo danado, reparacion no rentable')">Danado</button>
+            <button mat-stroked-button type="button" (click)="useReason('Activo extraviado segun revision de inventario')">Extraviado</button>
+        </div>
         <mat-form-field class="w-full">
             <mat-label>Motivo</mat-label>
             <textarea matInput formControlName="reason" rows="4"></textarea>

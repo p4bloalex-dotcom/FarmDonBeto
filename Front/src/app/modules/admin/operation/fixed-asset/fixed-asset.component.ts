@@ -165,6 +165,10 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
     this.applyFilters();
   }
 
+  quickStatus(status: 'ALL' | 'E' | 'M' | 'D'): void {
+    this.statusFilterControl.setValue(status);
+  }
+
   private decorateRow(item: any): any {
     const money = (value: number) => `Q ${Number(value ?? 0).toFixed(2)}`;
     return {

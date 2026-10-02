@@ -51,7 +51,7 @@ export class FixedAssetFormDialogComponent implements OnInit {
       serialNumber: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
       location: [{ value: '', disabled: this.isViewMode }],
       responsible: [{ value: '', disabled: this.isViewMode }],
-      purchaseDate: [{ value: '', disabled: this.isViewMode || this.isTransferMode }, Validators.required],
+      purchaseDate: [{ value: this.toDateInput(new Date()), disabled: this.isViewMode || this.isTransferMode }, Validators.required],
       purchaseCost: [{ value: 0, disabled: this.isViewMode || this.isTransferMode }, [Validators.required, Validators.min(0)]],
       supplier: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
       usefulLifeMonths: [{ value: null, disabled: this.isViewMode || this.isTransferMode }],
@@ -59,16 +59,22 @@ export class FixedAssetFormDialogComponent implements OnInit {
       attributes: this._formBuilder.group({}),
       status: [{ value: 'E', disabled: this.isViewMode || this.isTransferMode }, Validators.required],
       notes: [{ value: '', disabled: this.isViewMode || this.isTransferMode }],
-      reason: [{ value: '', disabled: !this.isTransferMode }, this.isTransferMode ? Validators.required : []]
+      reason: [{ value: this.isTransferMode ? 'Traslado operativo de activo fijo' : '', disabled: !this.isTransferMode }, this.isTransferMode ? Validators.required : []]
     });
     this.loadBranches();
-    this.dataForm.get('category')?.valueChanges.subscribe(() => this.rebuildAttributes());
+    this.dataForm.get('category')?.valueChanges.subscribe(category => this.applyCategoryDefaults(category));
+    this.dataForm.get('brand')?.valueChanges.subscribe(() => this.applyAssetNameDefault());
+    this.dataForm.get('model')?.valueChanges.subscribe(() => this.applyAssetNameDefault());
+    this.dataForm.get('serialNumber')?.valueChanges.subscribe(() => this.applyCodeDefault());
     if (this._data?.row) this.loadAsset(this._data.row.id);
   }
 
   loadBranches(): void {
     this._generalApi.getList('Branch').subscribe({
-      next: (resp: ApiResponse<any>) => this.branches = resp.success ? resp.data : [],
+      next: (resp: ApiResponse<any>) => {
+        this.branches = resp.success ? resp.data : [];
+        if (!this._data?.row && this.branches.length === 1) this.dataForm.get('branchId')?.setValue(this.branches[0].id);
+      },
       error: () => this._toast.error('Error inesperado al cargar sucursales.')
     });
   }
@@ -109,6 +115,14 @@ export class FixedAssetFormDialogComponent implements OnInit {
     return 'Detalle de activo fijo';
   }
 
+  useToday(): void {
+    this.dataForm.get('purchaseDate')?.setValue(this.toDateInput(new Date()));
+  }
+
+  useTransferReason(reason: string): void {
+    this.dataForm.get('reason')?.setValue(reason);
+  }
+
   save(): void {
     if (this.dataForm.invalid) return;
     const payload = this.dataForm.getRawValue();
@@ -138,5 +152,34 @@ export class FixedAssetFormDialogComponent implements OnInit {
     const source = values ?? this.dataForm.getRawValue().attributes ?? {};
     this.currentAttributeFields.forEach(field => group.addControl(field.key, this._formBuilder.control({ value: source[field.key] ?? '', disabled: this.isViewMode || this.isTransferMode })));
     this.dataForm.setControl('attributes', group);
+  }
+
+  private applyCategoryDefaults(category: string): void {
+    this.rebuildAttributes();
+    const lifeDefaults: Record<string, number> = {
+      'Equipo de computo': 36,
+      Vehiculo: 60,
+      Refrigeracion: 60,
+      Mobiliario: 60,
+      Lector: 36,
+      Otro: 36
+    };
+    if (!this.dataForm.get('usefulLifeMonths')?.value && lifeDefaults[category]) this.dataForm.get('usefulLifeMonths')?.setValue(lifeDefaults[category]);
+    this.applyAssetNameDefault();
+  }
+
+  private applyAssetNameDefault(): void {
+    if (this.isTransferMode || this.isViewMode || this.dataForm.get('name')?.value) return;
+    const category = this.dataForm.get('category')?.value;
+    const brand = this.dataForm.get('brand')?.value;
+    const model = this.dataForm.get('model')?.value;
+    const name = [category, brand, model].filter(Boolean).join(' ');
+    if (name) this.dataForm.get('name')?.setValue(name, { emitEvent: false });
+  }
+
+  private applyCodeDefault(): void {
+    if (this.isTransferMode || this.isViewMode || this.dataForm.get('code')?.value) return;
+    const serial = String(this.dataForm.get('serialNumber')?.value ?? '').trim();
+    if (serial) this.dataForm.get('code')?.setValue(serial.toUpperCase(), { emitEvent: false });
   }
 }

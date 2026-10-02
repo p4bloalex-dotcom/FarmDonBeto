@@ -126,6 +126,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         this.filterMedicines(this.medicineSearchControl.value);
         this.suppliers = suppliers ?? [];
         this.supplierMedicines = supplierMedicines ?? [];
+        this.applySingleOptionDefaults();
       },
       error: () => this._toast.error('No se pudieron cargar sucursales, medicamentos o proveedores.')
     });
@@ -293,6 +294,8 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     this.selectedOrder = null;
     this.flowForm.purchaseId = null;
     this.flowForm.purchaseDetailId = null;
+    this.applySingleOptionDefaults();
+    this.applySinglePurchaseOrderDefault();
   }
 
   onSupplierSelected(supplierId: number): void {
@@ -300,6 +303,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     this.flowForm.medicineId = null;
     this.orderLines = [];
     this.filterMedicines(this.medicineSearchControl.value);
+    this.applySingleOrderMedicineDefault();
   }
 
   addOrderLine(): void {
@@ -320,7 +324,9 @@ export class PurchaseComponent implements OnInit, OnDestroy {
       subtotal: quantity * unitPrice
     };
     if (existing) {
-      Object.assign(existing, line);
+      existing.quantityOrdered = Number(existing.quantityOrdered ?? 0) + quantity;
+      existing.unitPrice = unitPrice;
+      existing.subtotal = existing.quantityOrdered * unitPrice;
     } else {
       this.orderLines.push(line);
     }
@@ -339,6 +345,24 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     const relation = this.supplierMedicines.find(item => Number(item.medicineId ?? item.medicine_id) === Number(medicineId));
     const supplierId = relation?.supplierId ?? relation?.supplier_id;
     if (supplierId) this.flowForm.supplierId = supplierId;
+  }
+
+  selectFirstFilteredMedicine(): void {
+    const list = this.flowAction === 'orders' ? this.orderMedicines() : this.filteredMedicines;
+    const first = list[0];
+    if (!first) return;
+    if (this.flowAction === 'requests') {
+      this.networkQuery.medicineId = first.id;
+      this.flowForm.medicineId = first.id;
+      return;
+    }
+    this.flowForm.medicineId = first.id;
+    this.onOrderMedicineSelected(first.id);
+  }
+
+  addFirstOrderMedicine(): void {
+    this.selectFirstFilteredMedicine();
+    if (this.flowAction === 'orders' && this.flowForm.medicineId) this.addOrderLine();
   }
 
   setUnitPrice(value: any): void {
@@ -477,6 +501,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         this.purchaseOrders = this.filteredData.filter(item => ['APPROVED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'INVOICED', 'DISCREPANCY'].includes(item.status));
         this.totalItems = resp.data?.meta?.totalItemCount ?? 0;
         this.pagedData = this.filteredData;
+        this.applySinglePurchaseOrderDefault();
         this.finishLoad();
       },
       error: () => this.finishLoad('Error inesperado al cargar las compras.')
@@ -540,6 +565,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
           this.flowForm.purchaseDetailId = this.purchaseDetails[0].id;
           this.onPurchaseDetailSelected(this.purchaseDetails[0].id);
         }
+        if (this.flowAction === 'invoices' && !this.flowForm.invoiceNumber) this.flowForm.total = this.acceptedTotal();
       },
       error: () => this._toast.error('Error inesperado al cargar el detalle de la orden.')
     });
@@ -761,6 +787,33 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     this.filteredMedicines = text
       ? this.medicines.filter(item => this.medicineOptionLabel(item).toLowerCase().includes(text))
       : this.medicines;
+    this.applySingleOrderMedicineDefault();
+  }
+
+  private applySingleOptionDefaults(): void {
+    if (this.branches.length === 1) {
+      if (!this.flowForm.branchId) this.flowForm.branchId = this.branches[0].id;
+      if (!this.networkQuery.branchId) this.networkQuery.branchId = this.branches[0].id;
+    }
+    if (this.suppliers.length === 1 && !this.flowForm.supplierId) this.onSupplierSelected(this.suppliers[0].id);
+  }
+
+  private applySinglePurchaseOrderDefault(): void {
+    if (!['receipts', 'invoices', 'returns'].includes(this.flowAction) || this.flowForm.purchaseId) return;
+    const orders = this.availablePurchaseOrders();
+    if (orders.length === 1) {
+      this.flowForm.purchaseId = orders[0].id;
+      this.onPurchaseSelected(orders[0].id);
+    }
+  }
+
+  private applySingleOrderMedicineDefault(): void {
+    if (this.flowAction !== 'orders' || this.flowForm.medicineId || !this.flowForm.supplierId) return;
+    const medicines = this.orderMedicines();
+    if (medicines.length === 1) {
+      this.flowForm.medicineId = medicines[0].id;
+      this.onOrderMedicineSelected(medicines[0].id);
+    }
   }
 
   private parseDecimal(value: any): number {

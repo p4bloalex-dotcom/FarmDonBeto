@@ -30,6 +30,10 @@ export class FixedAssetRetireDialogComponent implements OnInit {
     this._matDialogRef.close(this.dataForm.getRawValue());
   }
 
+  useReason(reason: string): void {
+    this.dataForm.get('reason')?.setValue(reason);
+  }
+
   close(): void {
     this._matDialogRef.close();
   }

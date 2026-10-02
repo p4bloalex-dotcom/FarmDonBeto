@@ -201,7 +201,7 @@ export class PayrollComponent implements OnInit, OnDestroy {
   generatePayroll(): void {
     if (this.generateForm.invalid || !this.canGenerate) return;
     this.isLoading = true;
-    this._api.postPayroll('generate', this.generateForm.getRawValue()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+    this._api.postPayroll('generate', this.payrollGeneratePayload()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
         if (resp.success) {
@@ -212,7 +212,7 @@ export class PayrollComponent implements OnInit, OnDestroy {
         }
         this._toast.error(resp.error?.detail ?? 'No se pudo generar nómina.');
       },
-      error: () => { this.isLoading = false; this._toast.error('Error inesperado al generar nómina.'); }
+      error: error => { this.isLoading = false; this._toast.error(error?.error?.error?.detail ?? error?.error?.message ?? 'Error inesperado al generar nómina.'); }
     });
   }
 
@@ -303,6 +303,21 @@ export class PayrollComponent implements OnInit, OnDestroy {
     }
     if (this.periods.length === 1 && !this.generateForm.get('periodId')?.value) this.generateForm.patchValue({ periodId: this.periods[0].id });
     if (this.positions.length === 1 && !this.salaryForm.get('positionId')?.value) this.salaryForm.patchValue({ positionId: this.positions[0].id }, { emitEvent: false });
+  }
+
+  private payrollGeneratePayload(): any {
+    const payload = this.generateForm.getRawValue();
+    return {
+      ...payload,
+      periodId: payload.periodId || null,
+      branchId: payload.branchId || null,
+      periodStart: payload.periodStart || null,
+      periodEnd: payload.periodEnd || null,
+      paymentDate: payload.paymentDate || null,
+      defaultBonus: Number(payload.defaultBonus ?? 0),
+      defaultDeduction: Number(payload.defaultDeduction ?? 0),
+      notes: payload.notes || null
+    };
   }
 
   private statusLabel(status: string): string {

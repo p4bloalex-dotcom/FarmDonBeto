@@ -59,8 +59,8 @@ export const salarySchema = Joi.object({
 });
 
 export const payrollGenerateSchema = Joi.object({
-  periodId: Joi.number().integer().allow(null), period_id: Joi.number().integer().allow(null),
-  branchId: Joi.number().integer().allow(null), branch_id: Joi.number().integer().allow(null),
+  periodId: Joi.number().integer().allow(null, ''), period_id: Joi.number().integer().allow(null, ''),
+  branchId: Joi.number().integer().allow(null, ''), branch_id: Joi.number().integer().allow(null, ''),
   periodStart: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''), period_start: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''),
   periodEnd: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''), period_end: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''),
   paymentDate: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''), payment_date: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''),

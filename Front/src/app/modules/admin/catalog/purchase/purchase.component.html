@@ -68,7 +68,7 @@
                     <mat-form-field class="fuse-mat-dense w-full">
                         <mat-label>Buscar medicamento</mat-label>
                         <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
-                        <input matInput [formControl]="medicineSearchControl" autocomplete="off" placeholder="Nombre o codigo" />
+                        <input matInput [formControl]="medicineSearchControl" autocomplete="off" placeholder="Nombre o codigo" (keydown.enter)="$event.preventDefault(); selectFirstFilteredMedicine()" />
                     </mat-form-field>
                     <div class="grid gap-3 sm:grid-cols-3">
                         <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select [(ngModel)]="networkQuery.medicineId">@for (medicine of filteredMedicines; track medicine.id) { <mat-option [value]="medicine.id">{{ medicineOptionLabel(medicine) }}</mat-option> }</mat-select></mat-form-field>
@@ -82,7 +82,7 @@
                     <mat-form-field class="fuse-mat-dense mb-3 w-full">
                         <mat-label>Buscar medicamento</mat-label>
                         <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
-                        <input matInput [formControl]="medicineSearchControl" autocomplete="off" placeholder="Nombre o codigo" />
+                        <input matInput [formControl]="medicineSearchControl" autocomplete="off" placeholder="Nombre o codigo" (keydown.enter)="$event.preventDefault(); addFirstOrderMedicine()" />
                     </mat-form-field>
                 }
                 <div class="grid gap-3 sm:grid-cols-2">
@@ -156,7 +156,10 @@
                         <div>
                             <div class="font-bold">Medicamentos de la orden</div>
                         </div>
-                        <button mat-stroked-button color="primary" type="button" (click)="addOrderLine()">Agregar medicamento</button>
+                        <div class="flex flex-col gap-2 sm:flex-row">
+                            <button mat-stroked-button color="primary" type="button" (click)="addFirstOrderMedicine()">Agregar primer resultado</button>
+                            <button mat-stroked-button color="primary" type="button" (click)="addOrderLine()">Agregar medicamento</button>
+                        </div>
                     </div>
                     @if (orderLines.length === 0) {
                         <div class="rounded-xl bg-slate-100 p-3 text-sm text-secondary dark:bg-slate-900">Aun no hay medicamentos agregados.</div>
@@ -223,6 +226,7 @@
                         <div class="flex justify-between"><span class="text-secondary">No aceptado</span><span>{{ money(notAcceptedTotal()) }}</span></div>
                         <div class="flex justify-between"><span class="text-secondary">Pendiente por recibir</span><span>{{ money(pendingReceiveTotal()) }}</span></div>
                         <div class="flex justify-between"><span class="text-secondary">Total factura</span><span>{{ money(flowForm.total || selectedOrder.total || selectedOrder.subtotal || 0) }}</span></div>
+                        <button class="mt-2 w-full" mat-stroked-button type="button" (click)="flowForm.total = acceptedTotal()">Usar total pagable {{ money(acceptedTotal()) }}</button>
                         <div class="mt-2 rounded-xl p-3 text-xs font-semibold" [class.bg-green-50]="invoiceDifference() === 0" [class.text-green-700]="invoiceDifference() === 0" [class.bg-amber-50]="invoiceDifference() !== 0" [class.text-amber-700]="invoiceDifference() !== 0">
                             {{ invoiceStatusMessage() }}
                         </div>

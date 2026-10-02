@@ -10,6 +10,7 @@ const buildUserResponse = async user => {
 
   return {
     id: user.id,
+    idPersonal: user.idPersonal,
     userName: user.name,
     role: roleName,
     name: user.name
