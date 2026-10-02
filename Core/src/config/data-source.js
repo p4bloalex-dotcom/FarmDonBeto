@@ -50,6 +50,9 @@ import { InventoryAdjustmentEntity } from '../entities/inventory-adjustment.enti
 import { PayrollPositionEntity } from '../entities/payroll-position.entity.js';
 import { EmployeeSalaryEntity } from '../entities/employee-salary.entity.js';
 import { PayrollAdjustmentEntity } from '../entities/payroll-adjustment.entity.js';
+import { PayrollConceptEntity } from '../entities/payroll-concept.entity.js';
+import { PayrollDetailEntity } from '../entities/payroll-detail.entity.js';
+import { PayrollPeriodEntity } from '../entities/payroll-period.entity.js';
 import { AuditFieldsSubscriber, installAuditHooks } from '../subscribers/audit-fields.subscriber.js';
 import { SupplierInvoiceEntity } from '../entities/supplier-invoice.entity.js';
 import { SalePaymentEntity } from '../entities/sale-payment.entity.js';
@@ -126,6 +129,9 @@ export const AppDataSource = new DataSource({
     InventoryLotEntity,
     InventoryAdjustmentEntity,
     PayrollPositionEntity,
+    PayrollConceptEntity,
+    PayrollPeriodEntity,
+    PayrollDetailEntity,
     EmployeeSalaryEntity,
     PayrollAdjustmentEntity,
     StorageLocationEntity,

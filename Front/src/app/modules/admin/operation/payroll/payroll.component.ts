@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -15,17 +16,32 @@ import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-payroll',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, TableComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, MatProgressBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, TableComponent],
   templateUrl: './payroll.component.html'
 })
 export class PayrollComponent implements OnInit, OnDestroy {
   positionForm: UntypedFormGroup;
   salaryForm: UntypedFormGroup;
+  conceptForm: UntypedFormGroup;
+  periodForm: UntypedFormGroup;
   generateForm: UntypedFormGroup;
   adjustmentForm: UntypedFormGroup;
   positions: any[] = [];
   salaries: any[] = [];
+  concepts: any[] = [];
+  periods: any[] = [];
   payments: any[] = [];
+  paymentDetails: any[] = [];
+  selectedPayment: any = null;
+  activePanel: 'period' | 'salary' | 'adjustment' | null = null;
+  flowAction: 'calculate' | 'review' | 'pay' | 'prepare' = 'calculate';
+  prepareView: 'salaries' | 'adjustments' = 'salaries';
+  flowActions = [
+    { value: 'calculate', label: 'Calcular nómina' },
+    { value: 'review', label: 'Revisar pagos' },
+    { value: 'pay', label: 'Aprobar y pagar' },
+    { value: 'prepare', label: 'Preparación' }
+  ];
   adjustments: any[] = [];
   employees: any[] = [];
   branches: any[] = [];
@@ -37,7 +53,7 @@ export class PayrollComponent implements OnInit, OnDestroy {
     { field: 'positionName', header: 'Puesto', width: '1fr' },
     { field: 'branchName', header: 'Sucursal', width: '1fr' },
     { field: 'baseSalaryLabel', header: 'Salario', width: '110px' },
-    { field: 'status', header: 'Estado', width: '80px' }
+    { field: 'statusLabel', header: 'Estado', width: '100px' }
   ];
   paymentColumns: TableColumn[] = [
     { field: 'paymentDate', header: 'Pago', width: '1fr' },
@@ -45,26 +61,60 @@ export class PayrollComponent implements OnInit, OnDestroy {
     { field: 'branchName', header: 'Sucursal', width: '1fr' },
     { field: 'positionName', header: 'Puesto', width: '1fr' },
     { field: 'totalLabel', header: 'Total', width: '110px' },
-    { field: 'status', header: 'Estado', width: '80px' }
+    { field: 'statusLabel', header: 'Estado', width: '100px' }
   ];
-  paymentActions: TableAction[] = [{ action: 'void', label: 'Anular', icon: 'heroicons_outline:x-circle' }];
+  paymentActions: TableAction[] = [
+    { action: 'details', label: 'Detalle', icon: 'heroicons_outline:document-text' },
+    { action: 'void', label: 'Anular', icon: 'heroicons_outline:x-circle', visible: row => row.status === 'E' }
+  ];
   adjustmentColumns: TableColumn[] = [
     { field: 'adjustmentDate', header: 'Fecha', width: '1fr' },
     { field: 'employeeName', header: 'Empleado', width: '1.4fr' },
     { field: 'branchName', header: 'Sucursal', width: '1fr' },
     { field: 'typeLabel', header: 'Tipo', width: '100px' },
     { field: 'amountLabel', header: 'Monto', width: '110px' },
-    { field: 'status', header: 'Estado', width: '80px' },
+    { field: 'statusLabel', header: 'Estado', width: '100px' },
     { field: 'reason', header: 'Motivo', width: '1.5fr' }
+  ];
+  periodColumns: TableColumn[] = [
+    { field: 'name', header: 'Periodo', width: '1.4fr' },
+    { field: 'branchName', header: 'Sucursal', width: '1fr' },
+    { field: 'rangeLabel', header: 'Rango', width: '1.2fr' },
+    { field: 'payDate', header: 'Pago', width: '1fr' },
+    { field: 'statusLabel', header: 'Estado', width: '120px' }
+  ];
+  periodActions: TableAction[] = [
+    { action: 'CALCULATED', label: 'Calcular', icon: 'heroicons_outline:calculator', visible: row => row.status === 'DRAFT' },
+    { action: 'REVIEWED', label: 'Revisar', icon: 'heroicons_outline:eye', visible: row => row.status === 'CALCULATED' },
+    { action: 'APPROVED', label: 'Aprobar', icon: 'heroicons_outline:check-circle', visible: row => row.status === 'REVIEWED' },
+    { action: 'PAID', label: 'Pagar', icon: 'heroicons_outline:banknotes', visible: row => row.status === 'APPROVED' },
+    { action: 'CLOSED', label: 'Cerrar', icon: 'heroicons_outline:lock-closed', visible: row => row.status === 'PAID' }
+  ];
+  detailColumns: TableColumn[] = [
+    { field: 'conceptName', header: 'Concepto', width: '1fr' },
+    { field: 'typeLabel', header: 'Tipo', width: '120px' },
+    { field: 'amountLabel', header: 'Monto', width: '120px' },
+    { field: 'description', header: 'Detalle', width: '1fr' }
+  ];
+  conceptColumns: TableColumn[] = [
+    { field: 'code', header: 'Código', width: '120px' },
+    { field: 'name', header: 'Concepto', width: '1.4fr' },
+    { field: 'typeLabel', header: 'Tipo', width: '120px' },
+    { field: 'statusLabel', header: 'Estado', width: '100px' }
   ];
 
   constructor(private _fb: UntypedFormBuilder, private _api: GeneralApiService, private _toast: HotToastService) { }
 
   ngOnInit(): void {
     this.positionForm = this._fb.group({ name: ['', Validators.required], description: [''], status: ['E'] });
-    this.salaryForm = this._fb.group({ employeeId: ['', Validators.required], positionId: ['', Validators.required], branchId: ['', Validators.required], baseSalary: [0, [Validators.required, Validators.min(0)]], effectiveFrom: ['', Validators.required], notes: [''] });
-    this.generateForm = this._fb.group({ branchId: [''], periodStart: ['', Validators.required], periodEnd: ['', Validators.required], paymentDate: [''], defaultBonus: [0], defaultDeduction: [0], notes: [''] });
+    this.conceptForm = this._fb.group({ code: ['', Validators.required], name: ['', Validators.required], type: ['INCOME', Validators.required], isAutomatic: [false], status: ['E'] });
+    this.periodForm = this._fb.group({ name: ['', Validators.required], branchId: [''], dateStart: ['', Validators.required], dateEnd: ['', Validators.required], payDate: ['', Validators.required], periodType: ['MONTHLY', Validators.required], status: ['DRAFT'] });
+    this.salaryForm = this._fb.group({ employeeId: ['', Validators.required], positionId: ['', Validators.required], branchId: ['', Validators.required], baseSalary: [0, [Validators.required, Validators.min(0.01)]], effectiveFrom: ['', Validators.required], notes: [''] });
+    this.generateForm = this._fb.group({ periodId: [''], branchId: [''], periodStart: [''], periodEnd: [''], paymentDate: [''], defaultBonus: [0], defaultDeduction: [0], notes: [''] });
     this.adjustmentForm = this._fb.group({ employeeId: ['', Validators.required], branchId: ['', Validators.required], type: ['B', Validators.required], amount: [0, [Validators.required, Validators.min(0.01)]], adjustmentDate: [''], reason: ['', Validators.required] });
+    this.generateForm.get('periodId')?.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(() => this.onPeriodChanged());
+    this.salaryForm.get('employeeId')?.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(employeeId => this.syncEmployeeBranch(this.salaryForm, employeeId));
+    this.adjustmentForm.get('employeeId')?.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(employeeId => this.syncEmployeeBranch(this.adjustmentForm, employeeId));
     this.loadCatalogs();
     this.refreshAll();
   }
@@ -73,18 +123,24 @@ export class PayrollComponent implements OnInit, OnDestroy {
 
   loadCatalogs(): void {
     this._api.comboList(['Personal', 'Branch']).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: ([employees, branches]) => { this.employees = employees; this.branches = branches; },
-      error: () => this._toast.error('No se pudieron cargar catalogos.')
+      next: ([employees, branches]) => {
+        this.employees = employees;
+        this.branches = branches;
+        this.applySingleOptionDefaults();
+      },
+      error: () => this._toast.error('No se pudieron cargar catálogos.')
     });
   }
 
   refreshAll(): void {
     this.isLoading = true;
-    this._api.getPayroll('positions').pipe(takeUntil(this._unsubscribeAll)).subscribe(resp => this.positions = resp.success ? resp.data ?? [] : []);
-    this._api.getPayroll('salaries').pipe(takeUntil(this._unsubscribeAll)).subscribe(resp => this.salaries = resp.success ? (resp.data ?? []).map(this.decorateSalary) : []);
-    this._api.getPayroll('adjustments').pipe(takeUntil(this._unsubscribeAll)).subscribe(resp => this.adjustments = resp.success ? (resp.data ?? []).map(this.decorateAdjustment) : []);
+    this._api.getPayroll('positions').pipe(takeUntil(this._unsubscribeAll)).subscribe(resp => { this.positions = resp.success ? resp.data ?? [] : []; this.applySingleOptionDefaults(); });
+    this._api.getPayroll('concepts').pipe(takeUntil(this._unsubscribeAll)).subscribe(resp => this.concepts = resp.success ? (resp.data ?? []).map(item => this.decorateConcept(item)) : []);
+    this._api.getPayroll('periods').pipe(takeUntil(this._unsubscribeAll)).subscribe(resp => { this.periods = resp.success ? (resp.data ?? []).map(item => this.decoratePeriod(item)) : []; this.applySingleOptionDefaults(); });
+    this._api.getPayroll('salaries').pipe(takeUntil(this._unsubscribeAll)).subscribe(resp => this.salaries = resp.success ? (resp.data ?? []).map(item => this.decorateSalary(item)) : []);
+    this._api.getPayroll('adjustments').pipe(takeUntil(this._unsubscribeAll)).subscribe(resp => this.adjustments = resp.success ? (resp.data ?? []).map(item => this.decorateAdjustment(item)) : []);
     this._api.getPayroll('payments').pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: resp => { this.payments = resp.success ? (resp.data ?? []).map(this.decoratePayment) : []; this.isLoading = false; },
+      next: resp => { this.payments = resp.success ? (resp.data ?? []).map(item => this.decoratePayment(item)) : []; this.isLoading = false; },
       error: () => { this.isLoading = false; this._toast.error('No se pudo cargar nomina.'); }
     });
   }
@@ -97,34 +153,98 @@ export class PayrollComponent implements OnInit, OnDestroy {
     });
   }
 
+  saveConcept(): void {
+    if (this.conceptForm.invalid) return;
+    this._api.postPayroll('concepts', this.conceptForm.getRawValue()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => { resp.success ? (this.conceptForm.reset({ type: 'INCOME', isAutomatic: false, status: 'E' }), this.refreshAll()) : this._toast.error(resp.error?.detail ?? 'No se pudo guardar concepto.'); },
+      error: () => this._toast.error('Error inesperado al guardar concepto.')
+    });
+  }
+
+  savePeriod(): void {
+    if (this.periodForm.invalid) return;
+    this._api.postPayroll('periods', this.periodForm.getRawValue()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        if (!resp.success) {
+          this._toast.error(resp.error?.detail ?? 'No se pudo guardar período.');
+          return;
+        }
+        const periodId = resp.data?.id;
+        this.periodForm.reset({ periodType: 'MONTHLY', status: 'DRAFT' });
+        this.closePanel();
+        this.flowAction = 'calculate';
+        this.refreshAll();
+        if (periodId) this.generateForm.patchValue({ periodId });
+      },
+      error: () => this._toast.error('Error inesperado al guardar periodo.')
+    });
+  }
+
   saveSalary(): void {
     if (this.salaryForm.invalid) return;
     this._api.postPayroll('salaries', this.salaryForm.getRawValue()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: (resp: ApiResponse<any>) => { resp.success ? (this.salaryForm.reset(), this.refreshAll()) : this._toast.error(resp.error?.detail ?? 'No se pudo asignar salario.'); },
+      next: (resp: ApiResponse<any>) => {
+        if (!resp.success) {
+          this._toast.error(resp.error?.detail ?? 'No se pudo asignar salario.');
+          return;
+        }
+        this.salaryForm.reset();
+        this.flowAction = 'prepare';
+        this.prepareView = 'salaries';
+        this.closePanel();
+        this.refreshAll();
+      },
       error: () => this._toast.error('Error inesperado al asignar salario.')
     });
   }
 
   generatePayroll(): void {
-    if (this.generateForm.invalid) return;
+    if (this.generateForm.invalid || !this.canGenerate) return;
     this.isLoading = true;
     this._api.postPayroll('generate', this.generateForm.getRawValue()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: (resp: ApiResponse<any>) => { this.isLoading = false; resp.success ? (this._toast.success('Nomina generada.'), this.refreshAll()) : this._toast.error(resp.error?.detail ?? 'No se pudo generar nomina.'); },
-      error: () => { this.isLoading = false; this._toast.error('Error inesperado al generar nomina.'); }
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        if (resp.success) {
+          this._toast.success('Nómina generada.');
+          this.flowAction = 'review';
+          this.refreshAll();
+          return;
+        }
+        this._toast.error(resp.error?.detail ?? 'No se pudo generar nómina.');
+      },
+      error: () => { this.isLoading = false; this._toast.error('Error inesperado al generar nómina.'); }
     });
   }
 
   saveAdjustment(): void {
     if (this.adjustmentForm.invalid) return;
     this._api.postPayroll('adjustments', this.adjustmentForm.getRawValue()).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: (resp: ApiResponse<any>) => { resp.success ? (this.adjustmentForm.reset({ type: 'B', amount: 0 }), this.refreshAll()) : this._toast.error(resp.error?.detail ?? 'No se pudo guardar ajuste.'); },
+      next: (resp: ApiResponse<any>) => {
+        if (!resp.success) {
+          this._toast.error(resp.error?.detail ?? 'No se pudo guardar ajuste.');
+          return;
+        }
+        this.adjustmentForm.reset({ type: 'B', amount: 0 });
+        this.flowAction = 'prepare';
+        this.prepareView = 'adjustments';
+        this.closePanel();
+        this.refreshAll();
+      },
       error: () => this._toast.error('Error inesperado al guardar ajuste.')
     });
   }
 
   handlePaymentAction(event: { action: string; row: any }): void {
+    if (event.action === 'details') {
+      this.selectedPayment = event.row;
+      this._api.getPayrollPaymentDetails(event.row.id).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+        next: resp => this.paymentDetails = resp.success ? (resp.data ?? []).map(item => this.decorateDetail(item)) : [],
+        error: () => this._toast.error('No se pudo cargar el detalle.')
+      });
+      return;
+    }
     if (event.action !== 'void') return;
-    const reason = window.prompt('Motivo de anulacion');
+    const reason = window.prompt('Motivo de anulación');
     if (!reason) return;
     this._api.voidPayrollPayment(event.row.id, reason).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: resp => resp.success ? this.refreshAll() : this._toast.error(resp.error?.detail ?? 'No se pudo anular pago.'),
@@ -132,7 +252,68 @@ export class PayrollComponent implements OnInit, OnDestroy {
     });
   }
 
-  private decorateSalary(item: any): any { return { ...item, baseSalaryLabel: `Q ${Number(item.baseSalary ?? 0).toFixed(2)}` }; }
-  private decoratePayment(item: any): any { return { ...item, totalLabel: `Q ${Number(item.total ?? 0).toFixed(2)}` }; }
-  private decorateAdjustment(item: any): any { return { ...item, typeLabel: item.type === 'B' ? 'Bono' : 'Deduccion', amountLabel: `Q ${Number(item.amount ?? 0).toFixed(2)}` }; }
+  handlePeriodAction(event: { action: string; row: any }): void {
+    if (event.action === 'CALCULATED') {
+      this.generateForm.patchValue({ periodId: event.row.id });
+      this.generatePayroll();
+      return;
+    }
+
+    this._api.updatePayrollPeriodStatus(event.row.id, event.action).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => resp.success ? this.refreshAll() : this._toast.error(resp.error?.detail ?? 'No se pudo actualizar el periodo.'),
+      error: () => this._toast.error('Error inesperado al actualizar periodo.')
+    });
+  }
+
+  openPanel(panel: 'period' | 'salary' | 'adjustment'): void { this.activePanel = this.activePanel === panel ? null : panel; }
+  closePanel(): void { this.activePanel = null; }
+  selectFlowAction(action: 'calculate' | 'review' | 'pay' | 'prepare'): void { this.flowAction = action; this.activePanel = null; }
+  selectPrepareView(view: 'salaries' | 'adjustments'): void { this.prepareView = view; }
+
+  get selectedPeriod(): any { return this.periods.find(item => item.id === this.generateForm?.get('periodId')?.value) ?? null; }
+  get manualGeneration(): boolean { return !this.selectedPeriod; }
+  get canGenerate(): boolean { return this.selectedPeriod ? this.selectedPeriod.status === 'DRAFT' : !!this.generateForm?.get('periodStart')?.value && !!this.generateForm?.get('periodEnd')?.value; }
+  get periodPayments(): any[] { return this.selectedPeriod ? this.payments.filter(item => item.periodId === this.selectedPeriod.id) : this.payments; }
+  get payrollTotal(): number { return this.periodPayments.reduce((sum, item) => sum + Number(item.total ?? 0), 0); }
+  get payrollTotalLabel(): string { return `Q ${this.payrollTotal.toFixed(2)}`; }
+  get salaryEmployees(): any[] { return this.employees; }
+  get adjustmentEmployees(): any[] {
+    const branchId = this.adjustmentForm?.get('branchId')?.value;
+    return branchId ? this.employees.filter(item => (item.branchId ?? item.branch_id ?? null) === branchId) : this.employees;
+  }
+
+  private onPeriodChanged(): void {
+    const period = this.selectedPeriod;
+    if (!period) return;
+    this.generateForm.patchValue({ branchId: period.branchId ?? '', periodStart: period.dateStart, periodEnd: period.dateEnd, paymentDate: period.payDate }, { emitEvent: false });
+  }
+
+  private syncEmployeeBranch(form: UntypedFormGroup, employeeId: any): void {
+    const employee = this.employees.find(item => item.id === employeeId);
+    if (employee?.branchId || employee?.branch_id) form.patchValue({ branchId: employee.branchId ?? employee.branch_id }, { emitEvent: false });
+  }
+
+  private applySingleOptionDefaults(): void {
+    if (this.branches.length === 1) {
+      const branchId = this.branches[0].id;
+      if (!this.periodForm.get('branchId')?.value) this.periodForm.patchValue({ branchId }, { emitEvent: false });
+      if (!this.generateForm.get('branchId')?.value) this.generateForm.patchValue({ branchId }, { emitEvent: false });
+      if (!this.salaryForm.get('branchId')?.value) this.salaryForm.patchValue({ branchId }, { emitEvent: false });
+      if (!this.adjustmentForm.get('branchId')?.value) this.adjustmentForm.patchValue({ branchId }, { emitEvent: false });
+    }
+    if (this.periods.length === 1 && !this.generateForm.get('periodId')?.value) this.generateForm.patchValue({ periodId: this.periods[0].id });
+    if (this.positions.length === 1 && !this.salaryForm.get('positionId')?.value) this.salaryForm.patchValue({ positionId: this.positions[0].id }, { emitEvent: false });
+  }
+
+  private statusLabel(status: string): string {
+    const labels: Record<string, string> = { DRAFT: 'Borrador', CALCULATED: 'Calculado', REVIEWED: 'Revisado', APPROVED: 'Aprobado', PAID: 'Pagado', CLOSED: 'Cerrado', E: 'Activo', D: 'Inactivo', A: 'Aplicado', P: 'Pendiente', I: 'Anulado' };
+    return labels[status] ?? status ?? '-';
+  }
+
+  private decorateSalary(item: any): any { return { ...item, baseSalaryLabel: `Q ${Number(item.baseSalary ?? 0).toFixed(2)}`, statusLabel: this.statusLabel(item.status) }; }
+  private decoratePayment(item: any): any { return { ...item, totalLabel: `Q ${Number(item.total ?? 0).toFixed(2)}`, statusLabel: this.statusLabel(item.status) }; }
+  private decorateAdjustment(item: any): any { return { ...item, typeLabel: item.type === 'B' ? 'Bono' : 'Deducción', amountLabel: `Q ${Number(item.amount ?? 0).toFixed(2)}`, statusLabel: this.statusLabel(item.status) }; }
+  private decorateConcept(item: any): any { return { ...item, typeLabel: item.type === 'INCOME' ? 'Ingreso' : 'Deducción', statusLabel: this.statusLabel(item.status) }; }
+  private decoratePeriod(item: any): any { return { ...item, branchName: item.branchName ?? 'Todas', statusLabel: this.statusLabel(item.status), rangeLabel: `${String(item.dateStart ?? '').slice(0, 10)} / ${String(item.dateEnd ?? '').slice(0, 10)}` }; }
+  private decorateDetail(item: any): any { return { ...item, typeLabel: item.type === 'INCOME' ? 'Ingreso' : 'Deducción', amountLabel: `Q ${Number(item.amount ?? 0).toFixed(2)}` }; }
 }

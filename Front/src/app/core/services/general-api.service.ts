@@ -157,6 +157,14 @@ getList(endpoint: string) {
     return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/payments/${id}/void`, { reason });
   }
 
+  updatePayrollPeriodStatus(id: any, status: string) {
+    return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/periods/${id}/status`, { status });
+  }
+
+  getPayrollPaymentDetails(id: any) {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/payments/${id}/details`);
+  }
+
   modify(endpoint: string, id: any, data: any) {
     return this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}`, this.toNodePayload(endpoint, data))
       .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
@@ -175,7 +183,7 @@ getList(endpoint: string) {
     const params = new HttpParams()
       .set('pageIndex', pageIndex.toString())
       .set('pageSize', pageSize.toString());
-    if (endpoint === 'Menu') {
+    if (endpoint === 'Menu' || endpoint === 'PayrollPosition' || endpoint === 'PayrollConcept') {
       return this.getClientPagedList(endpoint, pageIndex, pageSize);
     }
 
@@ -388,7 +396,9 @@ Supplier: 'catalog/suppliers',
       FixedAsset: 'catalog/fixed-assets',
       CustomerOrder: 'catalog/customer-orders',
       Sale: 'catalog/sales',
-      Payroll: 'catalog/payroll'
+      Payroll: 'catalog/payroll',
+      PayrollPosition: 'catalog/payroll/positions',
+      PayrollConcept: 'catalog/payroll/concepts'
     };
 
     return mapEndpoints[endpoint] ?? endpoint;
@@ -482,7 +492,9 @@ Supplier: 'catalog/suppliers',
     return {
       ...item,
       idPersonal: item.idPersonal ?? item.id,
-      name: item.name ?? [item.first_name, item.last_name, item.second_lastname].filter(Boolean).join(' ')
+      name: item.name ?? [item.firstName ?? item.first_name, item.lastName ?? item.last_name, item.secondLastname ?? item.second_lastname].filter(Boolean).join(' '),
+      branchId: item.branchId ?? item.branch_id ?? null,
+      branch_id: item.branch_id ?? item.branchId ?? null
     };
   }
 

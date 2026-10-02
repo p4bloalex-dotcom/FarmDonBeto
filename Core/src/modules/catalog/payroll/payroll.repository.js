@@ -6,6 +6,31 @@ export class BusinessRuleError extends Error {
 
 const fullName = employee => employee ? [employee.firstName, employee.lastName, employee.secondLastname].filter(Boolean).join(' ') : null;
 
+const STATUS_FLOW = {
+  DRAFT: ['CALCULATED'],
+  CALCULATED: ['REVIEWED'],
+  REVIEWED: ['APPROVED'],
+  APPROVED: ['PAID'],
+  PAID: ['CLOSED'],
+  CLOSED: []
+};
+
+const DEFAULT_CONCEPTS = [
+  { code: 'SALARY', name: 'Salario ordinario', type: 'INCOME', isAutomatic: true, status: 'E' },
+  { code: 'BONUS', name: 'Bonificaciones', type: 'INCOME', isAutomatic: true, status: 'E' },
+  { code: 'DEDUCTION', name: 'Deducciones', type: 'DEDUCTION', isAutomatic: true, status: 'E' }
+];
+
+const ensureDefaultConcepts = async manager => {
+  const repo = manager.getRepository('PayrollConcept');
+  for (const concept of DEFAULT_CONCEPTS) {
+    const exists = await repo.findOneBy({ code: concept.code });
+    if (!exists) await repo.save(repo.create(concept));
+  }
+  return repo.findBy({ status: 'E' });
+};
+
+
 const positionDto = item => ({ id: item.id, name: item.name, description: item.description, status: item.status });
 
 const salaryDto = item => ({
@@ -31,6 +56,7 @@ const paymentDto = item => ({
   branchName: item.branch?.name ?? null,
   positionId: item.positionId,
   positionName: item.position?.name ?? null,
+  periodId: item.periodId,
   salaryId: item.salaryId,
   paymentDate: item.paymentDate,
   periodStart: item.periodStart,
@@ -57,9 +83,49 @@ const adjustmentDto = item => ({
   payrollPaymentId: item.payrollPaymentId
 });
 
+const conceptDto = item => ({ id: item.id, code: item.code, name: item.name, type: item.type, isAutomatic: item.isAutomatic, status: item.status });
+const periodDto = item => ({
+  id: item.id,
+  name: item.name,
+  branchId: item.branchId,
+  branchName: item.branch?.name ?? null,
+  dateStart: item.dateStart,
+  dateEnd: item.dateEnd,
+  payDate: item.payDate,
+  periodType: item.periodType,
+  status: item.status
+});
+
 export const listPositions = async () => (await AppDataSource.getRepository('PayrollPosition').find({ order: { name: 'ASC' } })).map(positionDto);
 export const createPosition = async (data, userId) => positionDto(await AppDataSource.getRepository('PayrollPosition').save(AppDataSource.getRepository('PayrollPosition').create({ ...data, createdBy: userId })));
 export const updatePosition = async (id, data, userId) => (await AppDataSource.getRepository('PayrollPosition').update(id, { ...data, updatedBy: userId })).affected > 0;
+export const deletePosition = async (id, userId) => (await AppDataSource.getRepository('PayrollPosition').update(id, { status: 'D', updatedBy: userId })).affected > 0;
+
+export const listConcepts = async () => (await AppDataSource.getRepository('PayrollConcept').find({ order: { type: 'ASC', name: 'ASC' } })).map(conceptDto);
+export const createConcept = async (data, userId) => conceptDto(await AppDataSource.getRepository('PayrollConcept').save(AppDataSource.getRepository('PayrollConcept').create({ ...data, createdBy: userId })));
+export const updateConcept = async (id, data, userId) => (await AppDataSource.getRepository('PayrollConcept').update(id, { ...data, updatedBy: userId })).affected > 0;
+export const deleteConcept = async (id, userId) => (await AppDataSource.getRepository('PayrollConcept').update(id, { status: 'D', updatedBy: userId })).affected > 0;
+
+const periodQuery = () => AppDataSource.getRepository('PayrollPeriod').createQueryBuilder('item')
+  .leftJoin('item.branch', 'branch').addSelect(['branch.id', 'branch.name']);
+export const listPeriods = async () => (await periodQuery().orderBy('item.dateStart', 'DESC').getMany()).map(periodDto);
+export const createPeriod = async (data, userId) => periodDto(await AppDataSource.getRepository('PayrollPeriod').save(AppDataSource.getRepository('PayrollPeriod').create({ ...data, createdBy: userId })));
+export const updatePeriodStatus = async (id, status, userId) => {
+  return AppDataSource.transaction(async manager => {
+    const period = await manager.getRepository('PayrollPeriod').findOneBy({ id });
+    if (!period) throw new BusinessRuleError('El periodo de nomina no existe.');
+    if (!STATUS_FLOW[period.status]?.includes(status)) throw new BusinessRuleError(`Transicion de estado no permitida: ${period.status} a ${status}.`);
+    const payments = await manager.getRepository('PayrollPayment').findBy({ periodId: id, status: 'E' });
+    if (!payments.length && status !== 'CALCULATED') throw new BusinessRuleError('El periodo no tiene nomina generada.');
+    if (status === 'PAID') {
+      for (const payment of payments) {
+        const employee = await manager.getRepository('Employee').findOneBy({ id: payment.employeeId });
+        await registerPayrollCashMovement(manager, payment, fullName(employee));
+      }
+    }
+    return (await manager.getRepository('PayrollPeriod').update(id, { status, updatedBy: userId })).affected > 0;
+  });
+};
 
 const salaryQuery = () => AppDataSource.getRepository('EmployeeSalary').createQueryBuilder('item')
   .leftJoin('item.employee', 'employee').addSelect(['employee.id', 'employee.firstName', 'employee.lastName', 'employee.secondLastname'])
@@ -68,6 +134,10 @@ const salaryQuery = () => AppDataSource.getRepository('EmployeeSalary').createQu
 
 export const listSalaries = async () => (await salaryQuery().orderBy('item.effectiveFrom', 'DESC').getMany()).map(salaryDto);
 export const createSalary = async (data, userId) => AppDataSource.transaction(async manager => {
+  if (Number(data.baseSalary ?? 0) <= 0) throw new BusinessRuleError('El salario debe ser mayor a cero.');
+  const employee = await manager.getRepository('Employee').findOneBy({ id: data.employeeId, status: 'E' });
+  if (!employee) throw new BusinessRuleError('El empleado seleccionado no existe o esta desactivado.');
+  if (employee.branchId && employee.branchId !== data.branchId) throw new BusinessRuleError('La sucursal del salario no coincide con la sucursal del empleado.');
   await manager.getRepository('EmployeeSalary').update({ employeeId: data.employeeId, status: 'A' }, { status: 'I', effectiveTo: data.effectiveFrom, updatedBy: userId });
   const saved = await manager.getRepository('EmployeeSalary').save(manager.getRepository('EmployeeSalary').create({ ...data, createdBy: userId }));
   return saved.id;
@@ -108,25 +178,37 @@ const registerPayrollCashMovement = async (manager, payment, employeeName) => {
   }));
 };
 
-export const generatePayroll = async (data, userId) => AppDataSource.transaction(async manager => {
+export const generatePayroll = async (data, userId) => {
+  return AppDataSource.transaction(async manager => {
+  const period = data.periodId ? await manager.getRepository('PayrollPeriod').findOneBy({ id: data.periodId }) : null;
+  if (data.periodId && !period) throw new BusinessRuleError('El periodo de nomina no existe.');
+  if (period && period.status !== 'DRAFT') throw new BusinessRuleError('Solo se puede calcular nomina en periodos DRAFT.');
+  const periodStart = period?.dateStart ?? data.periodStart;
+  const periodEnd = period?.dateEnd ?? data.periodEnd;
+  const paymentDate = period?.payDate ?? data.paymentDate;
+  const branchId = period?.branchId ?? data.branchId;
   const salaryRepo = manager.getRepository('EmployeeSalary');
   const query = salaryRepo.createQueryBuilder('salary')
     .leftJoin('salary.employee', 'employee').addSelect(['employee.id', 'employee.status', 'employee.firstName', 'employee.lastName', 'employee.secondLastname'])
     .where('salary.status = :status', { status: 'A' })
-    .andWhere('salary.effectiveFrom <= :periodEnd', { periodEnd: data.periodEnd })
-    .andWhere('(salary.effectiveTo IS NULL OR salary.effectiveTo >= :periodStart)', { periodStart: data.periodStart })
+    .andWhere('salary.effectiveFrom <= :periodEnd', { periodEnd })
+    .andWhere('(salary.effectiveTo IS NULL OR salary.effectiveTo >= :periodStart)', { periodStart })
     .andWhere('employee.status = :employeeStatus', { employeeStatus: 'E' });
-  if (data.branchId) query.andWhere('salary.branchId = :branchId', { branchId: data.branchId });
+  if (branchId) query.andWhere('salary.branchId = :branchId', { branchId });
   const salaries = await query.getMany();
   if (!salaries.length) throw new BusinessRuleError('No hay salarios activos para generar nomina en el periodo seleccionado.');
 
   const paymentRepo = manager.getRepository('PayrollPayment');
+  const concepts = await ensureDefaultConcepts(manager);
+  const conceptByCode = code => concepts.find(item => item.code === code)?.id ?? null;
   const created = [];
   for (const salary of salaries) {
-    const exists = await paymentRepo.findOneBy({ employeeId: salary.employeeId, periodStart: data.periodStart, periodEnd: data.periodEnd, status: 'E' });
+    const exists = data.periodId
+      ? await paymentRepo.findOneBy({ employeeId: salary.employeeId, periodId: data.periodId, status: 'E' })
+      : await paymentRepo.findOneBy({ employeeId: salary.employeeId, periodStart, periodEnd, status: 'E' });
     if (exists) continue;
     const baseSalary = Number(salary.baseSalary ?? 0);
-    const adjustments = await activeAdjustmentsFor(manager, salary.employeeId, salary.branchId, data.periodStart, data.periodEnd);
+    const adjustments = await activeAdjustmentsFor(manager, salary.employeeId, salary.branchId, periodStart, periodEnd);
     const bonuses = Number(data.defaultBonus ?? 0) + adjustments.filter(item => item.type === 'B').reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
     const deductions = Number(data.defaultDeduction ?? 0) + adjustments.filter(item => item.type === 'D').reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
     const total = baseSalary + bonuses - deductions;
@@ -135,9 +217,10 @@ export const generatePayroll = async (data, userId) => AppDataSource.transaction
       branchId: salary.branchId,
       salaryId: salary.id,
       positionId: salary.positionId,
-      paymentDate: data.paymentDate,
-      periodStart: data.periodStart,
-      periodEnd: data.periodEnd,
+      periodId: data.periodId ?? null,
+      paymentDate,
+      periodStart,
+      periodEnd,
       baseSalary,
       bonuses,
       deductions,
@@ -146,17 +229,28 @@ export const generatePayroll = async (data, userId) => AppDataSource.transaction
       notes: data.notes,
       createdBy: userId
     }));
+    const detailRepo = manager.getRepository('PayrollDetail');
+    await detailRepo.save(detailRepo.create({ payrollPaymentId: saved.id, branchId: salary.branchId, conceptId: conceptByCode('SALARY'), type: 'INCOME', amount: baseSalary, description: 'Salario ordinario' }));
+    if (bonuses > 0) await detailRepo.save(detailRepo.create({ payrollPaymentId: saved.id, branchId: salary.branchId, conceptId: conceptByCode('BONUS'), type: 'INCOME', amount: bonuses, description: 'Bonificaciones' }));
+    if (deductions > 0) await detailRepo.save(detailRepo.create({ payrollPaymentId: saved.id, branchId: salary.branchId, conceptId: conceptByCode('DEDUCTION'), type: 'DEDUCTION', amount: deductions, description: 'Deducciones' }));
     for (const adjustment of adjustments) {
       adjustment.status = 'A';
       adjustment.payrollPaymentId = saved.id;
       adjustment.updatedBy = userId;
       await manager.getRepository('PayrollAdjustment').save(adjustment);
     }
-    await registerPayrollCashMovement(manager, saved, fullName(salary.employee));
     created.push(saved.id);
   }
+  if (period) await manager.getRepository('PayrollPeriod').update(period.id, { status: 'CALCULATED', updatedBy: userId });
   return created;
-});
+  });
+};
+
+export const listPaymentDetails = async paymentId => (await AppDataSource.getRepository('PayrollDetail').createQueryBuilder('item')
+  .leftJoin('item.concept', 'concept').addSelect(['concept.id', 'concept.name'])
+  .where('item.payrollPaymentId = :paymentId', { paymentId })
+  .orderBy('item.id', 'ASC')
+  .getMany()).map(item => ({ id: item.id, payrollPaymentId: item.payrollPaymentId, branchId: item.branchId, conceptId: item.conceptId, conceptName: item.concept?.name ?? null, type: item.type, amount: Number(item.amount ?? 0), description: item.description }));
 
 export const listAdjustments = async () => (await AppDataSource.getRepository('PayrollAdjustment').createQueryBuilder('item')
   .leftJoin('item.employee', 'employee').addSelect(['employee.id', 'employee.firstName', 'employee.lastName', 'employee.secondLastname'])
@@ -164,9 +258,14 @@ export const listAdjustments = async () => (await AppDataSource.getRepository('P
   .orderBy('item.adjustmentDate', 'DESC').addOrderBy('item.id', 'DESC').getMany()).map(adjustmentDto);
 
 export const createAdjustment = async (data, userId) => {
-  const repo = AppDataSource.getRepository('PayrollAdjustment');
-  const saved = await repo.save(repo.create({ ...data, status: 'P', createdBy: userId }));
-  return saved.id;
+  return AppDataSource.transaction(async manager => {
+    const employee = await manager.getRepository('Employee').findOneBy({ id: data.employeeId, status: 'E' });
+    if (!employee) throw new BusinessRuleError('El empleado seleccionado no existe o esta desactivado.');
+    if (employee.branchId && employee.branchId !== data.branchId) throw new BusinessRuleError('La sucursal del ajuste no coincide con la sucursal del empleado.');
+    const repo = manager.getRepository('PayrollAdjustment');
+    const saved = await repo.save(repo.create({ ...data, status: 'P', createdBy: userId }));
+    return saved.id;
+  });
 };
 
 export const voidPayment = async (id, reason, userId) => (await AppDataSource.getRepository('PayrollPayment').update(id, { status: 'I', notes: reason, updatedBy: userId })).affected > 0;

@@ -5,20 +5,31 @@ import { permissionRequired } from '../../../middlewares/permission-required.js'
 import { validate } from '../../../middlewares/validate.js';
 import { registerScreen } from '../../../routes/route-registry.js';
 import { crudActions } from '../../security/permissions/permission-actions.js';
-import { addAdjustment, addGeneratedPayments, addPosition, addSalary, cancelPayment, editPosition, editSalary, getAdjustments, getPayments, getPositions, getSalaries } from './payroll.controller.js';
-import { payrollAdjustmentSchema, payrollGenerateSchema, payrollVoidSchema, positionSchema, salarySchema } from './payroll.validation.js';
+import { addAdjustment, addConcept, addGeneratedPayments, addPeriod, addPosition, addSalary, cancelPayment, changePeriodStatus, editConcept, editPosition, editSalary, getAdjustments, getConcepts, getPaymentDetails, getPayments, getPeriods, getPositions, getSalaries, removeConcept, removePosition } from './payroll.controller.js';
+import { conceptSchema, payrollAdjustmentSchema, payrollGenerateSchema, payrollVoidSchema, periodSchema, periodStatusSchema, positionSchema, salarySchema } from './payroll.validation.js';
 
 export const payrollRoutes = Router();
 export const permissions = registerScreen({ category: 'Operation', controller: 'Payroll', routePath: 'payroll', title: 'Nomina', icon: 'heroicons_solid:banknotes', actions: crudActions() });
+export const positionPermissions = registerScreen({ category: 'Catalog', controller: 'PayrollPosition', routePath: 'payrollposition', title: 'Puestos de nomina', icon: 'heroicons_solid:identification', actions: crudActions() });
+export const conceptPermissions = registerScreen({ category: 'Catalog', controller: 'PayrollConcept', routePath: 'payrollconcept', title: 'Conceptos de nomina', icon: 'heroicons_solid:list-bullet', actions: crudActions() });
 
 payrollRoutes.use(authenticate);
-payrollRoutes.get('/positions', permissionRequired(permissions.view), asyncHandler(getPositions));
-payrollRoutes.post('/positions', permissionRequired(permissions.create), validate(positionSchema), asyncHandler(addPosition));
-payrollRoutes.put('/positions/:id', permissionRequired(permissions.edit), validate(positionSchema), asyncHandler(editPosition));
+payrollRoutes.get('/positions', permissionRequired(positionPermissions.view), asyncHandler(getPositions));
+payrollRoutes.post('/positions', permissionRequired(positionPermissions.create), validate(positionSchema), asyncHandler(addPosition));
+payrollRoutes.put('/positions/:id', permissionRequired(positionPermissions.edit), validate(positionSchema), asyncHandler(editPosition));
+payrollRoutes.delete('/positions/:id', permissionRequired(positionPermissions.delete), asyncHandler(removePosition));
+payrollRoutes.get('/concepts', permissionRequired(conceptPermissions.view), asyncHandler(getConcepts));
+payrollRoutes.post('/concepts', permissionRequired(conceptPermissions.create), validate(conceptSchema), asyncHandler(addConcept));
+payrollRoutes.put('/concepts/:id', permissionRequired(conceptPermissions.edit), validate(conceptSchema), asyncHandler(editConcept));
+payrollRoutes.delete('/concepts/:id', permissionRequired(conceptPermissions.delete), asyncHandler(removeConcept));
+payrollRoutes.get('/periods', permissionRequired(permissions.view), asyncHandler(getPeriods));
+payrollRoutes.post('/periods', permissionRequired(permissions.create), validate(periodSchema), asyncHandler(addPeriod));
+payrollRoutes.patch('/periods/:id/status', permissionRequired(permissions.edit), validate(periodStatusSchema), asyncHandler(changePeriodStatus));
 payrollRoutes.get('/salaries', permissionRequired(permissions.view), asyncHandler(getSalaries));
 payrollRoutes.post('/salaries', permissionRequired(permissions.create), validate(salarySchema), asyncHandler(addSalary));
 payrollRoutes.put('/salaries/:id', permissionRequired(permissions.edit), validate(salarySchema), asyncHandler(editSalary));
 payrollRoutes.get('/payments', permissionRequired(permissions.view), asyncHandler(getPayments));
+payrollRoutes.get('/payments/:id/details', permissionRequired(permissions.view), asyncHandler(getPaymentDetails));
 payrollRoutes.get('/adjustments', permissionRequired(permissions.view), asyncHandler(getAdjustments));
 payrollRoutes.post('/adjustments', permissionRequired(permissions.create), validate(payrollAdjustmentSchema), asyncHandler(addAdjustment));
 payrollRoutes.post('/generate', permissionRequired(permissions.create), validate(payrollGenerateSchema), asyncHandler(addGeneratedPayments));

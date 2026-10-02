@@ -1,52 +1,157 @@
-<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+<div class="bg-card flex min-w-0 flex-auto flex-col overflow-y-auto dark:bg-transparent sm:absolute sm:inset-0">
     @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
-    <div class="border-b px-4 py-4 md:px-8">
-        <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Nomina</div>
-        <div class="text-sm text-secondary">Puestos, salarios vigentes, generacion de pagos y anulaciones auditables.</div>
+
+    <div class="relative flex flex-0 flex-col gap-4 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+        <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Nómina</div>
+        <div class="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <mat-form-field class="fuse-mat-dense fuse-mat-rounded w-full sm:min-w-72" [subscriptSizing]="'dynamic'">
+                <mat-label>Período</mat-label>
+                <mat-select [formControl]="generateForm.get('periodId')">
+                    <mat-option value="">Manual</mat-option>
+                    <mat-option *ngFor="let item of periods" [value]="item.id">{{ item.name }}</mat-option>
+                </mat-select>
+            </mat-form-field>
+            <button class="w-full sm:w-auto" mat-flat-button color="primary" type="button" (click)="openPanel('period')">Nuevo período</button>
+        </div>
     </div>
-    <div class="grid gap-4 overflow-auto p-4 lg:grid-cols-4 md:p-8">
-        <form [formGroup]="positionForm" class="rounded-2xl border p-4 shadow-sm">
-            <div class="mb-3 text-lg font-semibold">Puesto</div>
-            <mat-form-field class="w-full"><mat-label>Nombre</mat-label><input matInput formControlName="name" /></mat-form-field>
-            <mat-form-field class="w-full"><mat-label>Descripcion</mat-label><input matInput formControlName="description" /></mat-form-field>
-            <button mat-flat-button color="primary" type="button" (click)="savePosition()">Guardar puesto</button>
-        </form>
-        <form [formGroup]="salaryForm" class="rounded-2xl border p-4 shadow-sm">
-            <div class="mb-3 text-lg font-semibold">Asignacion salarial</div>
-            <mat-form-field class="w-full"><mat-label>Empleado</mat-label><mat-select formControlName="employeeId"><mat-option *ngFor="let item of employees" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
-            <mat-form-field class="w-full"><mat-label>Puesto</mat-label><mat-select formControlName="positionId"><mat-option *ngFor="let item of positions" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
-            <mat-form-field class="w-full"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
-            <div class="grid grid-cols-2 gap-2"><mat-form-field><mat-label>Salario</mat-label><input matInput type="number" formControlName="baseSalary" /></mat-form-field><mat-form-field><mat-label>Vigente desde</mat-label><input matInput type="date" formControlName="effectiveFrom" /></mat-form-field></div>
-            <button mat-flat-button color="primary" type="button" (click)="saveSalary()">Asignar salario</button>
-        </form>
-        <form [formGroup]="generateForm" class="rounded-2xl border p-4 shadow-sm">
-            <div class="mb-3 text-lg font-semibold">Generar nomina</div>
-            <mat-form-field class="w-full"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option value="">Todas</mat-option><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
-            <div class="grid grid-cols-2 gap-2"><mat-form-field><mat-label>Desde</mat-label><input matInput type="date" formControlName="periodStart" /></mat-form-field><mat-form-field><mat-label>Hasta</mat-label><input matInput type="date" formControlName="periodEnd" /></mat-form-field></div>
-            <mat-form-field class="w-full"><mat-label>Fecha pago</mat-label><input matInput type="date" formControlName="paymentDate" /></mat-form-field>
-            <div class="grid grid-cols-2 gap-2"><mat-form-field><mat-label>Bono general</mat-label><input matInput type="number" formControlName="defaultBonus" /></mat-form-field><mat-form-field><mat-label>Deduccion general</mat-label><input matInput type="number" formControlName="defaultDeduction" /></mat-form-field></div>
-            <button mat-flat-button color="primary" type="button" (click)="generatePayroll()">Generar pagos</button>
-        </form>
-        <form [formGroup]="adjustmentForm" class="rounded-2xl border p-4 shadow-sm">
-            <div class="mb-3 text-lg font-semibold">Bono / deduccion individual</div>
-            <mat-form-field class="w-full"><mat-label>Empleado</mat-label><mat-select formControlName="employeeId"><mat-option *ngFor="let item of employees" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
-            <mat-form-field class="w-full"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
-            <div class="grid grid-cols-2 gap-2"><mat-form-field><mat-label>Tipo</mat-label><mat-select formControlName="type"><mat-option value="B">Bono</mat-option><mat-option value="D">Deduccion</mat-option></mat-select></mat-form-field><mat-form-field><mat-label>Monto</mat-label><input matInput type="number" formControlName="amount" /></mat-form-field></div>
-            <mat-form-field class="w-full"><mat-label>Fecha</mat-label><input matInput type="date" formControlName="adjustmentDate" /></mat-form-field>
-            <mat-form-field class="w-full"><mat-label>Motivo</mat-label><input matInput formControlName="reason" /></mat-form-field>
-            <button mat-flat-button color="primary" type="button" (click)="saveAdjustment()">Guardar ajuste</button>
-        </form>
-        <div class="rounded-2xl border p-4 shadow-sm lg:col-span-4">
-            <div class="mb-3 text-lg font-semibold">Salarios vigentes e historicos</div>
-            <app-table [columns]="salaryColumns" [data]="salaries"></app-table>
-        </div>
-        <div class="rounded-2xl border p-4 shadow-sm lg:col-span-4">
-            <div class="mb-3 text-lg font-semibold">Bonificaciones y deducciones individuales</div>
-            <app-table [columns]="adjustmentColumns" [data]="adjustments"></app-table>
-        </div>
-        <div class="rounded-2xl border p-4 shadow-sm lg:col-span-4">
-            <div class="mb-3 text-lg font-semibold">Pagos de nomina</div>
-            <app-table [columns]="paymentColumns" [data]="payments" [actions]="paymentActions" (rowAction)="handlePaymentAction($event)"></app-table>
+
+    <div class="grid gap-3 border-b bg-slate-50 p-4 dark:bg-slate-900 md:grid-cols-4 md:px-8">
+        <button type="button" class="rounded-xl bg-white p-3 text-left shadow-sm dark:bg-slate-800" (click)="selectFlowAction('pay')">
+            <div class="text-sm text-secondary">Estado</div>
+            <div class="mt-1 text-2xl font-bold">{{ selectedPeriod?.statusLabel ?? 'Manual' }}</div>
+        </button>
+        <button type="button" class="rounded-xl bg-white p-3 text-left shadow-sm dark:bg-slate-800" (click)="selectFlowAction('review')">
+            <div class="text-sm text-secondary">Pagos</div>
+            <div class="mt-1 text-2xl font-bold">{{ periodPayments.length }}</div>
+        </button>
+        <button type="button" class="rounded-xl bg-white p-3 text-left shadow-sm dark:bg-slate-800" (click)="selectFlowAction('review')">
+            <div class="text-sm text-secondary">Total del período</div>
+            <div class="mt-1 text-2xl font-bold">{{ payrollTotalLabel }}</div>
+        </button>
+        <button type="button" class="rounded-xl bg-primary p-3 text-left shadow-sm" (click)="selectFlowAction('calculate')">
+            <div class="text-sm text-on-primary">Sucursal</div>
+            <div class="mt-1 text-2xl font-bold text-on-primary">{{ selectedPeriod?.branchName ?? 'Todas' }}</div>
+        </button>
+    </div>
+
+    <div class="flex flex-auto overflow-hidden">
+        <div class="flex w-full flex-auto flex-col gap-4 overflow-y-auto p-4 md:px-8">
+            <div class="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="text-xl font-bold">Centro de nómina</div>
+                <div class="flex flex-wrap gap-2">
+                    @for (action of flowActions; track action.value) {
+                        <button type="button" class="rounded-xl border px-4 py-2 font-semibold hover:border-primary" [class.border-primary]="flowAction === action.value" [class.bg-primary-50]="flowAction === action.value" [class.text-primary]="flowAction === action.value" (click)="selectFlowAction(action.value)">{{ action.label }}</button>
+                    }
+                </div>
+            </div>
+
+            @if (activePanel === 'period') {
+                <div class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
+                    <div class="mb-3 flex items-center justify-between">
+                        <div class="text-lg font-bold">Nuevo período</div>
+                        <button mat-button type="button" (click)="closePanel()">Cerrar</button>
+                    </div>
+                    <form [formGroup]="periodForm" class="grid gap-3 lg:grid-cols-6">
+                        <mat-form-field class="fuse-mat-dense lg:col-span-2"><mat-label>Nombre</mat-label><input matInput formControlName="name" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option value="">Todas</mat-option><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Inicio</mat-label><input matInput type="date" formControlName="dateStart" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Fin</mat-label><input matInput type="date" formControlName="dateEnd" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Pago</mat-label><input matInput type="date" formControlName="payDate" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Tipo</mat-label><mat-select formControlName="periodType"><mat-option value="MONTHLY">Mensual</mat-option><mat-option value="BIWEEKLY">Quincenal</mat-option><mat-option value="WEEKLY">Semanal</mat-option></mat-select></mat-form-field>
+                        <div class="lg:col-span-6"><button mat-flat-button color="primary" type="button" (click)="savePeriod()">Crear período</button></div>
+                    </form>
+                </div>
+            }
+
+            @if (flowAction === 'calculate') {
+                <div class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
+                    <div class="mb-3 text-lg font-bold">Calcular nómina</div>
+                    <form [formGroup]="generateForm" class="grid gap-3 lg:grid-cols-6">
+                        @if (manualGeneration) {
+                            <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option value="">Todas</mat-option><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
+                            <mat-form-field class="fuse-mat-dense"><mat-label>Fecha pago</mat-label><input matInput type="date" formControlName="paymentDate" /></mat-form-field>
+                            <mat-form-field class="fuse-mat-dense"><mat-label>Desde</mat-label><input matInput type="date" formControlName="periodStart" /></mat-form-field>
+                            <mat-form-field class="fuse-mat-dense"><mat-label>Hasta</mat-label><input matInput type="date" formControlName="periodEnd" /></mat-form-field>
+                        }
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Bono general</mat-label><input matInput type="number" formControlName="defaultBonus" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Deducción general</mat-label><input matInput type="number" formControlName="defaultDeduction" /></mat-form-field>
+                        <div class="lg:col-span-6"><button mat-flat-button color="primary" type="button" [disabled]="!canGenerate" (click)="generatePayroll()">Calcular nómina</button></div>
+                    </form>
+                </div>
+
+                <div class="rounded-2xl border p-4">
+                    <div class="mb-3 text-lg font-bold">Períodos</div>
+                    <app-table [columns]="periodColumns" [data]="periods" [actions]="periodActions" actionColumnWidth="190px" (rowAction)="handlePeriodAction($event)"></app-table>
+                </div>
+            }
+
+            @if (flowAction === 'review') {
+                <div class="rounded-2xl border p-4">
+                    <div class="mb-3 text-lg font-bold">Pagos generados</div>
+                    <app-table [columns]="paymentColumns" [data]="periodPayments" [actions]="paymentActions" (rowAction)="handlePaymentAction($event)"></app-table>
+                </div>
+                @if (selectedPayment) {
+                    <div class="rounded-2xl border p-4">
+                        <div class="mb-3 text-lg font-bold">Detalle de pago - {{ selectedPayment.employeeName }}</div>
+                        <app-table [columns]="detailColumns" [data]="paymentDetails"></app-table>
+                    </div>
+                }
+            }
+
+            @if (flowAction === 'pay') {
+                <div class="rounded-2xl border p-4">
+                    <div class="mb-3 text-lg font-bold">Avance de períodos</div>
+                    <app-table [columns]="periodColumns" [data]="periods" [actions]="periodActions" actionColumnWidth="190px" (rowAction)="handlePeriodAction($event)"></app-table>
+                </div>
+            }
+
+            @if (flowAction === 'prepare') {
+                <div class="rounded-2xl border p-4">
+                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="text-lg font-bold">Preparación</div>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" class="rounded-xl border px-4 py-2 font-semibold hover:border-primary" [class.border-primary]="prepareView === 'salaries'" [class.bg-primary-50]="prepareView === 'salaries'" [class.text-primary]="prepareView === 'salaries'" (click)="selectPrepareView('salaries')">Salarios</button>
+                            <button type="button" class="rounded-xl border px-4 py-2 font-semibold hover:border-primary" [class.border-primary]="prepareView === 'adjustments'" [class.bg-primary-50]="prepareView === 'adjustments'" [class.text-primary]="prepareView === 'adjustments'" (click)="selectPrepareView('adjustments')">Ajustes</button>
+                            <a mat-stroked-button routerLink="/catalog/payrollposition">Puestos</a>
+                            <a mat-stroked-button routerLink="/catalog/payrollconcept">Conceptos</a>
+                        </div>
+                    </div>
+
+                    @if (prepareView === 'salaries') {
+                        <div class="mb-3 flex justify-end">
+                            <button mat-flat-button color="primary" type="button" (click)="openPanel('salary')">Asignar salario</button>
+                        </div>
+                        @if (activePanel === 'salary') {
+                            <form [formGroup]="salaryForm" class="mb-4 grid gap-3 rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900 lg:grid-cols-6">
+                                <mat-form-field class="fuse-mat-dense lg:col-span-2"><mat-label>Empleado</mat-label><mat-select formControlName="employeeId"><mat-option *ngFor="let item of salaryEmployees" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Puesto</mat-label><mat-select formControlName="positionId"><mat-option *ngFor="let item of positions" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Salario</mat-label><input matInput type="number" formControlName="baseSalary" /></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Vigente desde</mat-label><input matInput type="date" formControlName="effectiveFrom" /></mat-form-field>
+                                <div class="flex gap-2 lg:col-span-6"><button mat-flat-button color="primary" type="button" (click)="saveSalary()">Guardar salario</button><button mat-button type="button" (click)="closePanel()">Cancelar</button></div>
+                            </form>
+                        }
+                        <app-table [columns]="salaryColumns" [data]="salaries"></app-table>
+                    }
+                    @if (prepareView === 'adjustments') {
+                        <div class="mb-3 flex justify-end">
+                            <button mat-flat-button color="primary" type="button" (click)="openPanel('adjustment')">Registrar ajuste</button>
+                        </div>
+                        @if (activePanel === 'adjustment') {
+                            <form [formGroup]="adjustmentForm" class="mb-4 grid gap-3 rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900 lg:grid-cols-6">
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense lg:col-span-2"><mat-label>Empleado</mat-label><mat-select formControlName="employeeId"><mat-option *ngFor="let item of adjustmentEmployees" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Tipo</mat-label><mat-select formControlName="type"><mat-option value="B">Bono</mat-option><mat-option value="D">Deducción</mat-option></mat-select></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Monto</mat-label><input matInput type="number" formControlName="amount" /></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Fecha</mat-label><input matInput type="date" formControlName="adjustmentDate" /></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense lg:col-span-6"><mat-label>Motivo</mat-label><input matInput formControlName="reason" /></mat-form-field>
+                                <div class="flex gap-2 lg:col-span-6"><button mat-flat-button color="primary" type="button" (click)="saveAdjustment()">Guardar ajuste</button><button mat-button type="button" (click)="closePanel()">Cancelar</button></div>
+                            </form>
+                        }
+                        <app-table [columns]="adjustmentColumns" [data]="adjustments"></app-table>
+                    }
+                </div>
+            }
         </div>
     </div>
 </div>

@@ -147,5 +147,33 @@ export const pharmacyCatalogConfigs: Record<string, PharmacyCatalogConfig> = {
       { name: 'name', label: 'Nombre', required: true },
       { name: 'code', label: 'Codigo', required: true }
     ]
+  },
+  payrollPosition: {
+    title: 'Puestos de nomina',
+    service: 'PayrollPosition',
+    columns: [
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'description', header: 'Descripcion', width: '2fr' },
+      { field: 'status', header: 'Estado', width: '130px' }
+    ],
+    fields: [
+      { name: 'name', label: 'Nombre', required: true },
+      { name: 'description', label: 'Descripcion', type: 'textarea' }
+    ]
+  },
+  payrollConcept: {
+    title: 'Conceptos de nomina',
+    service: 'PayrollConcept',
+    columns: [
+      { field: 'code', header: 'Codigo', width: '1fr' },
+      { field: 'name', header: 'Nombre', width: '2fr' },
+      { field: 'type', header: 'Tipo', width: '1fr' },
+      { field: 'status', header: 'Estado', width: '130px' }
+    ],
+    fields: [
+      { name: 'code', label: 'Codigo', required: true },
+      { name: 'name', label: 'Nombre', required: true },
+      { name: 'type', label: 'Tipo', type: 'select', required: true, options: [{ value: 'INCOME', label: 'Ingreso' }, { value: 'DEDUCTION', label: 'Deduccion' }] }
+    ]
   }
 };

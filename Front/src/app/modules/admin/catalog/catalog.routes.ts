@@ -37,6 +37,8 @@ export default [
     {path     : 'cashmovementtype',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.cashMovementType }},
     {path     : 'movementtype',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.movementType }},
     {path     : 'cashregister',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.cashRegister }},
+    {path     : 'payrollposition',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.payrollPosition }},
+    {path     : 'payrollconcept',component: PharmacyCatalogComponent, data: { catalogConfig: pharmacyCatalogConfigs.payrollConcept }},
     {path     : 'purchase', redirectTo: '/operation/purchase', pathMatch: 'full'},
     {path     : 'stock-transfer', redirectTo: '/operation/delivery-request', pathMatch: 'full'},
     {path     : 'delivery-request', redirectTo: '/operation/delivery-request', pathMatch: 'full'},

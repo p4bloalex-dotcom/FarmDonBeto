@@ -9,6 +9,7 @@ export const PayrollPaymentEntity = new EntitySchema({
     branchId: { name: 'BRANCH_ID', type: Number },
     salaryId: { name: 'SALARY_ID', type: Number, nullable: true },
     positionId: { name: 'POSITION_ID', type: Number, nullable: true },
+    periodId: { name: 'PERIOD_ID', type: Number, nullable: true },
     paymentDate: { name: 'PAYMENT_DATE', type: 'timestamp' },
     periodStart: { name: 'PERIOD_START', type: 'timestamp' },
     periodEnd: { name: 'PERIOD_END', type: 'timestamp' },
@@ -27,6 +28,7 @@ export const PayrollPaymentEntity = new EntitySchema({
     employee: { type: 'many-to-one', target: 'Employee', joinColumn: { name: 'EMPLOYEE_ID' } },
     branch: { type: 'many-to-one', target: 'Branch', joinColumn: { name: 'BRANCH_ID' } },
     salary: { type: 'many-to-one', target: 'EmployeeSalary', joinColumn: { name: 'SALARY_ID' }, nullable: true },
+    period: { type: 'many-to-one', target: 'PayrollPeriod', joinColumn: { name: 'PERIOD_ID' }, nullable: true },
     position: { type: 'many-to-one', target: 'PayrollPosition', joinColumn: { name: 'POSITION_ID' }, nullable: true }
   }
 });
