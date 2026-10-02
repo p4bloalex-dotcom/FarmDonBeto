@@ -26,6 +26,7 @@ export class PayrollComponent implements OnInit, OnDestroy {
   periodForm: UntypedFormGroup;
   generateForm: UntypedFormGroup;
   adjustmentForm: UntypedFormGroup;
+  voidPaymentForm: UntypedFormGroup;
   positions: any[] = [];
   salaries: any[] = [];
   concepts: any[] = [];
@@ -33,6 +34,7 @@ export class PayrollComponent implements OnInit, OnDestroy {
   payments: any[] = [];
   paymentDetails: any[] = [];
   selectedPayment: any = null;
+  paymentToVoid: any = null;
   activePanel: 'period' | 'salary' | 'adjustment' | null = null;
   flowAction: 'calculate' | 'review' | 'pay' | 'prepare' = 'calculate';
   prepareView: 'salaries' | 'adjustments' = 'salaries';
@@ -112,6 +114,7 @@ export class PayrollComponent implements OnInit, OnDestroy {
     this.salaryForm = this._fb.group({ employeeId: ['', Validators.required], positionId: ['', Validators.required], branchId: ['', Validators.required], baseSalary: [0, [Validators.required, Validators.min(0.01)]], effectiveFrom: ['', Validators.required], notes: [''] });
     this.generateForm = this._fb.group({ periodId: [''], branchId: [''], periodStart: [''], periodEnd: [''], paymentDate: [''], defaultBonus: [0], defaultDeduction: [0], notes: [''] });
     this.adjustmentForm = this._fb.group({ employeeId: ['', Validators.required], branchId: ['', Validators.required], type: ['B', Validators.required], amount: [0, [Validators.required, Validators.min(0.01)]], adjustmentDate: [''], reason: ['', Validators.required] });
+    this.voidPaymentForm = this._fb.group({ reason: ['', [Validators.required, Validators.minLength(5), Validators.maxLength(255)]] });
     this.generateForm.get('periodId')?.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(() => this.onPeriodChanged());
     this.salaryForm.get('employeeId')?.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(employeeId => this.syncEmployeeBranch(this.salaryForm, employeeId));
     this.adjustmentForm.get('employeeId')?.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(employeeId => this.syncEmployeeBranch(this.adjustmentForm, employeeId));
@@ -244,13 +247,28 @@ export class PayrollComponent implements OnInit, OnDestroy {
       return;
     }
     if (event.action !== 'void') return;
-    const reason = window.prompt('Motivo de anulación');
-    if (!reason) return;
-    this._api.voidPayrollPayment(event.row.id, reason).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: resp => resp.success ? this.refreshAll() : this._toast.error(resp.error?.detail ?? 'No se pudo anular pago.'),
-      error: () => this._toast.error('Error inesperado al anular pago.')
+    this.paymentToVoid = event.row;
+    this.voidPaymentForm.reset();
+  }
+
+  confirmVoidPayment(): void {
+    if (this.voidPaymentForm.invalid || !this.paymentToVoid) return;
+    const reason = this.voidPaymentForm.get('reason')?.value;
+    this._api.voidPayrollPayment(this.paymentToVoid.id, reason).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => {
+        if (!resp.success) {
+          this._toast.error(resp.error?.detail ?? 'No se pudo anular pago.');
+          return;
+        }
+        this.paymentToVoid = null;
+        this.voidPaymentForm.reset();
+        this.refreshAll();
+      },
+      error: error => this._toast.error(this.apiErrorMessage(error, 'Error inesperado al anular pago.'))
     });
   }
+
+  cancelVoidPayment(): void { this.paymentToVoid = null; this.voidPaymentForm.reset(); }
 
   handlePeriodAction(event: { action: string; row: any }): void {
     if (event.action === 'CALCULATED') {
@@ -261,7 +279,7 @@ export class PayrollComponent implements OnInit, OnDestroy {
 
     this._api.updatePayrollPeriodStatus(event.row.id, event.action).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: resp => resp.success ? this.refreshAll() : this._toast.error(resp.error?.detail ?? 'No se pudo actualizar el periodo.'),
-      error: () => this._toast.error('Error inesperado al actualizar periodo.')
+      error: error => this._toast.error(this.apiErrorMessage(error, 'Error inesperado al actualizar periodo.'))
     });
   }
 
@@ -331,4 +349,5 @@ export class PayrollComponent implements OnInit, OnDestroy {
   private decorateConcept(item: any): any { return { ...item, typeLabel: item.type === 'INCOME' ? 'Ingreso' : 'Deducción', statusLabel: this.statusLabel(item.status) }; }
   private decoratePeriod(item: any): any { return { ...item, branchName: item.branchName ?? 'Todas', statusLabel: this.statusLabel(item.status), rangeLabel: `${String(item.dateStart ?? '').slice(0, 10)} / ${String(item.dateEnd ?? '').slice(0, 10)}` }; }
   private decorateDetail(item: any): any { return { ...item, typeLabel: item.type === 'INCOME' ? 'Ingreso' : 'Deducción', amountLabel: `Q ${Number(item.amount ?? 0).toFixed(2)}` }; }
+  private apiErrorMessage(error: any, fallback: string): string { return error?.error?.error?.detail ?? error?.error?.message ?? fallback; }
 }

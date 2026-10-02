@@ -90,6 +90,20 @@
                     <div class="mb-3 text-lg font-bold">Pagos generados</div>
                     <app-table [columns]="paymentColumns" [data]="periodPayments" [actions]="paymentActions" (rowAction)="handlePaymentAction($event)"></app-table>
                 </div>
+                @if (paymentToVoid) {
+                    <form [formGroup]="voidPaymentForm" class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
+                        <div class="mb-3 text-lg font-bold">Anular pago - {{ paymentToVoid.employeeName }}</div>
+                        <mat-form-field class="fuse-mat-dense w-full">
+                            <mat-label>Motivo de anulación</mat-label>
+                            <input matInput formControlName="reason" maxlength="255" />
+                            <mat-error>Ingrese al menos 5 caracteres.</mat-error>
+                        </mat-form-field>
+                        <div class="flex gap-2">
+                            <button mat-flat-button color="warn" type="button" [disabled]="voidPaymentForm.invalid" (click)="confirmVoidPayment()">Anular pago</button>
+                            <button mat-button type="button" (click)="cancelVoidPayment()">Cancelar</button>
+                        </div>
+                    </form>
+                }
                 @if (selectedPayment) {
                     <div class="rounded-2xl border p-4">
                         <div class="mb-3 text-lg font-bold">Detalle de pago - {{ selectedPayment.employeeName }}</div>
