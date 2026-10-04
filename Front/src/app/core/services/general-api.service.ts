@@ -117,6 +117,10 @@ getList(endpoint: string) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/network-availability`, { params });
   }
 
+  getPurchaseRequests() {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/requests`);
+  }
+
   postPurchaseFlow(path: string, data: any) {
     return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/${path}`, data);
   }

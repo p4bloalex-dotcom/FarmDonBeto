@@ -286,7 +286,7 @@ export class SaleComponent implements OnInit, OnDestroy {
       const medicine = this.medicines.find(item => item.id === detail.medicineId);
       const quantity = Number(detail.quantity ?? 0);
       const unitPrice = detail.unitPrice == null || detail.unitPrice === '' ? 0 : Number(detail.unitPrice);
-      if (!medicine) return 'Seleccione medicamentos disponibles para la sucursal.';
+      if (!medicine) return '';
       if (!Number.isFinite(quantity) || quantity <= 0) return 'Ingrese cantidades validas.';
       if (quantity > Number(medicine.availableToPromise ?? 0)) return `La cantidad de ${medicine.name} supera lo disponible (${medicine.availableToPromise}).`;
       if (!Number.isFinite(unitPrice) || unitPrice < 0) return 'Ingrese precios validos.';

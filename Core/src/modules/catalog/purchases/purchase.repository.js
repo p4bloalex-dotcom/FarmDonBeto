@@ -6,6 +6,9 @@ import { calculateReceiptLine, determineInvoiceMatching } from './purchase-flow.
 
 const purchases = () => AppDataSource.getRepository('Purchase');
 const details = () => AppDataSource.getRepository('PurchaseDetail');
+const purchaseOrderMarker = purchaseId => `[PURCHASE_ORDER:${purchaseId}]`;
+
+const appendNote = (notes, addition) => [notes, addition].filter(Boolean).join(' | ').slice(0, 1000);
 
 export class BusinessRuleError extends Error {
   constructor(message) {
@@ -304,11 +307,43 @@ export const createPurchaseRequest = async payload => AppDataSource.transaction(
   return saved.id;
 });
 
-export const listPurchaseRequests = async () => AppDataSource.getRepository('PurchaseRequest')
-  .createQueryBuilder('item')
-  .leftJoin('item.branch', 'branch').addSelect(['branch.id', 'branch.name'])
-  .orderBy('item.createdAt', 'DESC')
-  .getMany();
+export const listPurchaseRequests = async () => {
+  const rows = await AppDataSource.getRepository('PurchaseRequest')
+    .createQueryBuilder('item')
+    .leftJoin('item.branch', 'branch').addSelect(['branch.id', 'branch.name'])
+    .orderBy('item.createdAt', 'DESC')
+    .getMany();
+  const detailRepo = AppDataSource.getRepository('PurchaseRequestDetail');
+  return Promise.all(rows.map(async item => ({
+    id: item.id,
+    requestNumber: item.requestNumber,
+    branchId: item.branchId,
+    branchName: item.branch?.name ?? null,
+    requestDate: item.requestDate,
+    requiredDate: item.requiredDate,
+    priority: item.priority,
+    reason: item.reason,
+    source: item.source,
+    status: item.status,
+    notes: item.notes,
+    createdAt: item.createdAt,
+    details: (await detailRepo.createQueryBuilder('detail')
+      .leftJoin('detail.medicine', 'medicine')
+      .addSelect(['medicine.id', 'medicine.code', 'medicine.name'])
+      .where('detail.requestId = :requestId', { requestId: item.id })
+      .orderBy('detail.id', 'ASC')
+      .getMany()).map(detail => ({
+        id: detail.id,
+        requestId: detail.requestId,
+        branchId: detail.branchId,
+        medicineId: detail.medicineId,
+        medicineName: detail.medicine?.name ?? null,
+        medicineCode: detail.medicine?.code ?? null,
+        requestedQuantity: Number(detail.requestedQuantity ?? 0),
+        suggestedQuantity: Number(detail.suggestedQuantity ?? detail.requestedQuantity ?? 0)
+      }))
+  })));
+};
 
 export const checkNetworkAvailability = async (medicineId, targetBranchId, requestedQuantity) => {
   const runner = AppDataSource.createQueryRunner();
@@ -377,15 +412,108 @@ export const approvePurchase = async (id, { approvedBy = null, comments = null }
   await purchases().update(id, { status: 'APPROVED', approvedBy, approvedAt: new Date(), notes: comments ?? undefined });
 };
 
+const createFulfillmentDeliveryRequests = async (manager, purchase, purchaseDetails) => {
+  const requestRepo = manager.getRepository('PurchaseRequest');
+  const requestDetailRepo = manager.getRepository('PurchaseRequestDetail');
+  const deliveryRepo = manager.getRepository('DeliveryRequest');
+  const deliveryDetailRepo = manager.getRepository('DeliveryRequestDetail');
+  const marker = purchaseOrderMarker(purchase.id);
+  const query = requestRepo.createQueryBuilder('request')
+    .where('request.status = :status', { status: 'ORDERED' })
+    .andWhere('request.notes LIKE :marker', { marker: `%${marker}%` });
+
+  if (purchase.purchaseRequestId) {
+    query.orWhere('request.id = :requestId AND request.status = :status', { requestId: purchase.purchaseRequestId, status: 'ORDERED' });
+  }
+
+  const requests = await query.orderBy('request.id', 'ASC').getMany();
+  if (!requests.length) return [];
+
+  const requestIds = requests.map(request => request.id);
+  const requestDetails = await requestDetailRepo.createQueryBuilder('detail')
+    .where('detail.requestId IN (:...requestIds)', { requestIds })
+    .orderBy('detail.requestId', 'ASC')
+    .addOrderBy('detail.id', 'ASC')
+    .getMany();
+
+  const availableByMedicine = new Map();
+  const unitCostByMedicine = new Map();
+  purchaseDetails.forEach(detail => {
+    const medicineId = Number(detail.medicineId);
+    const accepted = Math.max(0, Number(detail.quantityReceived ?? 0) - Number(detail.quantityRejected ?? 0));
+    availableByMedicine.set(medicineId, (availableByMedicine.get(medicineId) ?? 0) + accepted);
+    if (!unitCostByMedicine.has(medicineId)) unitCostByMedicine.set(medicineId, Number(detail.unitPrice ?? 0));
+  });
+
+  const requestById = new Map(requests.map(request => [request.id, request]));
+  const groups = new Map();
+
+  for (const detail of requestDetails) {
+    const request = requestById.get(detail.requestId);
+    if (!request || Number(request.branchId) === Number(purchase.branchId)) continue;
+
+    const medicineId = Number(detail.medicineId);
+    const available = Number(availableByMedicine.get(medicineId) ?? 0);
+    const requested = Number(detail.requestedQuantity ?? detail.suggestedQuantity ?? 0);
+    const quantity = Math.min(requested, available);
+    if (quantity <= 0) continue;
+
+    availableByMedicine.set(medicineId, available - quantity);
+    const group = groups.get(request.branchId) ?? {
+      requestingBranchId: request.branchId,
+      fulfillmentBranchId: purchase.branchId,
+      requestedAt: new Date(),
+      notes: `Abastecimiento automatico desde compra ${purchase.purchaseNumber ?? `#${purchase.id}`}`,
+      details: []
+    };
+    group.details.push({ medicineId, quantity, unitCost: unitCostByMedicine.get(medicineId) ?? 0 });
+    groups.set(request.branchId, group);
+  }
+
+  const created = [];
+  for (const group of groups.values()) {
+    const saved = await deliveryRepo.save(deliveryRepo.create({
+      requestingBranchId: group.requestingBranchId,
+      fulfillmentBranchId: group.fulfillmentBranchId,
+      requestedAt: group.requestedAt,
+      notes: group.notes,
+      status: 'P'
+    }));
+    await deliveryDetailRepo.save(group.details.map(detail => deliveryDetailRepo.create({ requestId: saved.id, ...detail })));
+    created.push(saved.id);
+  }
+
+  await requestRepo.save(requests.map(request => ({
+    ...request,
+    status: 'FULFILLMENT_REQUESTED',
+    notes: appendNote(request.notes, `Traslado automatico generado desde compra ${purchase.purchaseNumber ?? `#${purchase.id}`}`)
+  })));
+
+  return created;
+};
+
 export const createPurchaseOrder = async payload => AppDataSource.transaction(async manager => {
   const purchaseRepo = manager.getRepository('Purchase');
-  const subtotal = Number(payload.subtotal ?? (payload.details || []).reduce((sum, detail) => sum + (Number(detail.quantityOrdered ?? detail.quantity ?? 0) * Number(detail.unitPrice ?? 0)), 0));
+  const detailsData = payload.details || [];
+  if (!detailsData.length) throw new BusinessRuleError('La orden requiere al menos un producto.');
+
+  for (const [index, detail] of detailsData.entries()) {
+    const quantity = Number(detail.quantityOrdered ?? detail.quantity ?? 0);
+    const unitPrice = Number(detail.unitPrice ?? 0);
+    if (!detail.medicineId) throw new BusinessRuleError(`La linea ${index + 1} no tiene medicamento seleccionado.`);
+    if (!Number.isFinite(quantity) || quantity <= 0) throw new BusinessRuleError(`La cantidad de la linea ${index + 1} debe ser mayor a cero.`);
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new BusinessRuleError(`El precio de la linea ${index + 1} no puede ser negativo.`);
+  }
+
+  const subtotal = Number(payload.subtotal ?? detailsData.reduce((sum, detail) => sum + (Number(detail.quantityOrdered ?? detail.quantity ?? 0) * Number(detail.unitPrice ?? 0)), 0));
   const total = Number(payload.total ?? subtotal - Number(payload.discount ?? 0) + Number(payload.tax ?? 0) + Number(payload.shippingCost ?? 0) + Number(payload.otherCharges ?? 0));
+  if (!Number.isFinite(subtotal) || subtotal < 0) throw new BusinessRuleError('El subtotal de la orden no es valido.');
+  if (!Number.isFinite(total) || total < 0) throw new BusinessRuleError('El total de la orden no es valido.');
   const saved = await purchaseRepo.save(purchaseRepo.create({
     supplierId: payload.supplierId,
     branchId: payload.branchId,
     warehouseId: payload.warehouseId ?? payload.branchId,
-    purchaseRequestId: payload.purchaseRequestId ?? null,
+    purchaseRequestId: payload.purchaseRequestId ?? (Array.isArray(payload.purchaseRequestIds) ? Number(payload.purchaseRequestIds[0] ?? 0) || null : null),
     quotationId: payload.quotationId ?? null,
     purchaseNumber: payload.purchaseNumber || nextNumber('PO'),
     purchaseDate: payload.purchaseDate ? new Date(payload.purchaseDate) : new Date(),
@@ -405,7 +533,7 @@ export const createPurchaseOrder = async payload => AppDataSource.transaction(as
     createdBy: payload.userId ?? null
   }));
   const detailRepo = manager.getRepository('PurchaseDetail');
-  const rows = (payload.details || []).map(detail => {
+  const rows = detailsData.map(detail => {
     const quantity = Number(detail.quantityOrdered ?? detail.quantity ?? 0);
     const lineSubtotal = Number(detail.subtotal ?? quantity * Number(detail.unitPrice ?? 0));
     return detailRepo.create({
@@ -429,10 +557,25 @@ export const createPurchaseOrder = async payload => AppDataSource.transaction(as
     });
   });
   if (rows.length) await detailRepo.save(rows);
+  if (Array.isArray(payload.purchaseRequestIds) && payload.purchaseRequestIds.length) {
+    const marker = purchaseOrderMarker(saved.id);
+    await manager.getRepository('PurchaseRequest')
+      .createQueryBuilder()
+      .update()
+      .set({ status: 'ORDERED', notes: appendNote(payload.notes ?? 'Consolidada en orden de compra', marker) })
+      .where('id IN (:...ids)', { ids: [...new Set(payload.purchaseRequestIds.map(Number).filter(Boolean))] })
+      .execute();
+  }
   return saved.id;
 });
 
 export const receivePurchase = async payload => AppDataSource.transaction(async manager => {
+  const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
+  if (!purchase) throw new BusinessRuleError('La orden de compra indicada no existe.');
+  if (!['APPROVED', 'PARTIALLY_RECEIVED'].includes(purchase.status)) {
+    throw new BusinessRuleError(`La orden no puede recibirse porque esta en estado ${purchase.status}. Debe estar aprobada o parcialmente recibida.`);
+  }
+
   const receiptRepo = manager.getRepository('PurchaseReceipt');
   const receipt = await receiptRepo.save(receiptRepo.create({
     receiptNumber: payload.receiptNumber || nextNumber('REC'),
@@ -446,7 +589,6 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
     status: payload.status || 'RECEIVED',
     notes: payload.notes ?? null
   }));
-  const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
   receipt.branchId = purchase?.branchId ?? payload.branchId ?? null;
   await receiptRepo.save(receipt);
   const detailRepo = manager.getRepository('PurchaseDetail');
@@ -456,10 +598,16 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
   for (const detail of payload.details || []) {
     const purchaseDetail = await detailRepo.findOneBy({ id: detail.purchaseDetailId });
     if (!purchaseDetail) throw new BusinessRuleError('El detalle de orden indicado no existe.');
+    if (Number(purchaseDetail.purchaseId) !== Number(payload.purchaseId)) throw new BusinessRuleError('El detalle seleccionado no pertenece a la orden indicada.');
     const accepted = Number(detail.quantityAccepted ?? 0);
     const rejected = Number(detail.quantityRejected ?? 0);
     const received = Number(detail.quantityReceived ?? accepted + rejected);
-    const receiptLine = calculateReceiptLine({ ordered: purchaseDetail.quantityOrdered ?? purchaseDetail.quantity, alreadyVerified: purchaseDetail.quantityReceived, arrived: received, good: accepted });
+    let receiptLine;
+    try {
+      receiptLine = calculateReceiptLine({ ordered: purchaseDetail.quantityOrdered ?? purchaseDetail.quantity, alreadyVerified: purchaseDetail.quantityReceived, arrived: received, good: accepted });
+    } catch (error) {
+      throw new BusinessRuleError(error.message);
+    }
     if (rejected !== receiptLine.notAccepted) throw new BusinessRuleError('La cantidad no aceptada no coincide con la cantidad que llego menos la cantidad en buen estado.');
     await receiptDetailRepo.save(receiptDetailRepo.create({ ...detail, receiptId: receipt.id, branchId: purchase.branchId, medicineId: purchaseDetail.medicineId, quantityReceived: received, quantityAccepted: accepted, quantityRejected: rejected }));
     purchaseDetail.quantityReceived = receiptLine.verifiedAfter;
@@ -478,16 +626,24 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
   }
   const allDetails = await detailRepo.findBy({ purchaseId: payload.purchaseId });
   const pending = allDetails.reduce((sum, item) => sum + Number(item.quantityPending ?? Math.max(0, Number(item.quantity ?? 0) - Number(item.quantityReceived ?? 0))), 0);
-  await manager.getRepository('Purchase').update(payload.purchaseId, { status: pending > 0 ? 'PARTIALLY_RECEIVED' : 'RECEIVED' });
+  const nextStatus = pending > 0 ? 'PARTIALLY_RECEIVED' : 'RECEIVED';
+  await manager.getRepository('Purchase').update(payload.purchaseId, { status: nextStatus });
+  if (nextStatus === 'RECEIVED') await createFulfillmentDeliveryRequests(manager, { ...purchase, status: nextStatus }, allDetails);
   return receipt.id;
 });
 
 export const registerSupplierInvoice = async payload => AppDataSource.transaction(async manager => {
   const invoiceRepo = manager.getRepository('SupplierInvoice');
+  const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
+  if (!purchase) throw new BusinessRuleError('La orden de compra indicada no existe.');
+  if (Number(purchase.supplierId) !== Number(payload.supplierId)) throw new BusinessRuleError('El proveedor de la factura no coincide con el proveedor de la orden.');
+  if (!['PARTIALLY_RECEIVED', 'RECEIVED', 'DISCREPANCY'].includes(purchase.status)) {
+    throw new BusinessRuleError(`La factura no puede registrarse porque la orden esta en estado ${purchase.status}. Primero debe recibir mercaderia.`);
+  }
+  if (!Number.isFinite(Number(payload.total)) || Number(payload.total) <= 0) throw new BusinessRuleError('El total de factura debe ser mayor a cero.');
   const detailsRows = await manager.getRepository('PurchaseDetail').findBy({ purchaseId: payload.purchaseId });
   const reconciliation = determineInvoiceMatching({ details: detailsRows, invoiceTotal: payload.total, tolerance: payload.tolerance });
   const matchingStatus = reconciliation.matchingStatus;
-  const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
   const saved = await invoiceRepo.save(invoiceRepo.create({ ...payload, branchId: purchase?.branchId ?? payload.branchId ?? null, invoiceDate: payload.invoiceDate ? new Date(payload.invoiceDate) : new Date(), dueDate: payload.dueDate ? new Date(payload.dueDate) : null, matchingStatus, status: matchingStatus === 'MATCHED' ? 'APPROVED' : 'PENDING_APPROVAL' }));
   await manager.getRepository('Purchase').update(payload.purchaseId, { status: matchingStatus === 'MATCHED' ? 'INVOICED' : 'DISCREPANCY' });
   return saved.id;
@@ -495,14 +651,32 @@ export const registerSupplierInvoice = async payload => AppDataSource.transactio
 
 export const createSupplierReturn = async payload => AppDataSource.transaction(async manager => {
   const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
+  if (!purchase) throw new BusinessRuleError('La compra indicada no existe.');
+  if (Number(purchase.supplierId) !== Number(payload.supplierId)) throw new BusinessRuleError('El proveedor de la devolucion no coincide con el proveedor de la compra.');
+  if (!['RECEIVED', 'INVOICED', 'DISCREPANCY'].includes(purchase.status)) {
+    throw new BusinessRuleError(`No se puede devolver producto porque la compra esta en estado ${purchase.status}. Debe estar recibida, facturada o con discrepancia.`);
+  }
+  const quantity = Number(payload.quantity ?? 0);
+  if (!Number.isFinite(quantity) || quantity <= 0) throw new BusinessRuleError('La cantidad a devolver debe ser mayor a cero.');
+  const detailsRows = await manager.getRepository('PurchaseDetail').findBy({ purchaseId: payload.purchaseId, medicineId: payload.medicineId });
+  if (!detailsRows.length) throw new BusinessRuleError('El medicamento indicado no pertenece a la compra seleccionada.');
+  const accepted = detailsRows.reduce((sum, detail) => sum + Math.max(0, Number(detail.quantityReceived ?? 0) - Number(detail.quantityRejected ?? 0)), 0);
+  const rejected = detailsRows.reduce((sum, detail) => sum + Number(detail.quantityRejected ?? 0), 0);
+  if (payload.returnMode === 'notAccepted' && quantity > rejected) {
+    throw new BusinessRuleError(`La cantidad a devolver no puede superar la cantidad no aceptada (${rejected}).`);
+  }
+  if (payload.returnMode !== 'notAccepted' && quantity > accepted) {
+    throw new BusinessRuleError(`La cantidad a devolver no puede superar la cantidad recibida en buen estado (${accepted}).`);
+  }
   const saved = await manager.getRepository('PurchaseReturn').save({ ...payload, branchId: purchase?.branchId ?? payload.branchId ?? null });
   if (payload.returnMode === 'notAccepted') return saved.id;
   const stock = await manager.getRepository('Inventory').findOneBy({ branchId: purchase.branchId, medicineId: payload.medicineId });
-  if (stock) {
-    stock.stockAvailable = Math.max(0, Number(stock.stockAvailable ?? 0) - Number(payload.quantity ?? 0));
-    await manager.getRepository('Inventory').save(stock);
-    await registerKardex(manager, { branchId: purchase.branchId, medicineId: payload.medicineId, movementType: 'SUPPLIER_RETURN', quantityOut: payload.quantity, balanceAfter: Number(stock.stockAvailable ?? 0), referenceType: 'PURCHASE_RETURN', referenceId: saved.id, reason: payload.reason });
-  }
+  if (!stock) throw new BusinessRuleError('No existe inventario para descontar la devolucion.');
+  const nextStock = Number(stock.stockAvailable ?? 0) - quantity;
+  if (nextStock < 0) throw new BusinessRuleError(`Stock insuficiente para devolver ${quantity}. Disponible actual: ${Number(stock.stockAvailable ?? 0)}.`);
+  stock.stockAvailable = nextStock;
+  await manager.getRepository('Inventory').save(stock);
+  await registerKardex(manager, { branchId: purchase.branchId, medicineId: payload.medicineId, movementType: 'SUPPLIER_RETURN', quantityOut: quantity, balanceAfter: Number(stock.stockAvailable ?? 0), referenceType: 'PURCHASE_RETURN', referenceId: saved.id, reason: payload.reason });
   return saved.id;
 });
 

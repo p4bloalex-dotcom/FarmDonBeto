@@ -18,6 +18,8 @@ import { GeneralApiService } from 'app/core/services/general-api.service';
 import { debounceTime, distinctUntilChanged, forkJoin, of, startWith, Subject, takeUntil } from 'rxjs';
 import { PurchaseFormDialogComponent } from './purchase-form-dialog/purchase-form-dialog.component';
 
+type PurchaseFlowAction = 'requests' | 'orders' | 'approvals' | 'receipts' | 'invoices' | 'returns';
+
 @Component({
   selector: 'app-purchase',
 imports: [
@@ -39,7 +41,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   service = 'Purchase';
   isLoading = false;
   dashboard: any = {};
-  flowAction = 'requests';
+  flowAction: PurchaseFlowAction = 'requests';
   branches: any[] = [];
   medicines: any[] = [];
   filteredMedicines: any[] = [];
@@ -49,12 +51,15 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   purchaseDetails: any[] = [];
   selectedOrder: any = null;
   orderLines: any[] = [];
+  purchaseRequests: any[] = [];
+  selectedPurchaseRequestIds: string[] = [];
   replenishmentSuggestions: any[] = [];
   flowForm: any = {
     branchId: null,
     supplierId: null,
     purchaseId: null,
     purchaseDetailId: null,
+    purchaseRequestIds: [],
     medicineId: null,
     quantityReceived: 1,
     quantity: 1,
@@ -69,13 +74,26 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   networkQuery: any = { medicineId: null, branchId: null, quantity: null };
   networkResult: any = null;
   replenishmentLines: any[] = [];
+  purchaseRequestLines: any[] = [];
+  showPurchaseRequestPanel = false;
+  showRecords = false;
+  showManualOrderForm = false;
 
-  flowActions = [
-    { value: 'requests', label: 'Necesito abastecer', icon: 'heroicons_outline:clipboard-document-list' },
-    { value: 'orders', label: 'Crear orden', icon: 'heroicons_outline:shopping-cart' },
-    { value: 'receipts', label: 'Recibir mercaderia', icon: 'heroicons_outline:archive-box-arrow-down' },
-    { value: 'invoices', label: 'Registrar factura', icon: 'heroicons_outline:document-currency-dollar' },
-    { value: 'returns', label: 'Devolver proveedor', icon: 'heroicons_outline:arrow-uturn-left' }
+  flowActions: { value: PurchaseFlowAction; label: string; icon: string }[] = [
+    { value: 'requests', label: 'Necesidad', icon: 'heroicons_outline:clipboard-document-list' },
+    { value: 'orders', label: 'Orden', icon: 'heroicons_outline:shopping-cart' },
+    { value: 'approvals', label: 'Aprobación', icon: 'heroicons_outline:check-circle' },
+    { value: 'receipts', label: 'Recepción', icon: 'heroicons_outline:archive-box-arrow-down' },
+    { value: 'invoices', label: 'Factura', icon: 'heroicons_outline:document-currency-dollar' },
+    { value: 'returns', label: 'Devolución', icon: 'heroicons_outline:arrow-uturn-left' }
+  ];
+  flowSteps: { action: PurchaseFlowAction; phase: string; title: string; status: string; description: string }[] = [
+    { action: 'requests', phase: 'Fase 1', title: 'Detectar', status: 'NEED', description: 'Validar stock en red.' },
+    { action: 'orders', phase: 'Fase 2', title: 'Ordenar', status: 'PENDING_APPROVAL', description: 'Armar y aprobar la orden.' },
+    { action: 'approvals', phase: 'Fase 3', title: 'Aprobar', status: 'APPROVED', description: 'Autorizar compra.' },
+    { action: 'receipts', phase: 'Fase 4', title: 'Recibir', status: 'PARTIALLY_RECEIVED / RECEIVED', description: 'Validar lotes y cantidades.' },
+    { action: 'invoices', phase: 'Fase 5', title: 'Facturar', status: 'INVOICED / DISCREPANCY', description: 'Conciliar contra lo aceptado.' },
+    { action: 'returns', phase: 'Fase 6', title: 'Devolver', status: 'RETURN', description: 'Gestionar reclamos al proveedor.' }
   ];
 
   actions: TableAction[] = [
@@ -105,6 +123,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadCombos();
     this.loadDashboard();
+    this.loadPurchaseRequests();
     this.loadReplenishmentSuggestions();
     this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
     this.searchInputControl.valueChanges
@@ -143,6 +162,13 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     this._generalApi.getReplenishmentSuggestions().pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: resp => { if (resp.success) this.replenishmentSuggestions = resp.data ?? []; },
       error: () => { this.replenishmentSuggestions = []; }
+    });
+  }
+
+  loadPurchaseRequests(): void {
+    this._generalApi.getPurchaseRequests().pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => { this.purchaseRequests = resp.success ? (resp.data ?? []).map(item => this.decoratePurchaseRequest(item)) : []; },
+      error: () => { this.purchaseRequests = []; }
     });
   }
 
@@ -221,10 +247,85 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         this.networkResult = null;
         this.replenishmentLines = [];
         this.networkQuery = { medicineId: null, branchId: this.networkQuery.branchId, quantity: null };
+        this.flowAction = 'orders';
+        this.finishLoad();
         this.loadDashboard();
+        this.loadPurchaseRequests();
         this.loadReplenishmentSuggestions();
       },
       error: () => this.finishLoad('Error inesperado al registrar el abastecimiento.')
+    });
+  }
+
+  addPurchaseRequestLine(): void {
+    if (!this.networkResult || Number(this.networkResult.pendingExternalPurchase ?? 0) <= 0) {
+      this.invalidFlow('No hay cantidad pendiente para solicitar compra a matriz.');
+      return;
+    }
+    const medicineId = this.networkQuery.medicineId;
+    const branchId = this.networkQuery.branchId;
+    const quantity = Number(this.networkResult.pendingExternalPurchase ?? 0);
+    if (!medicineId || !branchId || quantity <= 0) {
+      this.invalidFlow('Seleccione medicamento, sucursal y cantidad para solicitar compra.');
+      return;
+    }
+    const medicine = this.medicines.find(item => Number(item.id) === Number(medicineId));
+    const branch = this.branches.find(item => Number(item.id) === Number(branchId));
+    const line = {
+      branchId,
+      branchName: branch?.name ?? `Sucursal #${branchId}`,
+      medicineId,
+      medicineName: this.medicineOptionLabel(medicine) || `Medicamento #${medicineId}`,
+      requestedQuantity: quantity
+    };
+    const existingIndex = this.purchaseRequestLines.findIndex(item => Number(item.branchId) === Number(branchId) && Number(item.medicineId) === Number(medicineId));
+    if (existingIndex >= 0) this.purchaseRequestLines[existingIndex] = line;
+    else this.purchaseRequestLines.push(line);
+    this.networkResult = null;
+    this.networkQuery.medicineId = null;
+    this.networkQuery.quantity = null;
+  }
+
+  removePurchaseRequestLine(index: number): void {
+    this.purchaseRequestLines.splice(index, 1);
+  }
+
+  requestPurchaseToMain(): void {
+    if (this.networkResult && Number(this.networkResult.pendingExternalPurchase ?? 0) > 0) {
+      this.addPurchaseRequestLine();
+    }
+    if (this.purchaseRequestLines.length === 0) {
+      this.invalidFlow('Agregue al menos un medicamento para solicitar compra a matriz.');
+      return;
+    }
+    const branchIds = [...new Set(this.purchaseRequestLines.map(line => Number(line.branchId)).filter(Boolean))];
+    if (branchIds.length !== 1) {
+      this.invalidFlow('La solicitud a matriz debe contener medicamentos de una misma sucursal.');
+      return;
+    }
+    const branchId = branchIds[0];
+    this.isLoading = true;
+    this._generalApi.postPurchaseFlow('requests', {
+      branchId,
+      priority: 'NORMAL',
+      reason: this.flowForm.reason || 'Solicitud de compra a matriz por falta de stock interno',
+      source: 'NET_REPLENISH',
+      details: this.purchaseRequestLines.map(line => ({ medicineId: line.medicineId, requestedQuantity: line.requestedQuantity }))
+    }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => {
+        if (!resp.success) {
+          this.finishLoad(resp.error?.detail ?? 'No se pudo solicitar compra a matriz.');
+          return;
+        }
+        this._toast.success('Solicitud de compra enviada a matriz.');
+        this.networkResult = null;
+        this.purchaseRequestLines = [];
+        this.networkQuery = { medicineId: null, branchId, quantity: null };
+        this.finishLoad();
+        this.loadPurchaseRequests();
+        this.loadReplenishmentSuggestions();
+      },
+      error: () => this.finishLoad('Error inesperado al solicitar compra a matriz.')
     });
   }
 
@@ -233,7 +334,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     const line = this.currentReplenishmentLine();
     if (!line) return;
     if (!line.transfers.length) {
-      this._toast.error('Este medicamento requiere compra externa. Cree una orden de compra.');
+      this._toast.error('Este medicamento requiere compra. Cree una orden de compra.');
       return;
     }
     const existingIndex = this.replenishmentLines.findIndex(item => item.branchId === line.branchId && item.medicineId === line.medicineId);
@@ -273,6 +374,126 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     this.networkResult = null;
   }
 
+  pendingPurchaseRequestLines(): any[] {
+    return this.purchaseRequests
+      .filter(request => ['SUBMITTED', 'PENDING', 'DRAFT'].includes(request.status ?? 'SUBMITTED'))
+      .flatMap(request => (request.details ?? []).map(detail => ({
+        ...detail,
+        requestId: request.id,
+        branchId: request.branchId,
+        branchName: request.branchName,
+        requestNumber: request.requestNumber,
+        requestedAt: request.requestDate ?? request.createdAt,
+        requestedQuantity: Number(detail.requestedQuantity ?? detail.quantity ?? 0),
+        selectedKey: `${request.id}-${detail.medicineId ?? detail.medicine_id}`
+      })));
+  }
+
+  supplierPendingRequestLines(): any[] {
+    const supplierId = Number(this.flowForm.supplierId ?? 0);
+    if (!supplierId) return this.pendingPurchaseRequestLines();
+    const medicineIds = new Set(this.supplierMedicines
+      .filter(item => Number(item.supplierId ?? item.supplier_id) === supplierId)
+      .map(item => Number(item.medicineId ?? item.medicine_id)));
+    return this.pendingPurchaseRequestLines().filter(line => medicineIds.has(Number(line.medicineId ?? line.medicine_id)));
+  }
+
+  pendingSupplierGroups(): any[] {
+    const groups = new Map<number, any>();
+    this.pendingPurchaseRequestLines().forEach(line => {
+      const medicineId = Number(line.medicineId ?? line.medicine_id);
+      this.supplierMedicines
+        .filter(item => Number(item.medicineId ?? item.medicine_id) === medicineId)
+        .forEach(item => {
+          const supplierId = Number(item.supplierId ?? item.supplier_id);
+          if (!supplierId) return;
+          const supplier = this.suppliers.find(s => Number(s.id) === supplierId);
+          const group = groups.get(supplierId) ?? { supplierId, supplierName: supplier?.name ?? `Proveedor #${supplierId}`, lines: [], medicines: new Set<number>(), branches: new Set<string>(), totalQuantity: 0 };
+          group.lines.push(line);
+          group.medicines.add(medicineId);
+          group.branches.add(line.branchName ?? 'Sucursal');
+          group.totalQuantity += Number(line.requestedQuantity ?? 0);
+          groups.set(supplierId, group);
+        });
+    });
+    return Array.from(groups.values()).map(group => ({ ...group, medicinesCount: group.medicines.size, branchesCount: group.branches.size }));
+  }
+
+  togglePurchaseRequestLine(line: any): void {
+    const key = line.selectedKey;
+    this.selectedPurchaseRequestIds = this.selectedPurchaseRequestIds.includes(key)
+      ? this.selectedPurchaseRequestIds.filter(item => item !== key)
+      : [...this.selectedPurchaseRequestIds, key];
+  }
+
+  isPurchaseRequestLineSelected(line: any): boolean {
+    return this.selectedPurchaseRequestIds.includes(line.selectedKey);
+  }
+
+  useSelectedPurchaseRequests(): void {
+    const selected = this.supplierPendingRequestLines().filter(line => this.isPurchaseRequestLineSelected(line));
+    if (!selected.length) {
+      this.invalidFlow('Seleccione al menos una solicitud pendiente.');
+      return;
+    }
+    const supplierId = Number(this.flowForm.supplierId ?? 0);
+    if (!supplierId) {
+      this.invalidFlow('Seleccione proveedor para consolidar solicitudes.');
+      return;
+    }
+    this.consolidatePurchaseRequestLines(selected);
+  }
+
+  usePurchaseRequestGroup(group: any): void {
+    this.flowForm.supplierId = group.supplierId;
+    this.selectedPurchaseRequestIds = group.lines.map((line: any) => line.selectedKey);
+    this.consolidatePurchaseRequestLines(group.lines ?? []);
+  }
+
+  private consolidatePurchaseRequestLines(selected: any[]): void {
+    if (!selected.length) {
+      this.invalidFlow('Seleccione al menos una solicitud pendiente.');
+      return;
+    }
+    const mainBranch = this.mainBranch();
+    if (!mainBranch) {
+      this.invalidFlow('No hay sucursal matriz activa para recibir la orden.');
+      return;
+    }
+    const grouped = new Map<number, any>();
+    selected.forEach(line => {
+      const medicineId = Number(line.medicineId ?? line.medicine_id);
+      const medicine = this.medicines.find(item => Number(item.id) === medicineId);
+      const current = grouped.get(medicineId) ?? {
+        medicineId,
+        medicineName: this.medicineOptionLabel(medicine) || line.medicineName || `Medicamento #${medicineId}`,
+        quantityOrdered: 0,
+        unitPrice: Number(medicine?.priceBuy ?? medicine?.price_buy ?? 0),
+        subtotal: 0,
+        sourceBranches: []
+      };
+      current.quantityOrdered += Number(line.requestedQuantity ?? 0);
+      current.subtotal = current.quantityOrdered * current.unitPrice;
+      current.sourceBranches.push(`${line.branchName ?? 'Sucursal'}: ${Number(line.requestedQuantity ?? 0)}`);
+      grouped.set(medicineId, current);
+    });
+    this.flowForm.branchId = mainBranch.id;
+    this.flowForm.purchaseRequestIds = [...new Set(selected.map(line => Number(line.requestId)).filter(Boolean))];
+    this.orderLines = Array.from(grouped.values());
+    this.showPurchaseRequestPanel = false;
+    this.showManualOrderForm = false;
+    this._toast.success('Solicitudes consolidadas en la orden. Revise cantidades y precios antes de crearla.');
+  }
+
+  mainBranch(): any {
+    return this.branches.find(item => Number(item.isMain ?? item.is_main ?? 0) === 1) ?? null;
+  }
+
+  selectedSupplierName(): string {
+    const supplier = this.suppliers.find(item => Number(item.id) === Number(this.flowForm.supplierId));
+    return supplier?.name ?? 'Proveedor';
+  }
+
   canReviewNetwork(): boolean {
     return !!this.networkQuery.medicineId && !!this.networkQuery.branchId && Number(this.networkQuery.quantity ?? 0) > 0;
   }
@@ -287,8 +508,14 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     return 'Solicitar compra';
   }
 
-  selectFlowAction(action: string): void {
+  selectFlowAction(action: PurchaseFlowAction): void {
+    if (this.stepState(this.flowSteps.find(step => step.action === action)) === 'locked') {
+      this._toast.error('Complete el paso anterior antes de continuar.');
+      return;
+    }
     this.flowAction = action;
+    this.showPurchaseRequestPanel = action === 'orders' && this.pendingPurchaseRequestLines().length > 0;
+    this.showManualOrderForm = action === 'orders' && this.pendingPurchaseRequestLines().length === 0;
     this.networkResult = null;
     this.purchaseDetails = [];
     this.selectedOrder = null;
@@ -338,7 +565,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   onOrderMedicineSelected(medicineId: number): void {
     if (this.flowAction !== 'orders' || !medicineId) return;
     const medicine = this.medicines.find(item => Number(item.id) === Number(medicineId));
-    if (medicine && Number(this.flowForm.unitPrice ?? 0) === 0) {
+    if (medicine) {
       this.flowForm.unitPrice = Number(medicine.priceBuy ?? medicine.price_buy ?? 0);
     }
     if (this.flowForm.supplierId) return;
@@ -394,6 +621,113 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     return this.flowActions.find(action => action.value === this.flowAction) ?? this.flowActions[0];
   }
 
+  get primaryActionLabel(): string {
+    if (this.flowAction === 'requests') return 'Registrar solicitud';
+    if (this.flowAction === 'orders') return 'Crear orden completa';
+    if (this.flowAction === 'approvals') return 'Aprobar orden';
+    return this.selectedFlow.label;
+  }
+
+  get phaseSummary(): string {
+    const labels: Record<PurchaseFlowAction, string> = {
+      requests: 'Revise stock interno y solicite traslado o compra a matriz.',
+      orders: 'Consolide solicitudes o agregue productos para crear una orden.',
+      approvals: 'Revise y autorice la orden antes de recibir mercaderia.',
+      receipts: 'Registre cantidades recibidas, aceptadas, lote y vencimiento.',
+      invoices: 'Concilie la factura contra lo recibido en buen estado.',
+      returns: 'Use devolucion solo si existe producto a reclamar al proveedor.'
+    };
+    return labels[this.flowAction];
+  }
+
+  hasContextPanel(): boolean {
+    return !!this.selectedOrder
+      || !!this.selectedDetail()
+      || (this.flowAction === 'requests' && (!!this.networkResult || this.replenishmentSuggestions.length > 0 || this.replenishmentLines.length > 0 || this.purchaseRequestLines.length > 0));
+  }
+
+  get currentPhase(): any {
+    return this.flowSteps.find(step => step.action === this.flowAction) ?? this.flowSteps[0];
+  }
+
+  get nextStepLabel(): string {
+    const index = this.flowSteps.findIndex(step => step.action === this.flowAction);
+    const next = this.flowSteps[index + 1];
+    return next ? `Siguiente: ${next.title}` : 'Cierre del flujo';
+  }
+
+  get purchaseFlowHint(): string {
+    const hints: Record<PurchaseFlowAction, string> = {
+      requests: '',
+      orders: '',
+      approvals: '',
+      receipts: '',
+      invoices: '',
+      returns: ''
+    };
+    return hints[this.flowAction];
+  }
+
+  stepState(step?: { action: PurchaseFlowAction }): 'done' | 'active' | 'available' | 'locked' {
+    if (!step) return 'locked';
+    if (step.action === this.flowAction) return 'active';
+    const stepIndex = this.flowSteps.findIndex(item => item.action === step.action);
+    const currentIndex = this.flowSteps.findIndex(item => item.action === this.flowAction);
+    if (stepIndex < currentIndex) return 'done';
+    if (step.action === 'approvals' && this.availablePurchaseOrdersFor('approvals').length === 0) return 'locked';
+    if (step.action === 'receipts' && this.availablePurchaseOrdersFor('receipts').length === 0) return 'locked';
+    if (step.action === 'invoices' && this.availablePurchaseOrdersFor('invoices').length === 0) return 'locked';
+    if (step.action === 'returns' && this.availablePurchaseOrdersFor('returns').length === 0) return 'locked';
+    return 'available';
+  }
+
+  canSubmitCurrentStep(): boolean {
+    const quantity = Number(this.flowForm.quantity ?? 0);
+    if (this.flowAction === 'requests') return this.replenishmentLines.length > 0 || !!this.networkResult?.suggestions?.length;
+    if (this.flowAction === 'orders') return !!this.flowForm.branchId && !!this.flowForm.supplierId && this.orderLines.length > 0;
+    if (this.flowAction === 'approvals') return !!this.flowForm.purchaseId && this.selectedOrder?.status === 'PENDING_APPROVAL';
+    if (this.flowAction === 'receipts') return !!this.flowForm.purchaseId && !!this.flowForm.purchaseDetailId && Number(this.flowForm.quantityReceived ?? 0) > 0 && !!this.flowForm.batchNumber && !!this.flowForm.expirationDate;
+    if (this.flowAction === 'invoices') return !!this.flowForm.purchaseId && !!this.flowForm.supplierId && !!this.flowForm.invoiceNumber && Number(this.flowForm.total ?? 0) > 0;
+    if (this.flowAction === 'returns') return !!this.flowForm.purchaseId && !!this.flowForm.supplierId && !!this.flowForm.medicineId && quantity > 0 && quantity <= this.returnableQuantity() && !!this.flowForm.reason;
+    return false;
+  }
+
+  submitCurrentStep(): void {
+    if (this.flowAction === 'requests') {
+      this.submitReplenishment();
+      return;
+    }
+    if (this.flowAction === 'approvals') {
+      this.approveFlowOrder();
+      return;
+    }
+    this.submitFlow();
+  }
+
+  approveFlowOrder(): void {
+    if (!this.canSubmitCurrentStep()) {
+      this.invalidFlow('Seleccione una orden pendiente de aprobacion.');
+      return;
+    }
+    this.isLoading = true;
+    this._generalApi.approvePurchaseOrder(this.flowForm.purchaseId, 'Aprobado desde flujo lineal de compras').pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => {
+        if (!resp.success) {
+          this.finishLoad(resp.error?.detail ?? 'No se pudo aprobar la orden.');
+          return;
+        }
+        this._toast.success('Orden aprobada. Ya puede recibir mercaderia.');
+        this.flowAction = 'receipts';
+        this.flowForm.purchaseId = null;
+        this.selectedOrder = null;
+        this.purchaseDetails = [];
+        this.loadDashboard();
+        this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
+      },
+      error: () => this.finishLoad('Error inesperado al aprobar la orden.')
+    });
+  }
+
   submitFlow(): void {
     const payload = this.buildFlowPayload();
     if (!payload) return;
@@ -404,8 +738,14 @@ export class PurchaseComponent implements OnInit, OnDestroy {
           this.finishLoad(resp.error?.detail ?? 'No se pudo completar la operacion.');
           return;
         }
+        const completedAction = this.flowAction;
         this._toast.success(resp.message ?? 'Operacion registrada.');
-        if (this.flowAction === 'orders') this.orderLines = [];
+        if (completedAction === 'orders') {
+          this.orderLines = [];
+          this.selectedPurchaseRequestIds = [];
+          this.flowForm.purchaseRequestIds = [];
+        }
+        this.advanceAfterSubmit(completedAction);
         this.loadDashboard();
         this.loadReplenishmentSuggestions();
         if (this.flowForm.purchaseId) this.refreshSelectedOrder();
@@ -426,7 +766,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     if (this.flowAction === 'orders') {
       if (!form.branchId || !form.supplierId) return this.invalidFlow('Seleccione sucursal destino y proveedor.');
       if (this.orderLines.length === 0) return this.invalidFlow('Agregue al menos un medicamento a la orden.');
-      return { branchId: form.branchId, supplierId: form.supplierId, subtotal: this.orderSubtotal(), total: this.orderSubtotal(), details: this.orderLines };
+      return { branchId: form.branchId, supplierId: form.supplierId, purchaseRequestIds: form.purchaseRequestIds ?? [], subtotal: this.orderSubtotal(), total: this.orderSubtotal(), details: this.orderLines };
     }
     if (this.flowAction === 'receipts') {
       const received = Number(form.quantityReceived ?? 0);
@@ -498,7 +838,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
           return;
         }
         this.filteredData = (resp.data?.data ?? []).map(item => this.decorateRow(item));
-        this.purchaseOrders = this.filteredData.filter(item => ['APPROVED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'INVOICED', 'DISCREPANCY'].includes(item.status));
+        this.purchaseOrders = this.filteredData.filter(item => ['PENDING_APPROVAL', 'APPROVED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'INVOICED', 'DISCREPANCY'].includes(item.status));
         this.totalItems = resp.data?.meta?.totalItemCount ?? 0;
         this.pagedData = this.filteredData;
         this.applySinglePurchaseOrderDefault();
@@ -591,6 +931,10 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         const stillPending = this.purchaseDetails.find(item => item.id === currentDetailId);
         this.flowForm.purchaseDetailId = stillPending?.id ?? null;
         if (stillPending) this.onPurchaseDetailSelected(stillPending.id);
+        if (this.flowAction === 'receipts' && this.receiptProgress().pending === 0) {
+          this.flowAction = 'invoices';
+          this.flowForm.purchaseDetailId = null;
+        }
       }
     });
   }
@@ -629,6 +973,30 @@ export class PurchaseComponent implements OnInit, OnDestroy {
       totalLabel: `Q ${numberFormat(item.total ?? item.subtotal)}`,
       statusLabel: this.statusLabel(item.status)
     };
+  }
+
+  private decoratePurchaseRequest(item: any): any {
+    return {
+      ...item,
+      branchId: item.branchId ?? item.branch_id,
+      branchName: item.branchName ?? item.branch?.name ?? '-',
+      requestNumber: item.requestNumber ?? item.request_number ?? `REQ-${item.id}`,
+      status: item.status ?? 'SUBMITTED',
+      statusLabel: this.purchaseRequestStatusLabel(item.status ?? 'SUBMITTED'),
+      details: item.details ?? []
+    };
+  }
+
+  private purchaseRequestStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      DRAFT: 'Borrador',
+      SUBMITTED: 'Pendiente',
+      PENDING: 'Pendiente',
+      ORDERED: 'Orden generada',
+      FULFILLMENT_REQUESTED: 'Traslado generado',
+      CANCELLED: 'Cancelada'
+    };
+    return labels[status] ?? status ?? '-';
   }
 
   private statusLabel(status: string): string {
@@ -709,6 +1077,20 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     return { total, completed, pending: Math.max(0, total - completed) };
   }
 
+  selectedOrderLines(): any[] {
+    return this.selectedOrder?.details ?? this.purchaseDetails ?? [];
+  }
+
+  selectedOrderSummary(): { items: number; ordered: number; received: number; pending: number } {
+    const details = this.selectedOrderLines();
+    return {
+      items: details.length,
+      ordered: details.reduce((sum, detail) => sum + this.detailOrdered(detail), 0),
+      received: details.reduce((sum, detail) => sum + this.detailReceived(detail), 0),
+      pending: details.reduce((sum, detail) => sum + this.detailPending(detail), 0)
+    };
+  }
+
   orderedTotal(): number {
     const details = this.selectedOrder?.details ?? [];
     return details.reduce((sum, detail) => sum + (this.detailOrdered(detail) * Number(detail.unitPrice ?? 0)), 0);
@@ -759,13 +1141,28 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   }
 
   availablePurchaseOrders(): any[] {
+    return this.availablePurchaseOrdersFor(this.flowAction);
+  }
+
+  private availablePurchaseOrdersFor(action: PurchaseFlowAction): any[] {
     const allowed: Record<string, string[]> = {
       receipts: ['APPROVED', 'PARTIALLY_RECEIVED'],
+      approvals: ['PENDING_APPROVAL'],
       invoices: ['PARTIALLY_RECEIVED', 'RECEIVED', 'DISCREPANCY'],
       returns: ['RECEIVED', 'INVOICED', 'DISCREPANCY']
     };
-    const statuses = allowed[this.flowAction] ?? [];
+    const statuses = allowed[action] ?? [];
     return this.purchaseOrders.filter(item => statuses.includes(item.status));
+  }
+
+  private advanceAfterSubmit(action: PurchaseFlowAction): void {
+    if (action === 'orders') {
+      this.flowAction = 'approvals';
+      return;
+    }
+    if (action === 'receipts') {
+      this.flowAction = 'receipts';
+    }
   }
 
   private filterDetailsForCurrentStep(details: any[]): any[] {
@@ -799,7 +1196,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   }
 
   private applySinglePurchaseOrderDefault(): void {
-    if (!['receipts', 'invoices', 'returns'].includes(this.flowAction) || this.flowForm.purchaseId) return;
+    if (!['approvals', 'receipts', 'invoices', 'returns'].includes(this.flowAction) || this.flowForm.purchaseId) return;
     const orders = this.availablePurchaseOrders();
     if (orders.length === 1) {
       this.flowForm.purchaseId = orders[0].id;

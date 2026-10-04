@@ -52,7 +52,15 @@ const findEnabled = async (name, id) => AppDataSource.getRepository(name).findOn
 
 const isMainBranchUser = async req => {
   const userBranchId = Number(req.user?.branchId ?? req.user?.branch_id ?? 0);
+  if (req.user?.branchIsMain) return true;
   if (!userBranchId) return true;
+  if (req.permissionName && req.user?.role) {
+    const permission = await AppDataSource.getRepository('Permission').findOneBy({ name: req.permissionName });
+    if (permission) {
+      const rolePermission = await AppDataSource.getRepository('RolePermission').findOneBy({ idRole: req.user.role, idPermission: permission.id });
+      if (rolePermission?.isGlobal) return true;
+    }
+  }
   const branch = await AppDataSource.getRepository('Branch').findOneBy({ id: userBranchId, status: 'E' });
   return Number(branch?.isMain ?? 0) === 1;
 };
@@ -123,6 +131,36 @@ const buildCashMovement = async (payload, supplier) => {
 
 const editableStatuses = ['E', 'DRAFT'];
 const deletableStatuses = ['E', 'DRAFT', 'PENDING_APPROVAL'];
+const receivableStatuses = ['APPROVED', 'PARTIALLY_RECEIVED'];
+const invoiceableStatuses = ['PARTIALLY_RECEIVED', 'RECEIVED', 'DISCREPANCY'];
+const returnableStatuses = ['RECEIVED', 'INVOICED', 'DISCREPANCY'];
+
+const validatePurchaseOrderData = async payload => {
+  const supplier = await findEnabled('Supplier', payload.supplierId);
+  if (!supplier) return { ok: false, message: 'El proveedor seleccionado no existe o esta desactivado.' };
+
+  const branch = await findEnabled('Branch', payload.branchId);
+  if (!branch) return { ok: false, message: 'La sucursal destino no existe o esta desactivada.' };
+  if (Number(branch.isMain ?? 0) !== 1) return { ok: false, message: 'La orden de compra debe registrarse para la sucursal matriz.' };
+
+  const details = Array.isArray(payload.details) ? payload.details : [];
+  if (details.length === 0) return { ok: false, message: 'La orden requiere al menos un producto.' };
+
+  const medicineRepository = AppDataSource.getRepository('Medicine');
+  for (const [index, detail] of details.entries()) {
+    const medicineId = Number(detail.medicineId ?? detail.medicine_id ?? 0);
+    const quantity = Number(detail.quantityOrdered ?? detail.quantity ?? 0);
+    const unitPrice = Number(detail.unitPrice ?? detail.unit_price ?? 0);
+    if (!medicineId) return { ok: false, message: `La linea ${index + 1} no tiene medicamento seleccionado.` };
+    if (!Number.isFinite(quantity) || quantity <= 0) return { ok: false, message: `La cantidad de la linea ${index + 1} debe ser mayor a cero.` };
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) return { ok: false, message: `El precio de la linea ${index + 1} no puede ser negativo.` };
+
+    const medicine = await medicineRepository.findOneBy({ id: medicineId, status: 'E' });
+    if (!medicine) return { ok: false, message: `El medicamento con ID ${medicineId} no existe o esta desactivado.` };
+  }
+
+  return { ok: true };
+};
 
 export const addPurchase = async (req, res) => {
   const { ok: valid, message, supplier } = await validatePharmacyData(req.body, null, true);
@@ -246,6 +284,10 @@ const bodyWithUser = req => ({ ...req.body, userId: req.user?.id ?? req.user?.us
 
 export const addPurchaseRequest = async (req, res) => {
   if (!req.body.branchId || !Array.isArray(req.body.details) || req.body.details.length === 0) return badRequest(res, 'La solicitud requiere sucursal y al menos un producto.');
+  const userBranchId = Number(req.user?.branchId ?? req.user?.branch_id ?? 0);
+  if (userBranchId && !(await isMainBranchUser(req)) && Number(req.body.branchId) !== userBranchId) {
+    return conflict(res, 'Solo puede solicitar abastecimiento para su propia sucursal.');
+  }
   try {
     const id = await createPurchaseRequest(bodyWithUser(req));
     return created(res, { id }, 'Solicitud de compra registrada.');
@@ -268,8 +310,15 @@ export const getNetworkAvailability = async (req, res) => {
 export const addPurchaseOrder = async (req, res) => {
   if (!req.body.supplierId || !req.body.branchId || !Array.isArray(req.body.details) || req.body.details.length === 0) return badRequest(res, 'La orden requiere proveedor, destino y al menos un producto.');
   if (!(await isMainBranchUser(req))) return conflict(res, 'Solo la sucursal matriz puede crear ordenes de compra a proveedor. Las sucursales deben crear solicitudes de abastecimiento.');
-  const id = await createPurchaseOrder(bodyWithUser(req));
-  return created(res, { id }, 'Orden de compra generada sin afectar inventario.');
+  const { ok: valid, message } = await validatePurchaseOrderData(req.body);
+  if (!valid) return badRequest(res, message);
+  try {
+    const id = await createPurchaseOrder(bodyWithUser(req));
+    return created(res, { id }, 'Orden de compra generada sin afectar inventario.');
+  } catch (error) {
+    if (error instanceof BusinessRuleError) return badRequest(res, error.message);
+    throw error;
+  }
 };
 
 export const approvePurchaseOrder = async (req, res) => {
@@ -284,6 +333,9 @@ export const approvePurchaseOrder = async (req, res) => {
 
 export const addPurchaseReceipt = async (req, res) => {
   if (!req.body.purchaseId || !Array.isArray(req.body.details) || req.body.details.length === 0) return badRequest(res, 'La recepcion requiere orden y detalle.');
+  const purchase = await findPurchaseById(Number(req.body.purchaseId));
+  if (!purchase) return notFound(res, 'La orden de compra indicada no existe.');
+  if (!receivableStatuses.includes(purchase.status)) return conflict(res, `La orden no puede recibirse porque esta en estado ${purchase.status}. Debe estar aprobada o parcialmente recibida.`);
   try {
     const id = await receivePurchase(bodyWithUser(req));
     return created(res, { id }, 'Recepcion registrada. Solo cantidades aceptadas ingresaron al inventario.');
@@ -295,14 +347,34 @@ export const addPurchaseReceipt = async (req, res) => {
 
 export const addSupplierInvoice = async (req, res) => {
   if (!req.body.supplierId || !req.body.purchaseId || !req.body.invoiceNumber) return badRequest(res, 'La factura requiere proveedor, orden y numero de factura.');
-  const id = await registerSupplierInvoice(bodyWithUser(req));
-  return created(res, { id }, 'Factura registrada y conciliada contra orden/recepcion.');
+  const purchase = await findPurchaseById(Number(req.body.purchaseId));
+  if (!purchase) return notFound(res, 'La orden de compra indicada no existe.');
+  if (Number(purchase.supplierId) !== Number(req.body.supplierId)) return conflict(res, 'El proveedor de la factura no coincide con el proveedor de la orden.');
+  if (!invoiceableStatuses.includes(purchase.status)) return conflict(res, `La factura no puede registrarse porque la orden esta en estado ${purchase.status}. Primero debe recibir mercaderia.`);
+  if (!Number.isFinite(Number(req.body.total)) || Number(req.body.total) <= 0) return badRequest(res, 'El total de factura debe ser mayor a cero.');
+  try {
+    const id = await registerSupplierInvoice(bodyWithUser(req));
+    return created(res, { id }, 'Factura registrada y conciliada contra orden/recepcion.');
+  } catch (error) {
+    if (error instanceof BusinessRuleError) return badRequest(res, error.message);
+    throw error;
+  }
 };
 
 export const addPurchaseReturn = async (req, res) => {
   if (!req.body.supplierId || !req.body.purchaseId || !req.body.medicineId || !req.body.quantity || !req.body.reason) return badRequest(res, 'La devolucion requiere proveedor, compra, producto, cantidad y motivo.');
-  const id = await createSupplierReturn(bodyWithUser(req));
-  return created(res, { id }, 'Devolucion a proveedor registrada.');
+  const purchase = await findPurchaseById(Number(req.body.purchaseId));
+  if (!purchase) return notFound(res, 'La compra indicada no existe.');
+  if (Number(purchase.supplierId) !== Number(req.body.supplierId)) return conflict(res, 'El proveedor de la devolucion no coincide con el proveedor de la compra.');
+  if (!returnableStatuses.includes(purchase.status)) return conflict(res, `No se puede devolver producto porque la compra esta en estado ${purchase.status}. Debe estar recibida, facturada o con discrepancia.`);
+  if (!Number.isFinite(Number(req.body.quantity)) || Number(req.body.quantity) <= 0) return badRequest(res, 'La cantidad a devolver debe ser mayor a cero.');
+  try {
+    const id = await createSupplierReturn(bodyWithUser(req));
+    return created(res, { id }, 'Devolucion a proveedor registrada.');
+  } catch (error) {
+    if (error instanceof BusinessRuleError) return badRequest(res, error.message);
+    throw error;
+  }
 };
 
 export const getPurchaseDashboard = async (_req, res) => ok(res, await purchaseDashboard());

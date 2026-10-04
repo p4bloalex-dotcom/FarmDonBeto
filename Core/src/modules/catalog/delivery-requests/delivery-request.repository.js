@@ -145,10 +145,42 @@ const transitions = {
   C: []
 };
 
+const resolveDeliveryActionScope = async () => {
+  const store = getRequestContext();
+  if (!store?.user?.id) return null;
+  if (store.user.branchIsMain) return null;
+  if (store.permissionName && store.user.role) {
+    const permission = await AppDataSource.getRepository('Permission').findOneBy({ name: store.permissionName });
+    if (permission) {
+      const rolePermission = await AppDataSource.getRepository('RolePermission').findOneBy({ idRole: store.user.role, idPermission: permission.id });
+      if (rolePermission?.isGlobal) return null;
+    }
+  }
+  return store.user.branchId ?? null;
+};
+
+const ensureTransitionActor = async (request, nextStatus) => {
+  const scope = await resolveDeliveryActionScope();
+  if (!scope) return;
+
+  if (['A', 'S', 'R'].includes(nextStatus) && Number(request.fulfillmentBranchId) !== Number(scope)) {
+    throw new BusinessRuleError('Solo la sucursal que entrega puede aceptar, rechazar o marcar como enviada la solicitud.');
+  }
+
+  if (nextStatus === 'D' && Number(request.requestingBranchId) !== Number(scope)) {
+    throw new BusinessRuleError('Solo la sucursal que recibe puede confirmar la entrega.');
+  }
+
+  if (nextStatus === 'C' && ![Number(request.requestingBranchId), Number(request.fulfillmentBranchId)].includes(Number(scope))) {
+    throw new BusinessRuleError('Solo una sucursal involucrada puede cancelar la solicitud.');
+  }
+};
+
 export const changeDeliveryRequestStatus = async (request, nextStatus) => {
   if (!transitions[request.status]?.includes(nextStatus)) {
     throw new BusinessRuleError('Cambio de estado no permitido para la solicitud.');
   }
+  await ensureTransitionActor(request, nextStatus);
 
   let movementId = request.movementId;
   if (nextStatus === 'D') {

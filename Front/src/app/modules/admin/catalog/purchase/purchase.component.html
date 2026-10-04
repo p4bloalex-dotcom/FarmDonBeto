@@ -2,68 +2,42 @@
     @if (isLoading) {
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }
-    <div class="relative flex flex-0 flex-col gap-4 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
-        <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Compras</div>
-        <div class="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-            <mat-form-field class="fuse-mat-dense fuse-mat-rounded w-full sm:min-w-64" [subscriptSizing]="'dynamic'">
-                <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
-                <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar factura o proveedor'" />
-            </mat-form-field>
-            <button class="w-full sm:w-auto" mat-flat-button [color]="'primary'" (click)="openPurchaseDialog(null, 1)">
-                <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                <span class="ml-2 mr-1">Nueva compra</span>
-            </button>
-        </div>
-    </div>
-    <div class="purchase-dashboard grid gap-3 border-b bg-slate-50 p-4 dark:bg-slate-900 md:grid-cols-4 md:px-8">
-        <div class="rounded-xl bg-white p-3 shadow-sm dark:bg-slate-800">
-            <div class="text-sm text-secondary">Pendientes aprobacion</div>
-            <div class="text-2xl font-bold">{{ dashboard.pendingOrders || 0 }}</div>
-        </div>
-        <div class="rounded-xl bg-white p-3 shadow-sm dark:bg-slate-800">
-            <div class="text-sm text-secondary">Recepciones parciales</div>
-            <div class="text-2xl font-bold">{{ dashboard.partialReceipts || 0 }}</div>
-        </div>
-        <div class="rounded-xl bg-white p-3 shadow-sm dark:bg-slate-800">
-            <div class="text-sm text-secondary">Discrepancias factura</div>
-            <div class="text-2xl font-bold">{{ dashboard.discrepancies || 0 }}</div>
-        </div>
-        <div class="rounded-xl bg-white p-3 shadow-sm dark:bg-slate-800">
-            <div class="text-sm text-secondary">Cuarentena</div>
-            <div class="text-2xl font-bold">{{ dashboard.quarantined || 0 }}</div>
-        </div>
-    </div>
-    <div class="purchase-workspace border-b bg-white p-4 md:px-8 dark:bg-transparent">
-        <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <div class="text-xl font-bold">Centro de compras</div>
+    <div class="relative flex flex-0 flex-col gap-3 border-b px-4 py-3 md:px-6">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0">
+                <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Compras</div>
+                <!-- <div class="text-sm text-secondary">{{ phaseSummary }}</div> -->
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" class="rounded-full border px-3 py-1.5 text-sm font-semibold hover:border-primary" (click)="selectFlowAction('approvals')">Aprobar {{ dashboard.pendingOrders || 0 }}</button>
+                <button type="button" class="rounded-full border px-3 py-1.5 text-sm font-semibold hover:border-primary" (click)="selectFlowAction('receipts')">Recibir {{ dashboard.partialReceipts || 0 }}</button>
+                <button type="button" class="rounded-full border px-3 py-1.5 text-sm font-semibold hover:border-primary" (click)="selectFlowAction('invoices')">Discrepancias {{ dashboard.discrepancies || 0 }}</button>
+                <button type="button" class="rounded-full border px-3 py-1.5 text-sm font-semibold hover:border-primary" (click)="selectFlowAction('returns')">Cuarentena {{ dashboard.quarantined || 0 }}</button>
             </div>
         </div>
-        <mat-form-field class="purchase-step-select fuse-mat-dense w-full">
-            <mat-label>Paso de compra</mat-label>
-            <mat-select [ngModel]="flowAction" (ngModelChange)="selectFlowAction($event)">
-                @for (action of flowActions; track action.value) {
-                    <mat-option [value]="action.value">{{ action.label }}</mat-option>
-                }
-            </mat-select>
-        </mat-form-field>
-        <div class="purchase-step-list">
-            @for (action of flowActions; track action.value) {
-                <button type="button" class="purchase-step" [class.purchase-step-active]="flowAction === action.value" (click)="selectFlowAction(action.value)">
-                    <mat-icon [svgIcon]="action.icon"></mat-icon>
-                    <span>{{ action.label }}</span>
-                </button>
-            }
-        </div>
-        <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
-                <div class="mb-3 flex items-start gap-3">
-                    <div class="rounded-xl bg-primary-100 p-2 text-primary-700 dark:bg-primary-900 dark:text-primary-200">
-                        <mat-icon [svgIcon]="selectedFlow.icon"></mat-icon>
-                    </div>
-                    <div class="text-lg font-bold">{{ selectedFlow.label }}</div>
-                </div>
+    </div>
 
+    <div class="purchase-workspace bg-slate-50 p-3 md:px-6 dark:bg-transparent">
+        <div class="rounded-2xl border bg-white p-3 shadow-sm dark:bg-slate-900">
+            <mat-form-field class="purchase-step-select fuse-mat-dense mt-3 w-full">
+                <mat-label>Paso de compra</mat-label>
+                <mat-select [ngModel]="flowAction" (ngModelChange)="selectFlowAction($event)">
+                    @for (action of flowActions; track action.value) {
+                        <mat-option [value]="action.value">{{ action.label }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+            <div class="hidden gap-1 lg:grid lg:grid-cols-6">
+                @for (step of flowSteps; track step.action; let index = $index) {
+                    <button type="button" class="rounded-xl px-3 py-2 text-left transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-800" [class.bg-primary]="stepState(step) === 'active'" [class.text-on-primary]="stepState(step) === 'active'" [class.bg-primary-50]="stepState(step) === 'done'" [disabled]="stepState(step) === 'locked'" (click)="selectFlowAction(step.action)">
+                        <div class="text-xs font-semibold opacity-80">{{ index + 1 }}. {{ step.phase }}</div>
+                        <div class="truncate text-sm font-bold">{{ step.title }}</div>
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="mt-3 grid gap-3" [class.xl:grid-cols-[minmax(0,1fr)_340px]]="hasContextPanel()">
+            <div class="rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-900">
                 @if (flowAction === 'requests') {
                     <mat-form-field class="fuse-mat-dense w-full">
                         <mat-label>Buscar medicamento</mat-label>
@@ -78,7 +52,7 @@
                     <button class="mb-3 w-full sm:w-auto" mat-flat-button color="primary" [disabled]="!canReviewNetwork()" (click)="runNetworkCheck()">Revisar disponibilidad</button>
                 }
 
-                @if (flowAction === 'orders' || flowAction === 'returns') {
+                @if ((flowAction === 'orders' && showManualOrderForm) || flowAction === 'returns') {
                     <mat-form-field class="fuse-mat-dense mb-3 w-full">
                         <mat-label>Buscar medicamento</mat-label>
                         <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
@@ -86,19 +60,43 @@
                     </mat-form-field>
                 }
                 <div class="grid gap-3 sm:grid-cols-2">
-                @if (flowAction === 'orders') {
+                @if (flowAction === 'orders' && showManualOrderForm) {
                     <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal destino</mat-label><mat-select [(ngModel)]="flowForm.branchId">@for (branch of branches; track branch.id) { <mat-option [value]="branch.id">{{ branch.name }}</mat-option> }</mat-select></mat-form-field>
                 }
-                @if (flowAction === 'orders') {
+                @if (flowAction === 'orders' && showManualOrderForm) {
                     <mat-form-field class="fuse-mat-dense"><mat-label>Proveedor</mat-label><mat-select [ngModel]="flowForm.supplierId" (ngModelChange)="onSupplierSelected($event)">@for (supplier of suppliers; track supplier.id) { <mat-option [value]="supplier.id">{{ supplier.name }}</mat-option> }</mat-select></mat-form-field>
                 }
-                @if (flowAction === 'invoices' || flowAction === 'receipts' || flowAction === 'returns') {
+                @if (flowAction === 'approvals' || flowAction === 'invoices' || flowAction === 'receipts' || flowAction === 'returns') {
                     <mat-form-field class="fuse-mat-dense">
                         <mat-label>Orden de compra</mat-label>
                         <mat-select [(ngModel)]="flowForm.purchaseId" (selectionChange)="onPurchaseSelected($event.value)">
                             @for (order of availablePurchaseOrders(); track order.id) { <mat-option [value]="order.id">{{ purchaseOrderLabel(order) }}</mat-option> }
                         </mat-select>
                     </mat-form-field>
+                }
+                @if (flowAction === 'approvals' && selectedOrder) {
+                    <div class="rounded-xl border bg-white p-3 text-sm dark:bg-slate-800 sm:col-span-2">
+                        <div class="mb-2 flex items-center justify-between gap-3">
+                            <div>
+                                <div class="font-semibold">Revision previa a aprobacion</div>
+                            </div>
+                            <div class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">Pendiente</div>
+                        </div>
+                        <div class="grid gap-2 sm:grid-cols-4">
+                            <div class="rounded-lg bg-slate-50 p-2 dark:bg-slate-900"><div class="text-secondary">Items</div><div class="font-bold">{{ selectedOrderSummary().items }}</div></div>
+                            <div class="rounded-lg bg-slate-50 p-2 dark:bg-slate-900"><div class="text-secondary">Unidades</div><div class="font-bold">{{ selectedOrderSummary().ordered }}</div></div>
+                            <div class="rounded-lg bg-slate-50 p-2 dark:bg-slate-900"><div class="text-secondary">Total</div><div class="font-bold">{{ selectedOrder.totalLabel }}</div></div>
+                            <div class="rounded-lg bg-slate-50 p-2 dark:bg-slate-900"><div class="text-secondary">Proveedor</div><div class="truncate font-bold">{{ selectedOrder.supplierName || '-' }}</div></div>
+                        </div>
+                        <div class="mt-2 grid gap-1">
+                            @for (detail of selectedOrderLines(); track detail.id) {
+                                <div class="flex items-center justify-between gap-3 rounded-lg border px-2 py-1.5 text-xs">
+                                    <span class="truncate font-semibold">{{ detail.medicineName || 'Medicamento' }}</span>
+                                    <span class="shrink-0 text-secondary">{{ detailOrdered(detail) }} x {{ money(detail.unitPrice || 0) }}</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
                 }
                 @if (flowAction === 'receipts' || flowAction === 'returns') {
                     <mat-form-field class="fuse-mat-dense">
@@ -117,7 +115,7 @@
                         </mat-select>
                     </mat-form-field>
                 }
-                @if (flowAction === 'orders') {
+                @if (flowAction === 'orders' && showManualOrderForm) {
                     <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento del proveedor</mat-label><mat-select [(ngModel)]="flowForm.medicineId" (selectionChange)="onOrderMedicineSelected($event.value)">@for (medicine of orderMedicines(); track medicine.id) { <mat-option [value]="medicine.id">{{ medicineOptionLabel(medicine) }}</mat-option> }</mat-select></mat-form-field>
                 }
                 @if (flowAction === 'receipts') {
@@ -127,10 +125,10 @@
                         <div class="text-secondary">No aceptada</div>
                         <div class="text-xl font-bold">{{ rejectedQuantity() }}</div>
                     </div>
-                } @else if (flowAction !== 'invoices' && flowAction !== 'requests') {
+                } @else if (flowAction !== 'invoices' && flowAction !== 'requests' && (flowAction !== 'orders' || showManualOrderForm)) {
                     <mat-form-field class="fuse-mat-dense"><mat-label>{{ flowAction === 'returns' ? 'Cantidad a devolver' : 'Cantidad' }}</mat-label><input matInput type="number" [(ngModel)]="flowForm.quantity" /></mat-form-field>
                 }
-                @if (flowAction === 'orders') {
+                @if (flowAction === 'orders' && showManualOrderForm) {
                     <mat-form-field class="fuse-mat-dense"><mat-label>Precio unitario de compra</mat-label><input matInput type="text" inputmode="decimal" [ngModel]="amount(flowForm.unitPrice)" (ngModelChange)="setUnitPrice($event)" /></mat-form-field>
                 }
                 @if (flowAction === 'receipts' || flowAction === 'returns') {
@@ -148,17 +146,61 @@
                 }
             </div>
             @if (flowAction === 'orders') {
-                @if (flowForm.supplierId && orderMedicines().length === 0) {
+                @if (pendingPurchaseRequestLines().length > 0 && orderLines.length === 0) {
+                    <div class="mb-3 rounded-2xl border bg-slate-50 p-3 dark:bg-slate-800">
+                        <div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <button type="button" class="font-bold" (click)="showPurchaseRequestPanel = !showPurchaseRequestPanel">Solicitudes pendientes de compra · {{ pendingPurchaseRequestLines().length }}</button>
+                                <div class="text-sm text-secondary">El sistema agrupa por proveedor compatible. Puede consolidar directamente.</div>
+                            </div>
+                            <div class="flex gap-2"><button mat-button type="button" (click)="showPurchaseRequestPanel = !showPurchaseRequestPanel">{{ showPurchaseRequestPanel ? 'Ocultar' : 'Ver' }}</button><button mat-stroked-button color="primary" type="button" [disabled]="!flowForm.supplierId || !showPurchaseRequestPanel" (click)="useSelectedPurchaseRequests()">Consolidar</button></div>
+                        </div>
+                        @if (showPurchaseRequestPanel) {
+                        @if (!flowForm.supplierId && pendingSupplierGroups().length > 0) {
+                            <div class="mb-3 grid gap-2">
+                                @for (group of pendingSupplierGroups(); track group.supplierId) {
+                                    <button type="button" class="rounded-xl border bg-white p-3 text-left text-sm transition hover:border-primary hover:bg-primary-50 dark:bg-slate-900" (click)="usePurchaseRequestGroup(group)">
+                                        <div class="flex items-center justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <div class="truncate font-bold">{{ group.supplierName }}</div>
+                                                <div class="text-xs text-secondary">{{ group.lines.length }} solicitudes · {{ group.medicinesCount }} medicamentos · {{ group.branchesCount }} sucursales</div>
+                                            </div>
+                                            <div class="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-on-primary">Consolidar</div>
+                                        </div>
+                                    </button>
+                                }
+                            </div>
+                        }
+                        @if (flowForm.supplierId) {
+                            <div class="mb-2 rounded-lg bg-slate-100 p-2 text-xs font-semibold text-slate-700 dark:bg-slate-900 dark:text-slate-200">Proveedor seleccionado: {{ selectedSupplierName() }}</div>
+                        }
+                        <div class="grid gap-2">
+                            @for (line of supplierPendingRequestLines(); track line.selectedKey) {
+                                <button type="button" class="grid gap-2 rounded-xl border px-3 py-2 text-left text-sm sm:grid-cols-[auto_1fr_auto] sm:items-center" [class.border-primary]="isPurchaseRequestLineSelected(line)" [class.bg-primary-50]="isPurchaseRequestLineSelected(line)" (click)="togglePurchaseRequestLine(line)">
+                                    <span class="flex h-5 w-5 items-center justify-center rounded border text-xs font-bold" [class.bg-primary]="isPurchaseRequestLineSelected(line)" [class.text-on-primary]="isPurchaseRequestLineSelected(line)">{{ isPurchaseRequestLineSelected(line) ? '✓' : '' }}</span>
+                                    <span class="min-w-0"><span class="block truncate font-semibold">{{ line.medicineName || medicineOptionLabel(line) || 'Medicamento' }}</span><span class="text-xs text-secondary">{{ line.branchName }} · {{ line.requestNumber }}</span></span>
+                                    <span class="font-bold">{{ line.requestedQuantity }}</span>
+                                </button>
+                            }
+                        </div>
+                        }
+                    </div>
+                }
+                @if (showManualOrderForm && flowForm.supplierId && orderMedicines().length === 0) {
                     <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Este proveedor no tiene medicamentos relacionados. Registre la relacion en Catalogos > Medicamentos por proveedor.</div>
                 }
                 <div class="mt-4 rounded-2xl border bg-white p-4 dark:bg-slate-800">
                     <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <div class="font-bold">Medicamentos de la orden</div>
+                            @if (flowForm.purchaseRequestIds?.length) { <div class="text-sm text-secondary">Orden consolidada desde {{ flowForm.purchaseRequestIds.length }} solicitud(es).</div> }
                         </div>
                         <div class="flex flex-col gap-2 sm:flex-row">
-                            <button mat-stroked-button color="primary" type="button" (click)="addFirstOrderMedicine()">Agregar primer resultado</button>
+                            <button mat-button color="primary" type="button" (click)="showManualOrderForm = !showManualOrderForm">{{ showManualOrderForm ? 'Ocultar manual' : 'Agregar manual' }}</button>
+                            @if (showManualOrderForm) {
+                            <!-- <button mat-stroked-button color="primary" type="button" (click)="addFirstOrderMedicine()">Agregar primer resultado</button> -->
                             <button mat-stroked-button color="primary" type="button" (click)="addOrderLine()">Agregar medicamento</button>
+                            }
                         </div>
                     </div>
                     @if (orderLines.length === 0) {
@@ -166,7 +208,7 @@
                     }
                     @for (line of orderLines; track line.medicineId) {
                         <div class="grid gap-2 border-b py-3 text-sm sm:grid-cols-[1fr_100px_120px_120px_80px] sm:items-center">
-                            <div class="font-medium">{{ line.medicineName }}</div>
+                            <div class="font-medium">{{ line.medicineName }} @if (line.sourceBranches?.length) { <div class="text-xs text-secondary">{{ line.sourceBranches.join(', ') }}</div> }</div>
                             <div>Cant: {{ line.quantityOrdered }}</div>
                             <div>Precio: {{ money(line.unitPrice) }}</div>
                             <div>Subtotal: {{ money(line.subtotal) }}</div>
@@ -178,14 +220,15 @@
             }
             @if (flowAction !== 'requests' || replenishmentLines.length > 0) {
                 <div class="purchase-submit mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <button class="w-full sm:w-auto" mat-flat-button color="primary" (click)="flowAction === 'requests' ? submitReplenishment() : submitFlow()">{{ flowAction === 'requests' ? 'Registrar solicitud' : flowAction === 'orders' ? 'Crear orden completa' : selectedFlow.label }}</button>
+                    <button class="w-full sm:w-auto" mat-flat-button color="primary" [disabled]="!canSubmitCurrentStep()" (click)="submitCurrentStep()">{{ flowAction === 'requests' ? 'Registrar solicitud' : flowAction === 'orders' ? 'Crear orden completa' : flowAction === 'approvals' ? 'Aprobar orden' : selectedFlow.label }}</button>
                 </div>
             }
             </div>
 
-            <div class="rounded-2xl border p-4">
-                <div class="mb-3 flex items-center justify-between gap-3">
-                    <div class="text-lg font-bold">Estado del flujo</div>
+            @if (hasContextPanel()) {
+            <div class="rounded-2xl border bg-white p-3 shadow-sm dark:bg-slate-900">
+                <div class="mb-2 flex items-center justify-between gap-3">
+                    <div class="font-bold">Contexto</div>
                     <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{{ selectedFlow.label }}</span>
                 </div>
                 @if (selectedOrder) {
@@ -280,14 +323,17 @@
                 }
                 @if (flowAction === 'requests' && networkResult) {
                     <div class="mb-3 rounded-2xl p-4" [class.bg-green-50]="networkResult.canTransfer" [class.text-green-900]="networkResult.canTransfer" [class.bg-amber-50]="!networkResult.canTransfer || networkResult.pendingExternalPurchase > 0" [class.text-amber-900]="!networkResult.canTransfer || networkResult.pendingExternalPurchase > 0">
-                        <div class="font-bold">{{ networkResult.canTransfer ? 'Traspaso interno disponible' : 'Requiere compra externa' }}</div>
-                        <div class="text-sm">Compra externa: {{ networkResult.pendingExternalPurchase }}</div>
+                        <div class="font-bold">{{ networkResult.canTransfer ? 'Traspaso interno disponible' : 'Requiere compra' }}</div>
+                        <div class="text-sm">Compra: {{ networkResult.pendingExternalPurchase }}</div>
                     </div>
                     @if (networkResult.suggestions?.length) {
                         <button class="mb-3 w-full" mat-flat-button color="primary" type="button" (click)="addReplenishmentLine()">Agregar a solicitud de traspaso</button>
                     }
                     @if (networkResult.pendingExternalPurchase > 0) {
-                        <button class="mb-3 w-full" mat-stroked-button color="primary" type="button" (click)="createOrderFromExternalNeed()">Crear orden de compra</button>
+                        <button class="mb-3 w-full" mat-flat-button color="primary" type="button" (click)="addPurchaseRequestLine()">Agregar a solicitud de compra</button>
+                        @if (mainBranch()) {
+                            <button class="mb-3 w-full" mat-stroked-button color="primary" type="button" (click)="createOrderFromExternalNeed()">Crear orden de compra</button>
+                        }
                     }
                     <div class="grid gap-2">
                         @for (branch of networkResult.suggestions; track branch.branchId) {
@@ -325,15 +371,49 @@
                         </div>
                     </div>
                 }
+                @if (flowAction === 'requests' && purchaseRequestLines.length > 0) {
+                    <div class="mt-3 rounded-2xl border p-4">
+                        <div class="mb-3 flex items-center justify-between gap-3">
+                            <div class="font-bold">Medicamentos para compra a matriz</div>
+                            <button mat-flat-button color="primary" type="button" (click)="requestPurchaseToMain()">Enviar solicitud</button>
+                        </div>
+                        <div class="grid gap-2">
+                            @for (line of purchaseRequestLines; track line.branchId + '-' + line.medicineId; let i = $index) {
+                                <div class="grid gap-2 rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800 sm:grid-cols-[1fr_auto] sm:items-center">
+                                    <div>
+                                        <div class="font-semibold">{{ line.medicineName }}</div>
+                                        <div class="text-secondary">{{ line.branchName }} · Cantidad {{ line.requestedQuantity }}</div>
+                                    </div>
+                                    <button mat-button color="warn" type="button" (click)="removePurchaseRequestLine(i)">Quitar</button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
+            }
         </div>
     </div>
-    <div class="purchase-records p-4 md:px-8">
-        <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <div class="text-xl font-bold">Ordenes y compras registradas</div>
+    <div class="purchase-records border-t bg-white p-3 md:px-6 dark:bg-transparent">
+        <div class="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button type="button" class="flex items-center gap-2 text-left text-lg font-bold" (click)="showRecords = !showRecords">
+                <mat-icon [svgIcon]="showRecords ? 'heroicons_outline:chevron-down' : 'heroicons_outline:chevron-right'"></mat-icon>
+                Ordenes y compras registradas
+            </button>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                @if (showRecords) {
+                    <mat-form-field class="fuse-mat-dense fuse-mat-rounded w-full sm:w-72" [subscriptSizing]="'dynamic'">
+                        <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
+                        <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Buscar factura o proveedor'" />
+                    </mat-form-field>
+                }
+                <button class="w-full sm:w-auto" mat-stroked-button color="primary" (click)="openPurchaseDialog(null, 1)">
+                    <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                    <span class="ml-2 mr-1">Compra directa</span>
+                </button>
             </div>
         </div>
+        @if (showRecords) {
         <div class="rounded-2xl border bg-white dark:bg-slate-900">
             <app-table
                 [columns]="columns"
@@ -345,5 +425,6 @@
                 (rowAction)="handleRowAction($event)"
             ></app-table>
         </div>
+        }
     </div>
 </div>
