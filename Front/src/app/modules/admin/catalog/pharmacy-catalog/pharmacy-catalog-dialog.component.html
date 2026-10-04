@@ -5,23 +5,39 @@
   <div class="overflow-y-auto p-4">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       @for (field of config?.fields; track field.name) {
-        <mat-form-field class="w-full" [class.md:col-span-2]="isWideField(field)">
-          <mat-label>{{field.label}}</mat-label>
-          @if (field.type === 'select') {
-            <mat-select [formControlName]="field.name">
-              <mat-option [value]="null"></mat-option>
-              @for (option of field.options || options[field.name] || []; track $index) {
-                <mat-option [value]="field.options ? option.value : getOptionValue(option)">{{ field.options ? option.label : getOptionLabel(field, option) }}</mat-option>
-              }
-            </mat-select>
-          } @else if (field.type === 'textarea') {
-            <textarea matInput rows="3" [formControlName]="field.name"></textarea>
-          } @else if (field.type === 'datetime' || field.type === 'date') {
-            <input matInput [type]="field.type === 'date' ? 'date' : 'datetime-local'" [formControlName]="field.name" (click)="openNativePicker($event)" (focus)="openNativePicker($event)" />
-          } @else {
-            <input matInput [type]="field.type === 'number' ? 'number' : field.type === 'url' ? 'url' : 'text'" [formControlName]="field.name" />
-          }
-        </mat-form-field>
+        @if (field.type === 'image') {
+          <div class="w-full md:col-span-2">
+            <div class="flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center">
+              <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800">
+                @if (imagePreview) { <img class="h-full w-full object-cover" [src]="imagePreview" alt="Imagen del medicamento" /> }
+                @else { <mat-icon class="text-secondary" [svgIcon]="'heroicons_outline:photo'"></mat-icon> }
+              </div>
+              <div class="min-w-0 flex-1">
+                <input class="hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" #imageInput (change)="onImageSelected($event, field)" />
+                <button mat-stroked-button type="button" (click)="imageInput.click()" [disabled]="dataForm.disabled">Seleccionar imagen</button>
+                <div class="mt-1 text-xs text-secondary">JPG, PNG, WEBP o GIF. Maximo 5MB.</div>
+              </div>
+            </div>
+          </div>
+        } @else {
+          <mat-form-field class="w-full" [class.md:col-span-2]="isWideField(field)">
+            <mat-label>{{field.label}}</mat-label>
+            @if (field.type === 'select') {
+              <mat-select [formControlName]="field.name">
+                <mat-option [value]="null"></mat-option>
+                @for (option of field.options || options[field.name] || []; track $index) {
+                  <mat-option [value]="field.options ? option.value : getOptionValue(option)">{{ field.options ? option.label : getOptionLabel(field, option) }}</mat-option>
+                }
+              </mat-select>
+            } @else if (field.type === 'textarea') {
+              <textarea matInput rows="3" [formControlName]="field.name"></textarea>
+            } @else if (field.type === 'datetime' || field.type === 'date') {
+              <input matInput [type]="field.type === 'date' ? 'date' : 'datetime-local'" [formControlName]="field.name" (click)="openNativePicker($event)" (focus)="openNativePicker($event)" />
+            } @else {
+              <input matInput [type]="field.type === 'number' ? 'number' : field.type === 'url' ? 'url' : 'text'" [formControlName]="field.name" />
+            }
+          </mat-form-field>
+        }
       }
       <mat-form-field class="w-full">
         <mat-label>Estado</mat-label>

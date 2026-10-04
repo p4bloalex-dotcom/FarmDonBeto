@@ -3,16 +3,18 @@ import { ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators }
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { HotToastService } from '@fuse/components/hot-toast';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
+import { environment } from 'environments/environment';
 import { PharmacyCatalogConfig, PharmacyFieldConfig } from './pharmacy-catalog.config';
 
 @Component({
   selector: 'app-pharmacy-catalog-dialog',
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatSelectModule, MatDialogModule],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatSelectModule, MatDialogModule, MatIconModule],
   templateUrl: './pharmacy-catalog-dialog.component.html',
   styleUrl: './pharmacy-catalog-dialog.component.scss'
 })
@@ -21,6 +23,7 @@ export class PharmacyCatalogDialogComponent {
   dataForm: UntypedFormGroup;
   config: PharmacyCatalogConfig;
   options: Record<string, any[]> = {};
+  imagePreview: string | null = null;
 
   constructor(@Inject(MAT_DIALOG_DATA) private _data, private _matDialogRef: MatDialogRef<PharmacyCatalogDialogComponent>, private _formBuilder: UntypedFormBuilder, private _generalApi: GeneralApiService, private _toast: HotToastService) {}
 
@@ -36,6 +39,7 @@ export class PharmacyCatalogDialogComponent {
 
     if (this.actionDialog !== 1) {
       const row = { ...this._data.row };
+      this.imagePreview = this.assetUrl(row.imageUrl);
       this.config.fields.forEach(field => {
         if ((field.type === 'datetime' || field.type === 'date') && row[field.name]) {
           row[field.name] = this.toLocalInput(row[field.name]);
@@ -112,7 +116,37 @@ export class PharmacyCatalogDialogComponent {
   }
 
   isWideField(field: PharmacyFieldConfig): boolean {
-    return field.type === 'textarea' || field.type === 'url' || field.name === 'description';
+    return field.type === 'textarea' || field.type === 'url' || field.type === 'image' || field.name === 'description';
+  }
+
+  onImageSelected(event: Event, field: PharmacyFieldConfig): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      this._toast.error('Use una imagen JPG, PNG, WEBP o GIF.');
+      input.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      this._toast.error('La imagen no puede superar 5MB.');
+      input.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = String(reader.result ?? '');
+      this.imagePreview = value;
+      this.dataForm.get(field.name)?.setValue(value);
+      this.dataForm.get(field.name)?.markAsDirty();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  assetUrl(value: string): string | null {
+    if (!value || value.startsWith('data:') || value.startsWith('http')) return value || null;
+    const apiRoot = environment.apiUrl.replace(/\/api\/?$/, '');
+    return apiRoot.startsWith('http') ? `${apiRoot}${value}` : value;
   }
 
   openNativePicker(event: Event): void {

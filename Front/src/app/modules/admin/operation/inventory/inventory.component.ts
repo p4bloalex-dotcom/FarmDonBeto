@@ -15,6 +15,7 @@ import { TableAction, TableColumn } from '@fuse/components/table/table-column.mo
 import { TableComponent } from '@fuse/components/table/table.component';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
+import { environment } from 'environments/environment';
 import { debounceTime, distinctUntilChanged, startWith, Subject, takeUntil } from 'rxjs';
 import { InventoryEditDialogComponent } from './inventory-edit-dialog/inventory-edit-dialog.component';
 import { InventoryReserveDialogComponent } from './inventory-reserve-dialog/inventory-reserve-dialog.component';
@@ -320,6 +321,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   toggleAdvancedFilters(): void {
     this.showAdvancedFilters = !this.showAdvancedFilters;
+  }
+
+  assetUrl(value: string): string {
+    if (!value || value.startsWith('data:') || value.startsWith('http')) return value;
+    const apiRoot = environment.apiUrl.replace(/\/api\/?$/, '');
+    return apiRoot.startsWith('http') ? `${apiRoot}${value}` : value;
   }
 
   private applyFilters(): void {

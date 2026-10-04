@@ -155,6 +155,7 @@ export const getAvailability = async ({ branchId = null, medicineId = null } = {
     .leftJoin('lot.branch', 'branch')
     .addSelect('branch.name', 'branchName')
     .leftJoin('lot.medicine', 'medicine')
+    .addSelect('medicine.code', 'medicineCode')
     .addSelect('medicine.name', 'medicineName')
     .addSelect('medicine.priceSell', 'priceSell')
     .where('lot.status = :status', { status: 'E' })
@@ -162,6 +163,7 @@ export const getAvailability = async ({ branchId = null, medicineId = null } = {
     .groupBy('lot.branchId')
     .addGroupBy('lot.medicineId')
     .addGroupBy('branch.name')
+    .addGroupBy('medicine.code')
     .addGroupBy('medicine.name')
     .addGroupBy('medicine.priceSell')
     .orderBy('branch.name', 'ASC')
@@ -177,6 +179,7 @@ export const getAvailability = async ({ branchId = null, medicineId = null } = {
       branchId: Number(row.branchId),
       branchName: row.branchName,
       medicineId: Number(row.medicineId),
+      medicineCode: row.medicineCode,
       medicineName: row.medicineName,
       priceSell: Number(row.priceSell ?? 0),
       available,
@@ -192,7 +195,7 @@ export const getAvailability = async ({ branchId = null, medicineId = null } = {
     .leftJoin('item.branch', 'branch')
     .addSelect(['branch.id', 'branch.name'])
     .leftJoin('item.medicine', 'medicine')
-    .addSelect(['medicine.id', 'medicine.name', 'medicine.priceSell'])
+    .addSelect(['medicine.id', 'medicine.code', 'medicine.name', 'medicine.priceSell'])
     .where('(item.stockAvailable - item.reserve) > 0')
     .orderBy('branch.name', 'ASC')
     .addOrderBy('medicine.name', 'ASC');
@@ -209,6 +212,7 @@ export const getAvailability = async ({ branchId = null, medicineId = null } = {
         branchId: Number(item.branchId),
         branchName: item.branch?.name ?? null,
         medicineId: Number(item.medicineId),
+        medicineCode: item.medicine?.code ?? null,
         medicineName: item.medicine?.name ?? null,
         priceSell: Number(item.medicine?.priceSell ?? 0),
         available,

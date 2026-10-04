@@ -66,10 +66,12 @@
                 </div>
                 @if (selectedRow && !detailRows.length) {
                     <div class="flex flex-wrap gap-2 rounded-2xl border bg-white p-2 shadow-sm dark:bg-transparent">
+                        <button mat-flat-button color="primary" type="button" (click)="openEditDialog(selectedRow)">Configurar</button>
                         <button mat-flat-button color="primary" type="button" (click)="loadAvailability(selectedRow)">ATP</button>
                         <button mat-stroked-button type="button" (click)="loadLots(selectedRow)">Lotes</button>
                         <button mat-stroked-button type="button" (click)="loadKardex(selectedRow)">Kardex</button>
                         <button mat-stroked-button type="button" (click)="reserveStock(selectedRow)">Reservar</button>
+                        <button mat-stroked-button type="button" (click)="adjustStock(selectedRow)">Ajustar</button>
                     </div>
                 }
                 @if (!pagedData.length && !isLoading) { <div class="rounded-xl bg-gray-50 px-3 py-2 text-sm text-secondary dark:bg-gray-800">No hay registros para el filtro actual.</div> }
@@ -79,7 +81,7 @@
                     [columns]="columns"
                     [data]="pagedData"
                     [actions]="actions"
-                    actionColumnWidth="120px"
+                    actionColumnWidth="220px"
                     [length]="totalItems"
                     (pageChange)="onPageChange($event)"
                     (rowAction)="handleRowAction($event)"
@@ -90,7 +92,7 @@
                     @for (row of pagedData; track row.id) {
                         <button type="button" class="rounded-xl border p-3 text-left" (click)="selectRow(row)">
                             <div class="flex items-center gap-3">
-                                @if (row.medicineImageUrl) { <img class="h-10 w-10 rounded-full object-cover" [src]="row.medicineImageUrl" alt="Imagen relacionada" loading="lazy" /> }
+                                @if (row.medicineImageUrl) { <img class="h-10 w-10 rounded-full object-cover" [src]="assetUrl(row.medicineImageUrl)" alt="Imagen relacionada" loading="lazy" /> }
                                 @else { <mat-icon class="rounded-full bg-gray-100 p-2" [svgIcon]="'heroicons_outline:photo'"></mat-icon> }
                                 <div class="font-semibold">{{ row.medicineName }}</div>
                             </div>

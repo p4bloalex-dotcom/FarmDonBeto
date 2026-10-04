@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -21,6 +21,7 @@ import { SaleReceiptDialogComponent } from './sale-receipt-dialog/sale-receipt-d
   templateUrl: './sale.component.html'
 })
 export class SaleComponent implements OnInit, OnDestroy {
+  @ViewChild('medicineSearchInput') medicineSearchInput?: ElementRef<HTMLInputElement>;
   form: UntypedFormGroup;
   customerForm: UntypedFormGroup;
   medicines: any[] = [];
@@ -31,6 +32,8 @@ export class SaleComponent implements OnInit, OnDestroy {
   sessions: any[] = [];
   isLoading = false;
   currentUserPersonalId: number | string | null = null;
+  currentEmployee: any = null;
+  lastValidationMessage = '';
   private autoSyncCashPayment = true;
   private _unsubscribeAll = new Subject<void>();
 
@@ -59,6 +62,7 @@ export class SaleComponent implements OnInit, OnDestroy {
       this.form.get('cashSessionId')?.reset('', { emitEvent: false });
       this.loadAvailableMedicines();
       this.applySingleOpenSessionDefault();
+      this.focusMedicineSearch();
     });
     this.medicineSearchControl.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(value => this.medicineSearchText = value ?? '');
     this.customerForm.get('documentType')!.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(type => this.applyDocumentDefaults(type));
@@ -80,24 +84,31 @@ export class SaleComponent implements OnInit, OnDestroy {
   get tax(): number { return this.subtotal * (Number(this.form.value.taxRate ?? 0) / 100); }
   get total(): number { return Math.round((this.subtotal + this.tax) * 100) / 100; }
   get paidTotal(): number { return Math.round(this.payments.controls.reduce((sum, group) => sum + Number(group.value.amount ?? 0), 0) * 100) / 100; }
+  get tenderedTotal(): number { return Math.round(this.payments.controls.reduce((sum, group) => sum + Number(group.value.receivedAmount ?? group.value.amount ?? 0), 0) * 100) / 100; }
   get balanceDue(): number { return Math.max(0, Math.round((this.total - this.paidTotal) * 100) / 100); }
   get isInvoice(): boolean { return this.customerForm?.value?.documentType === 'INVOICE'; }
+  get selectedBranchName(): string { return this.branches.find(item => Number(item.id) === Number(this.form?.value?.branchId))?.name ?? 'Sin sucursal'; }
+  get selectedCashSession(): any { return this.openSessions.find(item => Number(item.id) === Number(this.form?.value?.cashSessionId)) ?? null; }
+  get loggedEmployeeName(): string { return this.employeeName(this.currentEmployee); }
+  get needsBranchSelection(): boolean { return this.branches.length > 1; }
+  get needsCashSessionSelection(): boolean { return this.openSessions.length > 1; }
   get hasSaleContext(): boolean { return !!this.form?.value?.branchId && !!this.form?.value?.employeeId && !!this.form?.value?.cashSessionId; }
   get canRegisterSale(): boolean { return !this.isLoading && this.form?.valid && this.customerForm?.valid && this.total > 0 && !this.validateSale(); }
   get saleStepHint(): string {
     if (!this.form?.value?.branchId) return 'Seleccione una sucursal para cargar medicamentos disponibles.';
     if (this.openSessions.length === 0) return 'Abra o seleccione una caja activa antes de vender.';
-    if (!this.form?.value?.employeeId) return 'Seleccione el cajero responsable.';
+    if (!this.form?.value?.employeeId) return 'No se pudo asociar el empleado del usuario actual. Revise el perfil del usuario.';
     if (!this.form?.value?.cashSessionId) return 'Seleccione la sesion de caja abierta.';
     if (this.isInvoice) return 'Factura FEL activa: complete NIT y nombre antes de cobrar.';
     return 'Recibo consumidor final activo: NIT y nombre no son necesarios.';
   }
   get cashChange(): number {
-    return Math.max(0, Math.round((this.paidTotal - this.total) * 100) / 100);
+    return Math.max(0, Math.round((this.tenderedTotal - this.total) * 100) / 100);
   }
 
-  addItem(): void { this.details.push(this._fb.group({ medicineId: ['', Validators.required], quantity: [1, [Validators.required, Validators.min(0.01)]], unitPrice: [null] })); }
+  addItem(): void { this.details.push(this.createDetailGroup()); }
   removeItem(index: number): void { if (this.details.length > 1) this.details.removeAt(index); }
+  clearItem(index: number): void { this.details.removeAt(index); if (this.details.length === 0) this.addItem(); this.focusMedicineSearch(); }
   addPayment(): void {
     const amount = this.payments.length === 0 ? this.total : Math.max(0, this.balanceDue);
     this.payments.push(this._fb.group({ method: ['CASH', Validators.required], amount: [amount, [Validators.required, Validators.min(0.01)]], receivedAmount: [null], cardBrand: [''], cardLast4: [''], authorizationCode: [''] }));
@@ -157,8 +168,9 @@ export class SaleComponent implements OnInit, OnDestroy {
       next: (resp: ApiResponse<any>) => {
         this.medicines = (resp.success ? resp.data ?? [] : [])
           .filter((item: any) => Number(item.availableToPromise ?? 0) > 0)
-          .map((item: any) => ({ id: item.medicineId, name: item.medicineName, availableToPromise: item.availableToPromise, priceSell: Number(item.priceSell ?? 0) }));
+          .map((item: any) => ({ id: item.medicineId, code: item.medicineCode, name: item.medicineName, availableToPromise: item.availableToPromise, priceSell: Number(item.priceSell ?? 0) }));
         this.applySingleMedicineDefault();
+        this.focusMedicineSearch();
       },
       error: () => this._toast.error('No se pudieron cargar medicamentos disponibles.')
     });
@@ -166,29 +178,88 @@ export class SaleComponent implements OnInit, OnDestroy {
 
   filteredMedicines(): any[] {
     const text = this.medicineSearchText.toLowerCase().trim();
-    const list = text ? this.medicines.filter(item => String(item.name ?? '').toLowerCase().includes(text)) : this.medicines;
-    return list.slice(0, 25);
+    const tokens = text.split(/\s+/).filter(Boolean);
+    const list = tokens.length
+      ? this.medicines.filter(item => {
+        const haystack = `${item.code ?? ''} ${item.name ?? ''}`.toLowerCase();
+        return tokens.every(token => haystack.includes(token));
+      })
+      : this.medicines;
+    return list.slice(0, 18);
   }
 
   addMedicineToSale(medicine: any): void {
+    if (!medicine || Number(medicine.availableToPromise ?? 0) <= 0) return;
     const existing = this.details.controls.find(group => Number(group.value.medicineId) === Number(medicine.id));
     if (existing) {
       const current = Number(existing.value.quantity ?? 0);
       const available = Number(medicine.availableToPromise ?? 0);
+      if (current >= available) {
+        this._toast.warning(`No hay mas stock disponible de ${medicine.name}.`);
+        this.focusMedicineSearch();
+        return;
+      }
       existing.patchValue({ quantity: Math.min(current + 1, available), unitPrice: Number(medicine.priceSell ?? 0) });
       this.medicineSearchControl.setValue('');
+      this.focusMedicineSearch();
       return;
     }
     const empty = this.details.controls.find(group => !group.value.medicineId);
-    const target = empty ?? this._fb.group({ medicineId: ['', Validators.required], quantity: [1, [Validators.required, Validators.min(0.01)]], unitPrice: [null] });
+    const target = empty ?? this.createDetailGroup();
     if (!empty) this.details.push(target);
     target.patchValue({ medicineId: medicine.id, quantity: 1, unitPrice: Number(medicine.priceSell ?? 0) });
     this.medicineSearchControl.setValue('');
+    this.focusMedicineSearch();
   }
 
   addFirstFilteredMedicine(): void {
-    const first = this.filteredMedicines()[0];
+    const term = String(this.medicineSearchControl.value ?? '').trim().toLowerCase();
+    const exact = term ? this.medicines.find(item => String(item.code ?? '').toLowerCase() === term) : null;
+    const first = exact ?? this.filteredMedicines()[0];
     if (first) this.addMedicineToSale(first);
+  }
+
+  updateQuantity(index: number, delta: number): void {
+    const group = this.details.at(index);
+    const medicine = this.medicineForLine(index);
+    if (!group || !medicine) return;
+    const next = Math.round((Number(group.value.quantity ?? 0) + delta) * 1000) / 1000;
+    if (next <= 0) return this.clearItem(index);
+    if (next > Number(medicine.availableToPromise ?? 0)) {
+      this._toast.warning(`Disponible: ${medicine.availableToPromise}`);
+      return;
+    }
+    group.get('quantity')?.setValue(next);
+  }
+
+  medicineForLine(index: number): any {
+    const medicineId = this.details.at(index)?.value?.medicineId;
+    return this.medicines.find(item => Number(item.id) === Number(medicineId));
+  }
+
+  lineTotal(index: number): number {
+    const item = this.details.at(index)?.value ?? {};
+    return Math.round(Number(item.quantity ?? 0) * Number(item.unitPrice ?? 0) * 100) / 100;
+  }
+
+  setSinglePaymentMethod(method: string): void {
+    if (!this.payments.length) this.addPayment();
+    while (this.payments.length > 1) this.payments.removeAt(this.payments.length - 1);
+    this.payments.at(0).patchValue({ method, amount: this.total, authorizationCode: '', receivedAmount: null });
+    this.autoSyncCashPayment = method === 'CASH';
+    this.updateMainPaymentMethod();
+  }
+
+  setReceivedAmount(amount: number): void {
+    if (!this.payments.length) this.addPayment();
+    const payment = this.payments.at(0);
+    if (String(payment.value.method).toUpperCase() !== 'CASH') this.setSinglePaymentMethod('CASH');
+    this.payments.at(0).patchValue({ amount: this.total, receivedAmount: amount });
+  }
+
+  quickCashOptions(): number[] {
+    const candidates = [20, 50, 100, 200, 500].filter(value => value >= this.total);
+    return [this.total, ...candidates].filter((value, index, list) => list.indexOf(value) === index).slice(0, 4);
   }
 
   onMedicineLineSelected(index: number, medicineId: number): void {
@@ -213,6 +284,7 @@ export class SaleComponent implements OnInit, OnDestroy {
       return;
     }
     const validation = this.validateSale();
+    this.lastValidationMessage = validation ?? '';
     if (validation) {
       this._toast.error(validation);
       return;
@@ -233,6 +305,7 @@ export class SaleComponent implements OnInit, OnDestroy {
         this.applySingleOpenSessionDefault();
         this.addItem();
         this.addPayment();
+        this.focusMedicineSearch();
       },
       error: error => {
         this.isLoading = false;
@@ -255,6 +328,7 @@ export class SaleComponent implements OnInit, OnDestroy {
       payments: (payload.payments ?? []).map((payment: any) => ({
         method: payment.method,
         amount: Number(payment.amount ?? 0),
+        ...(payment.receivedAmount != null && payment.receivedAmount !== '' ? { receivedAmount: Number(payment.receivedAmount) } : {}),
         ...(payment.authorizationCode ? { authorizationCode: payment.authorizationCode } : {})
       }))
     };
@@ -297,6 +371,7 @@ export class SaleComponent implements OnInit, OnDestroy {
     const paymentTotal = Math.round(payments.reduce((sum, item) => sum + Number(item.amount ?? 0), 0) * 100) / 100;
     if (paymentTotal + 0.01 < total) return `La suma de pagos debe cubrir Q ${total.toFixed(2)}.`;
     if (paymentTotal - total > 0.01 && !payments.some(item => String(item.method).toUpperCase() === 'CASH')) return 'Solo el efectivo puede quedar como cambio.';
+    if (payments.some(item => String(item.method).toUpperCase() === 'CASH' && item.receivedAmount != null && item.receivedAmount !== '' && Number(item.receivedAmount) < Number(item.amount ?? 0))) return 'El efectivo recibido no puede ser menor al monto cobrado.';
     return null;
   }
 
@@ -319,12 +394,12 @@ export class SaleComponent implements OnInit, OnDestroy {
 
   private applySingleOptionDefaults(): void {
     if (this.branches.length === 1 && !this.form.value.branchId) this.form.get('branchId')?.setValue(this.branches[0].id);
-    if (this.employees.length === 1 && !this.form.value.employeeId) this.form.get('employeeId')?.setValue(this.employees[0].id);
   }
 
   private applyLoggedEmployeeDefault(): void {
     if (!this.currentUserPersonalId || !this.employees.length) return;
     const employee = this.employees.find(item => Number(item.idPersonal ?? item.id) === Number(this.currentUserPersonalId));
+    this.currentEmployee = employee ?? null;
     if (employee) this.form.get('employeeId')?.setValue(employee.id ?? employee.idPersonal, { emitEvent: false });
   }
 
@@ -342,7 +417,7 @@ export class SaleComponent implements OnInit, OnDestroy {
     if (!this.autoSyncCashPayment || this.payments.length !== 1) return;
     const payment = this.payments.at(0);
     if (String(payment.value.method).toUpperCase() !== 'CASH') return;
-    payment.get('amount')?.setValue(this.total, { emitEvent: false });
+    payment.patchValue({ amount: this.total }, { emitEvent: false });
   }
 
   private updatePaymentSyncMode(): void {
@@ -352,5 +427,18 @@ export class SaleComponent implements OnInit, OnDestroy {
     }
     const payment = this.payments.at(0).value;
     this.autoSyncCashPayment = String(payment.method).toUpperCase() === 'CASH' && Math.abs(Number(payment.amount ?? 0) - this.total) < 0.01;
+  }
+
+  private createDetailGroup(): UntypedFormGroup {
+    return this._fb.group({ medicineId: ['', Validators.required], quantity: [1, [Validators.required, Validators.min(0.01)]], unitPrice: [null] });
+  }
+
+  private focusMedicineSearch(): void {
+    setTimeout(() => this.medicineSearchInput?.nativeElement?.focus(), 0);
+  }
+
+  private employeeName(employee: any): string {
+    if (!employee) return 'Empleado no asociado';
+    return employee.name || `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || `Empleado #${employee.id ?? employee.idPersonal}`;
   }
 }

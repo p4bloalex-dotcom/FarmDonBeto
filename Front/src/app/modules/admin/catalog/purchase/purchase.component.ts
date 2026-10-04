@@ -60,6 +60,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     purchaseId: null,
     purchaseDetailId: null,
     purchaseRequestIds: [],
+    purchaseRequestDetailIds: [],
     medicineId: null,
     quantityReceived: 1,
     quantity: 1,
@@ -385,7 +386,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         requestNumber: request.requestNumber,
         requestedAt: request.requestDate ?? request.createdAt,
         requestedQuantity: Number(detail.requestedQuantity ?? detail.quantity ?? 0),
-        selectedKey: `${request.id}-${detail.medicineId ?? detail.medicine_id}`
+        selectedKey: `${request.id}-${detail.id ?? detail.medicineId ?? detail.medicine_id}`
       })));
   }
 
@@ -400,6 +401,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
 
   pendingSupplierGroups(): any[] {
     const groups = new Map<number, any>();
+    const seen = new Set<string>();
     this.pendingPurchaseRequestLines().forEach(line => {
       const medicineId = Number(line.medicineId ?? line.medicine_id);
       this.supplierMedicines
@@ -407,16 +409,39 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         .forEach(item => {
           const supplierId = Number(item.supplierId ?? item.supplier_id);
           if (!supplierId) return;
+          const key = `${supplierId}-${line.selectedKey}`;
+          if (seen.has(key)) return;
+          seen.add(key);
           const supplier = this.suppliers.find(s => Number(s.id) === supplierId);
-          const group = groups.get(supplierId) ?? { supplierId, supplierName: supplier?.name ?? `Proveedor #${supplierId}`, lines: [], medicines: new Set<number>(), branches: new Set<string>(), totalQuantity: 0 };
+          const group = groups.get(supplierId) ?? { supplierId, supplierName: supplier?.name ?? `Proveedor #${supplierId}`, lines: [], requests: new Set<number>(), medicines: new Set<number>(), branches: new Set<string>(), totalQuantity: 0 };
           group.lines.push(line);
+          group.requests.add(Number(line.requestId));
           group.medicines.add(medicineId);
           group.branches.add(line.branchName ?? 'Sucursal');
           group.totalQuantity += Number(line.requestedQuantity ?? 0);
           groups.set(supplierId, group);
         });
     });
-    return Array.from(groups.values()).map(group => ({ ...group, medicinesCount: group.medicines.size, branchesCount: group.branches.size }));
+    return Array.from(groups.values()).map(group => ({ ...group, requestsCount: group.requests.size, medicinesCount: group.medicines.size, branchesCount: group.branches.size }));
+  }
+
+  pendingPurchaseRequestCount(): number {
+    return new Set(this.pendingPurchaseRequestLines().map(line => Number(line.requestId))).size;
+  }
+
+  supplierOptionsForLine(line: any): string {
+    const medicineId = Number(line.medicineId ?? line.medicine_id);
+    const names = this.supplierMedicines
+      .filter(item => Number(item.medicineId ?? item.medicine_id) === medicineId)
+      .map(item => {
+        const supplierId = Number(item.supplierId ?? item.supplier_id);
+        return this.suppliers.find(supplier => Number(supplier.id) === supplierId)?.name;
+      })
+      .filter(Boolean);
+    const unique = [...new Set(names)];
+    if (!unique.length) return 'Sin proveedor relacionado';
+    if (unique.length === 1) return unique[0] as string;
+    return `${unique.length} proveedores: ${unique.slice(0, 2).join(', ')}${unique.length > 2 ? '...' : ''}`;
   }
 
   togglePurchaseRequestLine(line: any): void {
@@ -479,6 +504,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     });
     this.flowForm.branchId = mainBranch.id;
     this.flowForm.purchaseRequestIds = [...new Set(selected.map(line => Number(line.requestId)).filter(Boolean))];
+    this.flowForm.purchaseRequestDetailIds = [...new Set(selected.map(line => Number(line.id)).filter(Boolean))];
     this.orderLines = Array.from(grouped.values());
     this.showPurchaseRequestPanel = false;
     this.showManualOrderForm = false;
@@ -683,7 +709,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
 
   canSubmitCurrentStep(): boolean {
     const quantity = Number(this.flowForm.quantity ?? 0);
-    if (this.flowAction === 'requests') return this.replenishmentLines.length > 0 || !!this.networkResult?.suggestions?.length;
+    if (this.flowAction === 'requests') return this.replenishmentLines.length > 0 || this.purchaseRequestLines.length > 0 || !!this.networkResult;
     if (this.flowAction === 'orders') return !!this.flowForm.branchId && !!this.flowForm.supplierId && this.orderLines.length > 0;
     if (this.flowAction === 'approvals') return !!this.flowForm.purchaseId && this.selectedOrder?.status === 'PENDING_APPROVAL';
     if (this.flowAction === 'receipts') return !!this.flowForm.purchaseId && !!this.flowForm.purchaseDetailId && Number(this.flowForm.quantityReceived ?? 0) > 0 && !!this.flowForm.batchNumber && !!this.flowForm.expirationDate;
@@ -694,6 +720,10 @@ export class PurchaseComponent implements OnInit, OnDestroy {
 
   submitCurrentStep(): void {
     if (this.flowAction === 'requests') {
+      if (this.purchaseRequestLines.length > 0 || (this.networkResult && Number(this.networkResult.pendingExternalPurchase ?? 0) > 0 && !(this.networkResult.suggestions ?? []).length)) {
+        this.requestPurchaseToMain();
+        return;
+      }
       this.submitReplenishment();
       return;
     }
@@ -739,13 +769,28 @@ export class PurchaseComponent implements OnInit, OnDestroy {
           return;
         }
         const completedAction = this.flowAction;
+        const orderedRequestDetailIds = new Set<number>((this.flowForm.purchaseRequestDetailIds ?? []).map(Number).filter(Boolean));
         this._toast.success(resp.message ?? 'Operacion registrada.');
         if (completedAction === 'orders') {
+          this.removeOrderedRequestLines(orderedRequestDetailIds);
+          const hasMorePendingRequests = this.pendingPurchaseRequestLines().length > 0;
           this.orderLines = [];
           this.selectedPurchaseRequestIds = [];
           this.flowForm.purchaseRequestIds = [];
+          this.flowForm.purchaseRequestDetailIds = [];
+          this.loadPurchaseRequests();
+          if (hasMorePendingRequests) {
+            this.flowAction = 'orders';
+            this.showPurchaseRequestPanel = true;
+            this.showManualOrderForm = false;
+            this.flowForm.supplierId = null;
+            this._toast.success('Orden creada. Aun quedan medicamentos pendientes para otros proveedores.');
+          } else {
+            this.advanceAfterSubmit(completedAction);
+          }
+        } else {
+          this.advanceAfterSubmit(completedAction);
         }
-        this.advanceAfterSubmit(completedAction);
         this.loadDashboard();
         this.loadReplenishmentSuggestions();
         if (this.flowForm.purchaseId) this.refreshSelectedOrder();
@@ -753,6 +798,13 @@ export class PurchaseComponent implements OnInit, OnDestroy {
       },
       error: () => this.finishLoad('Error inesperado al ejecutar el flujo de compras.')
     });
+  }
+
+  private removeOrderedRequestLines(detailIds: Set<number>): void {
+    if (!detailIds.size) return;
+    this.purchaseRequests = this.purchaseRequests
+      .map(request => ({ ...request, details: (request.details ?? []).filter((detail: any) => !detailIds.has(Number(detail.id))) }))
+      .filter(request => (request.details ?? []).length > 0);
   }
 
   private buildFlowPayload(): any {
@@ -766,7 +818,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     if (this.flowAction === 'orders') {
       if (!form.branchId || !form.supplierId) return this.invalidFlow('Seleccione sucursal destino y proveedor.');
       if (this.orderLines.length === 0) return this.invalidFlow('Agregue al menos un medicamento a la orden.');
-      return { branchId: form.branchId, supplierId: form.supplierId, purchaseRequestIds: form.purchaseRequestIds ?? [], subtotal: this.orderSubtotal(), total: this.orderSubtotal(), details: this.orderLines };
+      return { branchId: form.branchId, supplierId: form.supplierId, purchaseRequestIds: form.purchaseRequestIds ?? [], purchaseRequestDetailIds: form.purchaseRequestDetailIds ?? [], subtotal: this.orderSubtotal(), total: this.orderSubtotal(), details: this.orderLines };
     }
     if (this.flowAction === 'receipts') {
       const received = Number(form.quantityReceived ?? 0);

@@ -7,6 +7,13 @@ import { calculateReceiptLine, determineInvoiceMatching } from './purchase-flow.
 const purchases = () => AppDataSource.getRepository('Purchase');
 const details = () => AppDataSource.getRepository('PurchaseDetail');
 const purchaseOrderMarker = purchaseId => `[PURCHASE_ORDER:${purchaseId}]`;
+const purchaseOrderDetailMarker = (purchaseId, detailId) => `[PURCHASE_ORDER_DETAIL:${purchaseId}:${detailId}]`;
+const purchaseRequestDetailMarker = detailId => `[PURCHASE_REQUEST_DETAIL:${detailId}]`;
+const orderedDetailIdsFromNotes = notes => [
+  ...String(notes ?? '').matchAll(/\[PURCHASE_REQUEST_DETAIL:(\d+)\]/g),
+  ...String(notes ?? '').matchAll(/\[PURCHASE_ORDER_DETAIL:\d+:(\d+)\]/g)
+].map(match => Number(match[1])).filter(Boolean);
+const purchaseDetailIdsFromNotes = (notes, purchaseId) => [...String(notes ?? '').matchAll(new RegExp(`\\[PURCHASE_ORDER_DETAIL:${purchaseId}:(\\d+)\\]`, 'g'))].map(match => Number(match[1])).filter(Boolean);
 
 const appendNote = (notes, addition) => [notes, addition].filter(Boolean).join(' | ').slice(0, 1000);
 
@@ -314,25 +321,29 @@ export const listPurchaseRequests = async () => {
     .orderBy('item.createdAt', 'DESC')
     .getMany();
   const detailRepo = AppDataSource.getRepository('PurchaseRequestDetail');
-  return Promise.all(rows.map(async item => ({
-    id: item.id,
-    requestNumber: item.requestNumber,
-    branchId: item.branchId,
-    branchName: item.branch?.name ?? null,
-    requestDate: item.requestDate,
-    requiredDate: item.requiredDate,
-    priority: item.priority,
-    reason: item.reason,
-    source: item.source,
-    status: item.status,
-    notes: item.notes,
-    createdAt: item.createdAt,
-    details: (await detailRepo.createQueryBuilder('detail')
+  return Promise.all(rows.map(async item => {
+    const orderedDetailIds = new Set(orderedDetailIdsFromNotes(item.notes));
+    const rawDetails = await detailRepo.createQueryBuilder('detail')
       .leftJoin('detail.medicine', 'medicine')
       .addSelect(['medicine.id', 'medicine.code', 'medicine.name'])
       .where('detail.requestId = :requestId', { requestId: item.id })
       .orderBy('detail.id', 'ASC')
-      .getMany()).map(detail => ({
+      .getMany();
+    const visibleDetails = rawDetails.filter(detail => !orderedDetailIds.has(Number(detail.id)));
+    return {
+      id: item.id,
+      requestNumber: item.requestNumber,
+      branchId: item.branchId,
+      branchName: item.branch?.name ?? null,
+      requestDate: item.requestDate,
+      requiredDate: item.requiredDate,
+      priority: item.priority,
+      reason: item.reason,
+      source: item.source,
+      status: item.status,
+      notes: item.notes,
+      createdAt: item.createdAt,
+      details: visibleDetails.map(detail => ({
         id: detail.id,
         requestId: detail.requestId,
         branchId: detail.branchId,
@@ -342,7 +353,8 @@ export const listPurchaseRequests = async () => {
         requestedQuantity: Number(detail.requestedQuantity ?? 0),
         suggestedQuantity: Number(detail.suggestedQuantity ?? detail.requestedQuantity ?? 0)
       }))
-  })));
+    };
+  }));
 };
 
 export const checkNetworkAvailability = async (medicineId, targetBranchId, requestedQuantity) => {
@@ -419,17 +431,17 @@ const createFulfillmentDeliveryRequests = async (manager, purchase, purchaseDeta
   const deliveryDetailRepo = manager.getRepository('DeliveryRequestDetail');
   const marker = purchaseOrderMarker(purchase.id);
   const query = requestRepo.createQueryBuilder('request')
-    .where('request.status = :status', { status: 'ORDERED' })
-    .andWhere('request.notes LIKE :marker', { marker: `%${marker}%` });
+    .where('request.notes LIKE :marker', { marker: `%${marker}%` });
 
   if (purchase.purchaseRequestId) {
-    query.orWhere('request.id = :requestId AND request.status = :status', { requestId: purchase.purchaseRequestId, status: 'ORDERED' });
+    query.orWhere('request.id = :requestId', { requestId: purchase.purchaseRequestId });
   }
 
   const requests = await query.orderBy('request.id', 'ASC').getMany();
   if (!requests.length) return [];
 
   const requestIds = requests.map(request => request.id);
+  const detailIdsForPurchase = new Set(requests.flatMap(request => purchaseDetailIdsFromNotes(request.notes, purchase.id)));
   const requestDetails = await requestDetailRepo.createQueryBuilder('detail')
     .where('detail.requestId IN (:...requestIds)', { requestIds })
     .orderBy('detail.requestId', 'ASC')
@@ -449,6 +461,7 @@ const createFulfillmentDeliveryRequests = async (manager, purchase, purchaseDeta
   const groups = new Map();
 
   for (const detail of requestDetails) {
+    if (detailIdsForPurchase.size && !detailIdsForPurchase.has(Number(detail.id))) continue;
     const request = requestById.get(detail.requestId);
     if (!request || Number(request.branchId) === Number(purchase.branchId)) continue;
 
@@ -559,12 +572,25 @@ export const createPurchaseOrder = async payload => AppDataSource.transaction(as
   if (rows.length) await detailRepo.save(rows);
   if (Array.isArray(payload.purchaseRequestIds) && payload.purchaseRequestIds.length) {
     const marker = purchaseOrderMarker(saved.id);
-    await manager.getRepository('PurchaseRequest')
-      .createQueryBuilder()
-      .update()
-      .set({ status: 'ORDERED', notes: appendNote(payload.notes ?? 'Consolidada en orden de compra', marker) })
-      .where('id IN (:...ids)', { ids: [...new Set(payload.purchaseRequestIds.map(Number).filter(Boolean))] })
-      .execute();
+    const requestRepo = manager.getRepository('PurchaseRequest');
+    const requestDetailRepo = manager.getRepository('PurchaseRequestDetail');
+    const requestIds = [...new Set(payload.purchaseRequestIds.map(Number).filter(Boolean))];
+    const selectedDetailIds = new Set((payload.purchaseRequestDetailIds ?? []).map(Number).filter(Boolean));
+    const requests = await requestRepo.createQueryBuilder('request')
+      .where('request.id IN (:...requestIds)', { requestIds })
+      .getMany();
+
+    for (const request of requests) {
+      const requestDetails = await requestDetailRepo.findBy({ requestId: request.id });
+      const currentOrderDetailIds = requestDetails.filter(detail => selectedDetailIds.has(Number(detail.id))).map(detail => Number(detail.id));
+      const orderedDetailIds = new Set([...orderedDetailIdsFromNotes(request.notes), ...currentOrderDetailIds]);
+      const detailMarkers = currentOrderDetailIds.map(detailId => `${purchaseRequestDetailMarker(detailId)} ${purchaseOrderDetailMarker(saved.id, detailId)}`).join(' ');
+      const allDetailsOrdered = requestDetails.length > 0 && requestDetails.every(detail => orderedDetailIds.has(Number(detail.id)));
+      await requestRepo.update(request.id, {
+        status: allDetailsOrdered ? 'ORDERED' : request.status,
+        notes: appendNote(request.notes ?? 'Consolidada parcialmente en orden de compra', `${marker} ${detailMarkers}`.trim())
+      });
+    }
   }
   return saved.id;
 });

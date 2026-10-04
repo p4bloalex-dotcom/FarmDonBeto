@@ -3,7 +3,7 @@ import { TableColumn } from '@fuse/components/table/table-column.model';
 export interface PharmacyFieldConfig {
   name: string;
   label: string;
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'date' | 'datetime' | 'url';
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'date' | 'datetime' | 'url' | 'image';
   required?: boolean;
   endpoint?: string;
   optionLabel?: string;
@@ -93,7 +93,7 @@ export const pharmacyCatalogConfigs: Record<string, PharmacyCatalogConfig> = {
       { name: 'unit_measurement_id', label: 'Unidad de medida', type: 'select', required: true, endpoint: 'UnitMeasurement' },
       { name: 'price_buy', label: 'Precio compra', type: 'number' },
       { name: 'price_sell', label: 'Precio venta', type: 'number' },
-      { name: 'image_url', label: 'Enlace de imagen', type: 'url' },
+      { name: 'imageBase64', label: 'Imagen', type: 'image' },
       { name: 'description', label: 'Descripcion', type: 'textarea' }
     ]
   },

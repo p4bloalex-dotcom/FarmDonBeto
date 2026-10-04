@@ -40,7 +40,7 @@
                 @if (col.type === "image") {
                   <div class="image-cell" [class.image-cell-empty]="!row[col.field]">
                     @if (row[col.field]) {
-                      <img [src]="row[col.field]" alt="Imagen relacionada" loading="lazy" />
+                      <img [src]="assetUrl(row[col.field])" alt="Imagen relacionada" loading="lazy" />
                     } @else {
                       <mat-icon svgIcon="heroicons_outline:photo"></mat-icon>
                     }
@@ -90,7 +90,7 @@
                     @if (col.type === "image") {
                       <span class="image-cell" [class.image-cell-empty]="!row[col.field]">
                         @if (row[col.field]) {
-                          <img [src]="row[col.field]" alt="Imagen relacionada" loading="lazy" />
+                          <img [src]="assetUrl(row[col.field])" alt="Imagen relacionada" loading="lazy" />
                         } @else {
                           <mat-icon svgIcon="heroicons_outline:photo"></mat-icon>
                         }

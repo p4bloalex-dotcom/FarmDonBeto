@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, HostListener, Input, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { environment } from 'environments/environment';
 import { TableAction, TableActionEvent, TableColumn } from './table-column.model';
 import { MatIconModule } from '@angular/material/icon';
 import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
@@ -88,6 +89,12 @@ export class TableComponent {
     if (!col?.hideAt) return false;
     const bpMap = { sm: 640, md: 768, lg: 1024 };
     return this.viewportWidth < (bpMap[col.hideAt] ?? 0);
+  }
+
+  assetUrl(value: string): string {
+    if (!value || value.startsWith('data:') || value.startsWith('http')) return value;
+    const apiRoot = environment.apiUrl.replace(/\/api\/?$/, '');
+    return apiRoot.startsWith('http') ? `${apiRoot}${value}` : value;
   }
 
   private updatePagedData(): void {

@@ -1,4 +1,5 @@
 import { AppDataSource } from '../../../config/data-source.js';
+import { saveMedicineImage } from '../../../utils/image-storage.js';
 
 const repository = entityName => AppDataSource.getRepository(entityName);
 
@@ -94,6 +95,7 @@ const queryItems = entityName => {
 };
 
 export const createItem = async (entityName, data) => {
+  if (entityName === 'Medicine') data = await prepareMedicinePayload(data);
   const saved = await repository(entityName).save(repository(entityName).create(data));
   const item = await queryItems(entityName).where('item.id = :id', { id: saved.id }).getOne();
   return toDto(entityName, item ?? saved);
@@ -112,8 +114,18 @@ export const paginateItems = async (entityName, { offset, pageSize }) => {
   return { rows: rows.map(item => toDto(entityName, item)), total };
 };
 
-export const updateItem = async (entityName, id, data) => (await repository(entityName).update(id, data)).affected > 0;
+export const updateItem = async (entityName, id, data) => {
+  if (entityName === 'Medicine') data = await prepareMedicinePayload(data);
+  return (await repository(entityName).update(id, data)).affected > 0;
+};
 
 export const changeStatus = async (entityName, id, status) => (await repository(entityName).update(id, { status })).affected > 0;
 
 export const deleteItem = async (entityName, id) => (await repository(entityName).delete(id)).affected > 0;
+
+const prepareMedicinePayload = async data => {
+  const { imageBase64, ...payload } = data;
+  if (imageBase64) payload.imageUrl = await saveMedicineImage(imageBase64);
+  if (!payload.imageUrl) delete payload.imageUrl;
+  return payload;
+};
