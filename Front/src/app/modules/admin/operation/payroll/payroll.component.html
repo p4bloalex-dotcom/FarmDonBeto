@@ -1,9 +1,9 @@
 <div class="bg-card flex min-w-0 flex-auto flex-col overflow-y-auto dark:bg-transparent sm:absolute sm:inset-0">
     @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
 
-    <div class="relative flex flex-0 flex-col gap-4 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
+    <div class="relative flex flex-0 flex-col gap-2 border-b px-4 py-2 sm:flex-row sm:items-center sm:justify-between md:px-5">
         <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Nómina</div>
-        <div class="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+        <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <mat-form-field class="fuse-mat-dense fuse-mat-rounded w-full sm:min-w-72" [subscriptSizing]="'dynamic'">
                 <mat-label>Período</mat-label>
                 <mat-select [formControl]="generateForm.get('periodId')">
@@ -15,51 +15,51 @@
         </div>
     </div>
 
-    <div class="grid gap-3 border-b bg-slate-50 p-4 dark:bg-slate-900 md:grid-cols-4 md:px-8">
-        <button type="button" class="rounded-xl bg-white p-3 text-left shadow-sm dark:bg-slate-800" (click)="selectFlowAction('pay')">
+    <div class="grid gap-2 border-b bg-slate-50 p-2 dark:bg-slate-900 md:grid-cols-4 md:px-5">
+        <button type="button" class="rounded-xl bg-white p-2 text-left shadow-sm dark:bg-slate-800" (click)="selectFlowAction('pay')">
             <div class="text-sm text-secondary">Estado</div>
-            <div class="mt-1 text-2xl font-bold">{{ selectedPeriod?.statusLabel ?? 'Manual' }}</div>
+            <div class="mt-1 text-xl font-bold">{{ selectedPeriod?.statusLabel ?? 'Manual' }}</div>
         </button>
-        <button type="button" class="rounded-xl bg-white p-3 text-left shadow-sm dark:bg-slate-800" (click)="selectFlowAction('review')">
+        <button type="button" class="rounded-xl bg-white p-2 text-left shadow-sm dark:bg-slate-800" (click)="selectFlowAction('review')">
             <div class="text-sm text-secondary">Pagos</div>
-            <div class="mt-1 text-2xl font-bold">{{ periodPayments.length }}</div>
+            <div class="mt-1 text-xl font-bold">{{ periodPayments.length }}</div>
         </button>
-        <button type="button" class="rounded-xl bg-white p-3 text-left shadow-sm dark:bg-slate-800" (click)="selectFlowAction('review')">
+        <button type="button" class="rounded-xl bg-white p-2 text-left shadow-sm dark:bg-slate-800" (click)="selectFlowAction('review')">
             <div class="text-sm text-secondary">Total del período</div>
-            <div class="mt-1 text-2xl font-bold">{{ payrollTotalLabel }}</div>
+            <div class="mt-1 text-xl font-bold">{{ payrollTotalLabel }}</div>
         </button>
-        <button type="button" class="rounded-xl bg-primary p-3 text-left shadow-sm" (click)="selectFlowAction('calculate')">
+        <button type="button" class="rounded-xl bg-primary p-2 text-left shadow-sm" (click)="selectFlowAction('calculate')">
             <div class="text-sm text-on-primary">Sucursal</div>
-            <div class="mt-1 text-2xl font-bold text-on-primary">{{ selectedPeriod?.branchName ?? 'Todas' }}</div>
+            <div class="mt-1 text-xl font-bold text-on-primary">{{ selectedPeriod?.branchName ?? 'Todas' }}</div>
         </button>
     </div>
 
     <div class="flex flex-auto overflow-hidden">
-        <div class="flex w-full flex-auto flex-col gap-4 overflow-y-auto p-4 md:px-8">
-            <div class="rounded-3xl border bg-white p-4 shadow-sm dark:bg-slate-900 sm:p-5">
-                <div class="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
+        <div class="flex w-full flex-auto flex-col gap-2 overflow-y-auto p-2 md:px-5">
+            <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-900">
+                <div class="flex flex-col gap-2 border-b pb-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                         <div class="text-sm font-semibold uppercase tracking-wide text-primary">{{ currentPhase.phase }} de 4</div>
-                        <div class="mt-1 text-2xl font-extrabold tracking-tight">{{ currentPhase.title }}</div>
+                        <div class="mt-1 text-xl font-extrabold tracking-tight">{{ currentPhase.title }}</div>
                         <div class="mt-1 text-secondary">{{ periodFlowHint }} · {{ nextStepLabel }}</div>
                     </div>
-                    <div class="rounded-2xl bg-slate-100 px-4 py-3 text-sm dark:bg-slate-800">
+                    <div class="rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">
                         <div class="font-semibold">Período seleccionado</div>
                         <div>{{ selectedPeriod?.name ?? 'Manual' }} · {{ selectedPeriod?.statusLabel ?? 'Sin estados' }}</div>
                     </div>
                 </div>
 
-                <div class="mt-4 grid gap-3 lg:grid-cols-4">
+                <div class="mt-3 grid gap-2 lg:grid-cols-4">
                     @for (step of flowSteps; track step.action; let index = $index) {
-                        <button type="button" class="group rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:border-inherit disabled:hover:shadow-none" [class.border-primary]="stepState(step) === 'active'" [class.bg-primary-50]="stepState(step) === 'active'" [class.opacity-60]="stepState(step) === 'locked'" [disabled]="stepState(step) === 'locked'" (click)="selectFlowAction(step.action)">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-9 w-9 items-center justify-center rounded-full border font-bold" [class.border-primary]="stepState(step) === 'active'" [class.bg-primary]="stepState(step) === 'active' || stepState(step) === 'done'" [class.text-on-primary]="stepState(step) === 'active' || stepState(step) === 'done'">{{ index + 1 }}</div>
+                        <button type="button" class="group rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:border-inherit disabled:hover:shadow-none" [class.border-primary]="stepState(step) === 'active'" [class.bg-primary-50]="stepState(step) === 'active'" [class.opacity-60]="stepState(step) === 'locked'" [disabled]="stepState(step) === 'locked'" (click)="selectFlowAction(step.action)">
+                            <div class="flex items-center gap-2">
+                                <div class="flex h-8 w-8 items-center justify-center rounded-full border font-bold" [class.border-primary]="stepState(step) === 'active'" [class.bg-primary]="stepState(step) === 'active' || stepState(step) === 'done'" [class.text-on-primary]="stepState(step) === 'active' || stepState(step) === 'done'">{{ index + 1 }}</div>
                                 <div>
                                     <div class="text-xs font-semibold uppercase tracking-wide text-secondary">{{ step.phase }}</div>
                                     <div class="font-bold">{{ step.title }}</div>
                                 </div>
                             </div>
-                            <div class="mt-3 text-xs font-semibold uppercase tracking-wide" [class.text-primary]="stepState(step) === 'active'" [class.text-green-600]="stepState(step) === 'done'">
+                            <div class="mt-2 text-xs font-semibold uppercase tracking-wide" [class.text-primary]="stepState(step) === 'active'" [class.text-green-600]="stepState(step) === 'done'">
                                 @if (stepState(step) === 'active') { Estás aquí }
                                 @else if (stepState(step) === 'done') { Completado }
                                 @else if (stepState(step) === 'locked') { Bloqueado }
@@ -71,12 +71,12 @@
             </div>
 
             @if (activePanel === 'period') {
-                <div class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
-                    <div class="mb-3 flex items-center justify-between">
+                <div class="rounded-xl border bg-slate-50 p-3 dark:bg-slate-900">
+                    <div class="mb-2 flex items-center justify-between">
                         <div class="text-lg font-bold">Nuevo período</div>
                         <button mat-button type="button" (click)="closePanel()">Cerrar</button>
                     </div>
-                    <form [formGroup]="periodForm" class="grid gap-3 lg:grid-cols-6">
+                    <form [formGroup]="periodForm" class="grid gap-2 lg:grid-cols-6">
                         <mat-form-field class="fuse-mat-dense lg:col-span-2"><mat-label>Nombre</mat-label><input matInput formControlName="name" /></mat-form-field>
                         <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option value="">Todas</mat-option><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
                         <mat-form-field class="fuse-mat-dense"><mat-label>Inicio</mat-label><input matInput type="date" formControlName="dateStart" /></mat-form-field>
@@ -89,13 +89,13 @@
             }
 
             @if (flowAction === 'calculate') {
-                <div class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
-                    <div class="mb-3">
+                <div class="rounded-xl border bg-slate-50 p-3 dark:bg-slate-900">
+                    <div class="mb-2">
                         <div class="text-sm font-semibold uppercase tracking-wide text-primary">Fase 2</div>
                         <div class="text-lg font-bold">Calcular nómina</div>
                         <div class="text-secondary">Solo disponible en borrador.</div>
                     </div>
-                    <form [formGroup]="generateForm" class="grid gap-3 lg:grid-cols-6">
+                    <form [formGroup]="generateForm" class="grid gap-2 lg:grid-cols-6">
                         @if (manualGeneration) {
                             <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option value="">Todas</mat-option><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
                             <mat-form-field class="fuse-mat-dense"><mat-label>Fecha pago</mat-label><input matInput type="date" formControlName="paymentDate" /></mat-form-field>
@@ -108,15 +108,15 @@
                     </form>
                 </div>
 
-                <div class="rounded-2xl border p-4">
-                    <div class="mb-3 text-lg font-bold">Períodos</div>
+                <div class="rounded-xl border p-3">
+                    <div class="mb-2 text-lg font-bold">Períodos</div>
                     <app-table [columns]="periodColumns" [data]="periods" [actions]="periodActions" actionColumnWidth="190px" (rowAction)="handlePeriodAction($event)"></app-table>
                 </div>
             }
 
             @if (flowAction === 'review') {
-                <div class="rounded-2xl border p-4">
-                    <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div class="rounded-xl border p-3">
+                    <div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <div class="text-sm font-semibold uppercase tracking-wide text-primary">Fase 3</div>
                             <div class="text-lg font-bold">Revisar pagos generados</div>
@@ -128,8 +128,8 @@
                     <app-table [columns]="paymentColumns" [data]="periodPayments" [actions]="paymentActions" (rowAction)="handlePaymentAction($event)"></app-table>
                 </div>
                 @if (paymentToVoid) {
-                    <form [formGroup]="voidPaymentForm" class="rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900">
-                        <div class="mb-3 text-lg font-bold">Anular pago - {{ paymentToVoid.employeeName }}</div>
+                    <form [formGroup]="voidPaymentForm" class="rounded-xl border bg-slate-50 p-3 dark:bg-slate-900">
+                        <div class="mb-2 text-lg font-bold">Anular pago - {{ paymentToVoid.employeeName }}</div>
                         <mat-form-field class="fuse-mat-dense w-full">
                             <mat-label>Motivo de anulación</mat-label>
                             <input matInput formControlName="reason" maxlength="255" />
@@ -142,15 +142,15 @@
                     </form>
                 }
                 @if (selectedPayment) {
-                    <div class="rounded-2xl border p-4">
-                        <div class="mb-3 text-lg font-bold">Detalle de pago - {{ selectedPayment.employeeName }}</div>
+                    <div class="rounded-xl border p-3">
+                        <div class="mb-2 text-lg font-bold">Detalle de pago - {{ selectedPayment.employeeName }}</div>
                         <app-table [columns]="detailColumns" [data]="paymentDetails"></app-table>
                     </div>
                 }
             }
 
             @if (flowAction === 'pay') {
-                <form [formGroup]="paymentSourceForm" class="grid gap-3 rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900 lg:grid-cols-4">
+                <form [formGroup]="paymentSourceForm" class="grid gap-2 rounded-xl border bg-slate-50 p-3 dark:bg-slate-900 lg:grid-cols-4">
                     <div class="flex flex-col gap-2 lg:col-span-4 sm:flex-row sm:items-center sm:justify-between">
                         <div><div class="text-sm font-semibold uppercase tracking-wide text-primary">Fase 4 · {{ selectedPeriod?.statusLabel ?? 'Sin período' }}</div><div class="text-lg font-bold">Aprobar, pagar y cerrar</div></div>
                         @if (selectedPeriodAction) {
@@ -166,30 +166,30 @@
                         @if (selectedPeriod?.branchId && openPayrollSessions.length === 0) { <div class="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 lg:col-span-4">No hay caja abierta para la sucursal del período. Abra una caja o use otro origen de pago.</div> }
                     }
                 </form>
-                <div class="rounded-2xl border p-4">
-                    <div class="mb-3 text-lg font-bold">Avance de períodos</div>
+                <div class="rounded-xl border p-3">
+                    <div class="mb-2 text-lg font-bold">Avance de períodos</div>
                     <app-table [columns]="periodColumns" [data]="periods" [actions]="periodActions" actionColumnWidth="190px" (rowAction)="handlePeriodAction($event)"></app-table>
                 </div>
             }
 
             @if (flowAction === 'prepare') {
-                <div class="rounded-2xl border p-4">
-                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="rounded-xl border p-3">
+                    <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div><div class="text-sm font-semibold uppercase tracking-wide text-primary">Fase 1</div><div class="text-lg font-bold">Preparación</div><div class="text-secondary">Solo editable antes de calcular.</div></div>
-                        <div class="flex flex-wrap gap-2">
-                            <button type="button" class="rounded-xl border px-4 py-2 font-semibold hover:border-primary" [class.border-primary]="prepareView === 'salaries'" [class.bg-primary-50]="prepareView === 'salaries'" [class.text-primary]="prepareView === 'salaries'" (click)="selectPrepareView('salaries')">Salarios</button>
-                            <button type="button" class="rounded-xl border px-4 py-2 font-semibold hover:border-primary" [class.border-primary]="prepareView === 'adjustments'" [class.bg-primary-50]="prepareView === 'adjustments'" [class.text-primary]="prepareView === 'adjustments'" (click)="selectPrepareView('adjustments')">Ajustes</button>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button type="button" class="rounded-lg border px-3 py-1.5 font-semibold hover:border-primary" [class.border-primary]="prepareView === 'salaries'" [class.bg-primary-50]="prepareView === 'salaries'" [class.text-primary]="prepareView === 'salaries'" (click)="selectPrepareView('salaries')">Salarios</button>
+                            <button type="button" class="rounded-lg border px-3 py-1.5 font-semibold hover:border-primary" [class.border-primary]="prepareView === 'adjustments'" [class.bg-primary-50]="prepareView === 'adjustments'" [class.text-primary]="prepareView === 'adjustments'" (click)="selectPrepareView('adjustments')">Ajustes</button>
                             <a mat-stroked-button routerLink="/catalog/payrollposition">Puestos</a>
                             <a mat-stroked-button routerLink="/catalog/payrollconcept">Conceptos</a>
                         </div>
                     </div>
 
                     @if (prepareView === 'salaries') {
-                        <div class="mb-3 flex justify-end">
+                        <div class="mb-2 flex justify-end">
                             <button mat-flat-button color="primary" type="button" [disabled]="!canPrepare" (click)="openPanel('salary')">Asignar salario</button>
                         </div>
                         @if (activePanel === 'salary') {
-                            <form [formGroup]="salaryForm" class="mb-4 grid gap-3 rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900 lg:grid-cols-6">
+                            <form [formGroup]="salaryForm" class="mb-3 grid gap-2 rounded-xl border bg-slate-50 p-3 dark:bg-slate-900 lg:grid-cols-6">
                                 <mat-form-field class="fuse-mat-dense lg:col-span-2"><mat-label>Empleado</mat-label><mat-select formControlName="employeeId"><mat-option *ngFor="let item of salaryEmployees" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
                                 <mat-form-field class="fuse-mat-dense"><mat-label>Puesto</mat-label><mat-select formControlName="positionId"><mat-option *ngFor="let item of positions" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
                                 <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
@@ -201,11 +201,11 @@
                         <app-table [columns]="salaryColumns" [data]="salaries"></app-table>
                     }
                     @if (prepareView === 'adjustments') {
-                        <div class="mb-3 flex justify-end">
+                        <div class="mb-2 flex justify-end">
                             <button mat-flat-button color="primary" type="button" [disabled]="!canPrepare" (click)="openPanel('adjustment')">Registrar ajuste</button>
                         </div>
                         @if (activePanel === 'adjustment') {
-                            <form [formGroup]="adjustmentForm" class="mb-4 grid gap-3 rounded-2xl border bg-slate-50 p-4 dark:bg-slate-900 lg:grid-cols-6">
+                            <form [formGroup]="adjustmentForm" class="mb-3 grid gap-2 rounded-xl border bg-slate-50 p-3 dark:bg-slate-900 lg:grid-cols-6">
                                 <mat-form-field class="fuse-mat-dense"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option *ngFor="let item of branches" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
                                 <mat-form-field class="fuse-mat-dense lg:col-span-2"><mat-label>Empleado</mat-label><mat-select formControlName="employeeId"><mat-option *ngFor="let item of adjustmentEmployees" [value]="item.id">{{ item.name }}</mat-option></mat-select></mat-form-field>
                                 <mat-form-field class="fuse-mat-dense"><mat-label>Tipo</mat-label><mat-select formControlName="type"><mat-option value="B">Bono</mat-option><mat-option value="D">Deducción</mat-option></mat-select></mat-form-field>

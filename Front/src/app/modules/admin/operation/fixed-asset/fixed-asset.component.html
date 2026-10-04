@@ -2,11 +2,11 @@
     @if (isLoading) {
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }
-    <div class="relative flex flex-0 flex-col gap-4 border-b px-4 py-4 md:px-8">
+    <div class="relative flex flex-0 flex-col gap-2 border-b px-4 py-2 md:px-5">
         <div>
             <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Activos fijos</div>
         </div>
-        <div class="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_200px_180px_180px_auto]">
+        <div class="grid gap-2 lg:grid-cols-[minmax(240px,1fr)_200px_180px_180px_auto]">
             <mat-form-field class="fuse-mat-dense fuse-mat-rounded" [subscriptSizing]="'dynamic'">
                 <mat-icon class="icon-size-5" matPrefix [svgIcon]="'heroicons_solid:magnifying-glass'"></mat-icon>
                 <input matInput [formControl]="searchInputControl" [autocomplete]="'off'" [placeholder]="'Codigo, activo, ubicacion o responsable'" />
@@ -36,7 +36,7 @@
             </mat-form-field>
             <button mat-stroked-button type="button" (click)="clearFilters()">Limpiar</button>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-1.5">
             <button mat-flat-button [color]="'primary'" (click)="openDialog(null, 1)">
                 <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                 <span class="ml-2 mr-1">Nuevo</span>
@@ -46,25 +46,25 @@
             <button mat-stroked-button type="button" (click)="quickStatus('D')">Bajas</button>
         </div>
     </div>
-    <div class="grid gap-3 border-b p-4 md:grid-cols-4 md:px-8">
-        <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-transparent">
+    <div class="grid gap-2 border-b p-2 md:grid-cols-4 md:px-5">
+        <div class="rounded-xl border bg-white p-2 shadow-sm dark:bg-transparent">
             <div class="text-xs uppercase text-secondary">Activos</div>
-            <div class="mt-1 text-2xl font-bold">{{ activeCount }}</div>
+            <div class="mt-1 text-xl font-bold">{{ activeCount }}</div>
         </div>
-        <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-transparent">
+        <div class="rounded-xl border bg-white p-2 shadow-sm dark:bg-transparent">
             <div class="text-xs uppercase text-secondary">Costo</div>
-            <div class="mt-1 text-2xl font-bold">Q {{ totalCost.toFixed(2) }}</div>
+            <div class="mt-1 text-xl font-bold">Q {{ totalCost.toFixed(2) }}</div>
         </div>
-        <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-transparent">
+        <div class="rounded-xl border bg-white p-2 shadow-sm dark:bg-transparent">
             <div class="text-xs uppercase text-secondary">Valor libros</div>
-            <div class="mt-1 text-2xl font-bold">Q {{ totalBookValue.toFixed(2) }}</div>
+            <div class="mt-1 text-xl font-bold">Q {{ totalBookValue.toFixed(2) }}</div>
         </div>
-        <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-transparent">
+        <div class="rounded-xl border bg-white p-2 shadow-sm dark:bg-transparent">
             <div class="text-xs uppercase text-secondary">Bajas</div>
-            <div class="mt-1 text-2xl font-bold">{{ retiredCount }}</div>
+            <div class="mt-1 text-xl font-bold">{{ retiredCount }}</div>
         </div>
     </div>
-    <div class="grid flex-auto overflow-hidden xl:grid-cols-[minmax(0,1fr)_380px]">
+    <div class="grid flex-auto overflow-hidden xl:grid-cols-[minmax(0,1fr)_340px]">
         <div class="flex min-w-0 flex-auto flex-col overflow-auto sm:mb-18">
             <app-table
                 [columns]="columns"
@@ -76,39 +76,39 @@
                 (rowAction)="handleRowAction($event)"
             ></app-table>
             @if (!pagedData.length && !isLoading) {
-                <div class="border-t p-4 text-sm text-secondary">Sin activos para los filtros actuales.</div>
+                <div class="border-t p-3 text-sm text-secondary">Sin activos para los filtros actuales.</div>
             }
             @if (historyRows.length) {
-                <div class="border-t p-4">
-                    <div class="mb-3 text-lg font-semibold">Historial</div>
+                <div class="border-t p-3">
+                    <div class="mb-2 text-lg font-semibold">Historial</div>
                     <app-table [columns]="historyColumns" [data]="historyRows"></app-table>
                 </div>
             }
         </div>
-        <aside class="hidden border-l bg-white p-4 dark:bg-transparent xl:block">
+        <aside class="hidden border-l bg-white p-3 dark:bg-transparent xl:block">
             @if (selectedAsset) {
-                <div class="rounded-2xl border p-4">
-                    <div class="flex items-start justify-between gap-3">
+                <div class="rounded-xl border p-3">
+                    <div class="flex items-start justify-between gap-2">
                         <div>
                             <div class="text-xs uppercase text-secondary">{{ selectedAsset.code }}</div>
-                            <div class="mt-1 text-xl font-bold">{{ selectedAsset.name }}</div>
+                            <div class="mt-1 text-lg font-bold">{{ selectedAsset.name }}</div>
                             <div class="text-sm text-secondary">{{ selectedAsset.category || 'Sin categoria' }}</div>
                         </div>
                         <span class="rounded-full px-3 py-1 text-sm" [class.bg-green-50]="selectedAsset.status === 'E'" [class.text-green-700]="selectedAsset.status === 'E'" [class.bg-amber-50]="selectedAsset.status === 'M'" [class.text-amber-700]="selectedAsset.status === 'M'" [class.bg-red-50]="selectedAsset.status === 'D'" [class.text-red-700]="selectedAsset.status === 'D'">{{ selectedAsset.statusLabel }}</span>
                     </div>
-                    <div class="mt-5 grid gap-3 text-sm">
-                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Sucursal</div><strong>{{ selectedAsset.branchName }}</strong></div>
-                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Ubicacion</div><strong>{{ selectedAsset.location || '-' }}</strong></div>
-                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Responsable</div><strong>{{ selectedAsset.responsible || '-' }}</strong></div>
-                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-secondary">Condicion</div><strong>{{ selectedAsset.conditionLabel }}</strong></div>
+                    <div class="mt-3 grid gap-2 text-sm">
+                        <div class="rounded-lg bg-gray-50 p-2 dark:bg-gray-800"><div class="text-secondary">Sucursal</div><strong>{{ selectedAsset.branchName }}</strong></div>
+                        <div class="rounded-lg bg-gray-50 p-2 dark:bg-gray-800"><div class="text-secondary">Ubicacion</div><strong>{{ selectedAsset.location || '-' }}</strong></div>
+                        <div class="rounded-lg bg-gray-50 p-2 dark:bg-gray-800"><div class="text-secondary">Responsable</div><strong>{{ selectedAsset.responsible || '-' }}</strong></div>
+                        <div class="rounded-lg bg-gray-50 p-2 dark:bg-gray-800"><div class="text-secondary">Condicion</div><strong>{{ selectedAsset.conditionLabel }}</strong></div>
                     </div>
-                    <div class="mt-5 grid grid-cols-2 gap-3 text-sm">
-                        <div class="rounded-xl border p-3"><div class="text-secondary">Costo</div><strong>{{ selectedAsset.purchaseCostLabel }}</strong></div>
-                        <div class="rounded-xl border p-3"><div class="text-secondary">Valor libros</div><strong>{{ selectedAsset.bookValueLabel }}</strong></div>
-                        <div class="rounded-xl border p-3"><div class="text-secondary">Depreciacion</div><strong>Q {{ selectedAsset.accumulatedDepreciation.toFixed(2) }}</strong></div>
-                        <div class="rounded-xl border p-3"><div class="text-secondary">Vida util</div><strong>{{ selectedAsset.usefulLifeMonths || '-' }}</strong></div>
+                    <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+                        <div class="rounded-lg border p-2"><div class="text-secondary">Costo</div><strong>{{ selectedAsset.purchaseCostLabel }}</strong></div>
+                        <div class="rounded-lg border p-2"><div class="text-secondary">Valor libros</div><strong>{{ selectedAsset.bookValueLabel }}</strong></div>
+                        <div class="rounded-lg border p-2"><div class="text-secondary">Depreciacion</div><strong>Q {{ selectedAsset.accumulatedDepreciation.toFixed(2) }}</strong></div>
+                        <div class="rounded-lg border p-2"><div class="text-secondary">Vida util</div><strong>{{ selectedAsset.usefulLifeMonths || '-' }}</strong></div>
                     </div>
-                    <div class="mt-5 grid gap-2">
+                    <div class="mt-3 grid gap-2">
                         <button mat-flat-button color="primary" type="button" (click)="openDialog(selectedAsset, 2)">Editar</button>
                         <button mat-stroked-button type="button" (click)="openDialog(selectedAsset, 8)" [disabled]="selectedAsset.status !== 'E'">Trasladar</button>
                         <button mat-stroked-button type="button" (click)="loadHistory(selectedAsset.id)">Historial</button>
@@ -116,7 +116,7 @@
                     </div>
                 </div>
             } @else {
-                <div class="rounded-2xl border border-dashed p-6 text-center text-secondary">Seleccione un activo</div>
+                <div class="rounded-xl border border-dashed p-4 text-center text-secondary">Seleccione un activo</div>
             }
         </aside>
     </div>

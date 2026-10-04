@@ -18,6 +18,7 @@ import {
   payrollReport,
   profitabilityByBranchReport,
   purchasesBySupplierReport,
+  saleDetailReport,
   salesByMedicineReport,
   salesByPeriodReport,
   topProductsReport,
@@ -27,6 +28,7 @@ import {
 const reports = {
   'sales-period': salesByPeriodReport,
   'sales-branch': salesByPeriodReport,
+  'sales-detail': saleDetailReport,
   'sales-medicine': salesByMedicineReport,
   'top-products': topProductsReport,
   'low-movement-products': lowMovementProductsReport,
@@ -51,6 +53,7 @@ const reports = {
 const reportTitles = {
   'sales-period': 'Ventas por periodo',
   'sales-branch': 'Ventas por sucursal',
+  'sales-detail': 'Detalle de venta',
   'sales-medicine': 'Ventas por medicamento',
   'top-products': 'Productos mas vendidos',
   'low-movement-products': 'Productos con baja rotacion',
@@ -109,11 +112,13 @@ const fieldLabels = {
   inventoryValue: 'Valor inventario',
   items: 'Items',
   lastSaleDate: 'Ultima venta',
+  lineTotal: 'Total linea',
   location: 'Ubicacion',
   lostValue: 'Valor perdido',
   lotNumber: 'Lote',
   margin: 'Margen %',
   medicineId: 'Id medicamento',
+  medicineCode: 'Codigo medicamento',
   medicineName: 'Medicamento',
   missing: 'Faltante',
   module: 'Objeto tecnico',
@@ -140,6 +145,12 @@ const fieldLabels = {
   reason: 'Motivo',
   recordId: 'Registro',
   responsible: 'Responsable',
+  receiptNumber: 'Comprobante',
+  saleDate: 'Fecha venta',
+  saleId: 'Venta',
+  saleSubtotal: 'Subtotal venta',
+  saleTax: 'Impuesto venta',
+  saleTotal: 'Total venta',
   sales: 'Ventas',
   source: 'Tipo movimiento',
   sourceId: 'Documento',
@@ -154,6 +165,7 @@ const fieldLabels = {
   totalSold: 'Venta total',
   totalValue: 'Valor total',
   unitCost: 'Costo unitario',
+  unitPrice: 'Precio unitario',
   units: 'Unidades',
   usefulLifeMonths: 'Vida util meses',
   userId: 'Usuario'
@@ -304,6 +316,44 @@ const toPdf = (rows, reportName, filters) => new Promise((resolve, reject) => {
     return y + 22;
   };
   let y = drawHeader();
+  if (reportName === 'sales-detail') {
+    const row = rows[0] ?? {};
+    const lineTotal = rows.reduce((sum, item) => sum + Number(item.lineTotal ?? 0), 0);
+    doc.fillColor('#1b1533').font('Helvetica-Bold').fontSize(10).text(filters.saleId ? `Venta #${row.saleId ?? filters.saleId}` : 'Detalle de ventas', 44, y + 8);
+    doc.font('Helvetica').fontSize(8).text(`Comprobante: ${row.receiptNumber ?? 'Varios'} | Sucursal: ${row.branchName ?? filters.branchId ?? 'Todas'} | Registros: ${rows.length}`, 44, y + 24, { width: pageWidth - 16 });
+    doc.text(`Cliente: ${filters.saleId ? (row.customerName ?? 'Consumidor final') : 'Varios'} | NIT: ${filters.saleId ? (row.customerTaxId ?? 'CF') : 'Varios'} | Vendedor: ${filters.saleId ? (row.employeeName ?? '-') : 'Varios'}`, 44, y + 38, { width: pageWidth - 16 });
+    y += 62;
+    const detailHeaders = ['Venta', 'Fecha', 'Codigo', 'Medicamento', 'Cant.', 'Precio', 'Total'];
+    const widths = [62, 82, 78, pageWidth - 454, 54, 80, 80];
+    doc.roundedRect(36, y, pageWidth, 24, 4).fill('#1b1533');
+    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
+    let x = 44;
+    detailHeaders.forEach((header, index) => {
+      doc.text(header, x, y + 8, { width: widths[index] - 8, ellipsis: true });
+      x += widths[index];
+    });
+    y += 26;
+    rows.forEach((item, index) => {
+      if (y > doc.page.height - 90) {
+        doc.addPage();
+        y = drawHeader();
+      }
+      doc.rect(36, y, pageWidth, 22).fill(index % 2 === 0 ? '#ffffff' : '#fafaff');
+      doc.fillColor('#1b1533').font('Helvetica').fontSize(7);
+      x = 44;
+      [item.saleId, readableDate(item.saleDate), item.medicineCode, item.medicineName, item.quantity, `Q ${Number(item.unitPrice ?? 0).toFixed(2)}`, `Q ${Number(item.lineTotal ?? 0).toFixed(2)}`].forEach((value, columnIndex) => {
+        doc.text(String(value ?? ''), x, y + 7, { width: widths[columnIndex] - 8, ellipsis: true });
+        x += widths[columnIndex];
+      });
+      y += 22;
+    });
+    y += 12;
+    doc.roundedRect(pageWidth - 210, y, 246, 60, 6).fill('#f4f2fa');
+    doc.fillColor('#1b1533').font('Helvetica-Bold').fontSize(9).text(`Lineas: ${rows.length}`, pageWidth - 190, y + 14, { width: 210, align: 'right' });
+    doc.fillColor('#4633B9').fontSize(11).text(`Total detalle: Q ${lineTotal.toFixed(2)}`, pageWidth - 190, y + 34, { width: 210, align: 'right' });
+    doc.end();
+    return;
+  }
   if (reportName === 'audit-detail') {
     exportData.forEach((row, rowIndex) => {
       if (y > doc.page.height - 170) {

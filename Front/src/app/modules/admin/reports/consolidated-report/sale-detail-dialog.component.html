@@ -1,0 +1,48 @@
+<div class="min-w-[72vw] max-w-[94vw] overflow-hidden rounded-2xl bg-white text-[#1b1533]">
+    <div class="border-b border-[#4633B9]/15 bg-[#4633B9]/10 px-5 py-4">
+        <div class="text-xl font-bold">{{ title }}</div>
+        <div class="mt-1 text-sm text-[#1b1533]/70">{{ rows.length }} linea(s) de venta · {{ sale.branchName || 'Todas las sucursales' }}</div>
+    </div>
+
+    <div class="max-h-[72vh] space-y-4 overflow-auto p-5">
+        <div class="grid gap-2 rounded-xl border border-[#4633B9]/10 bg-[#4633B9]/5 p-3 text-sm md:grid-cols-4">
+            <div><div class="font-semibold">Desde</div><div>{{ filters.startDate || '-' }}</div></div>
+            <div><div class="font-semibold">Hasta</div><div>{{ filters.endDate || '-' }}</div></div>
+            <div><div class="font-semibold">Sucursal</div><div>{{ sale.branchName || filters.branchId || 'Todas' }}</div></div>
+            <div><div class="font-semibold">Total detalle</div><div>{{ money(detailTotal) }}</div></div>
+        </div>
+
+        <div class="overflow-hidden rounded-xl border">
+            <div class="grid grid-cols-[80px_140px_110px_minmax(220px,1fr)_90px_110px_110px] bg-[#1b1533] px-3 py-2 text-xs font-bold uppercase tracking-wide text-white">
+                <div>Venta</div>
+                <div>Fecha</div>
+                <div>Codigo</div>
+                <div>Medicamento</div>
+                <div class="text-right">Cantidad</div>
+                <div class="text-right">Precio</div>
+                <div class="text-right">Total</div>
+            </div>
+            @for (row of rows; track row.medicineCode + '-' + $index) {
+                <div class="grid grid-cols-[80px_140px_110px_minmax(220px,1fr)_90px_110px_110px] border-t px-3 py-2 text-sm">
+                    <div class="font-semibold">#{{ row.saleId }}</div>
+                    <div class="truncate">{{ row.saleDate }}</div>
+                    <div class="truncate font-semibold">{{ row.medicineCode || '-' }}</div>
+                    <div class="truncate">{{ row.medicineName || '-' }}</div>
+                    <div class="text-right">{{ row.quantity }}</div>
+                    <div class="text-right">{{ money(row.unitPrice) }}</div>
+                    <div class="text-right font-semibold">{{ money(row.lineTotal) }}</div>
+                </div>
+            }
+        </div>
+
+        <div class="ml-auto grid max-w-sm gap-1 rounded-xl bg-[#4633B9]/5 p-4 text-sm">
+            <div class="flex justify-between"><span>Lineas</span><strong>{{ rows.length }}</strong></div>
+            <div class="flex justify-between border-t pt-2 text-lg text-[#4633B9]"><span>Total detalle</span><strong>{{ money(detailTotal) }}</strong></div>
+        </div>
+    </div>
+
+    <div class="flex justify-end gap-2 border-t bg-[#1b1533]/5 px-5 py-3">
+        <button mat-stroked-button type="button" (click)="downloadPdf()">Imprimir PDF</button>
+        <button mat-flat-button type="button" color="primary" (click)="close()">Cerrar</button>
+    </div>
+</div>

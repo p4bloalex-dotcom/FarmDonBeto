@@ -14,6 +14,7 @@ import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
 import { Subject, takeUntil } from 'rxjs';
 import { AuditDetailDialogComponent } from './audit-detail-dialog.component';
+import { SaleDetailDialogComponent } from './sale-detail-dialog.component';
 
 @Component({
   selector: 'app-consolidated-report',
@@ -76,6 +77,7 @@ export class ConsolidatedReportComponent implements OnInit, OnDestroy {
 
   columns: TableColumn[] = [];
   actions: TableAction[] = [];
+  private salesReports = new Set(['sales-period', 'sales-branch', 'sales-medicine', 'top-products']);
 
   constructor(private _api: GeneralApiService, private _toast: HotToastService, private _matDialog: MatDialog) { }
 
@@ -89,7 +91,7 @@ export class ConsolidatedReportComponent implements OnInit, OnDestroy {
   loadReport(): void {
     this.isLoading = true;
     this.columns = this.columnsFor(this.selectedReport);
-    this.actions = this.selectedReport === 'audit' ? [{ action: 'detail', label: 'Detalle', icon: 'heroicons_outline:eye' }] : [];
+    this.actions = this.selectedReport === 'audit' || this.salesReports.has(this.selectedReport) ? [{ action: 'detail', label: 'Detalle', icon: 'heroicons_outline:eye' }] : [];
     this._api.getConsolidatedReport(this.selectedReport, this.filters).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
@@ -116,6 +118,19 @@ export class ConsolidatedReportComponent implements OnInit, OnDestroy {
 
   onRowAction(event: TableActionEvent): void {
     if (event.action !== 'detail') return;
+    if (this.salesReports.has(this.selectedReport)) {
+      const filters = this.detailFiltersFor(event.row);
+      this._api.getConsolidatedReport('sales-detail', filters).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+        next: (resp: ApiResponse<any>) => {
+          if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo cargar el detalle de ventas.');
+          const rows = (resp.data ?? []).map((item: any) => this.decorate(item));
+          if (!rows.length) return this._toast.error('No hay detalle de ventas para este registro.');
+          this._matDialog.open(SaleDetailDialogComponent, { autoFocus: false, data: { rows, filters, title: this.detailTitleFor(event.row) }, width: '94vw', maxWidth: '1280px' });
+        },
+        error: () => this._toast.error('No se pudo cargar el detalle de ventas.')
+      });
+      return;
+    }
     this._api.getConsolidatedReport('audit-detail', { auditId: event.row.auditId, limit: 1 }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo cargar el detalle.');
@@ -160,7 +175,20 @@ export class ConsolidatedReportComponent implements OnInit, OnDestroy {
 
   private decorate(item: any): any {
     const money = (value: any) => `Q ${Number(value ?? 0).toFixed(2)}`;
-    return { ...item, incomeLabel: money(item.income), expenseLabel: money(item.expense), netLabel: money(item.net), grossAmountLabel: money(item.grossAmount), netAmountLabel: money(item.netAmount), costLabel: money(item.cost), profitLabel: money(item.profit), averageTicketLabel: money(item.averageTicket), averagePriceLabel: money(item.averagePrice), averageCostLabel: money(item.averageCost), totalSoldLabel: money(item.totalSold), unitCostLabel: money(item.unitCost), inventoryValueLabel: money(item.inventoryValue), totalValueLabel: money(item.totalValue), lostValueLabel: money(item.lostValue), openingAmountLabel: money(item.openingAmount), expectedAmountLabel: money(item.expectedAmount), closingAmountLabel: money(item.closingAmount), differenceAmountLabel: money(item.differenceAmount), subtotalLabel: money(item.subtotal), taxLabel: money(item.tax), estimatedProfitLabel: money(item.estimatedProfit), marginLabel: `${Number(item.margin ?? 0).toFixed(2)}%`, purchaseCostLabel: money(item.purchaseCost), depreciationLabel: money(item.depreciation), bookValueLabel: money(item.bookValue), baseSalaryLabel: money(item.baseSalary), bonusesLabel: money(item.bonuses), deductionsLabel: money(item.deductions), totalLabel: money(item.total) };
+    return { ...item, incomeLabel: money(item.income), expenseLabel: money(item.expense), netLabel: money(item.net), grossAmountLabel: money(item.grossAmount), netAmountLabel: money(item.netAmount), costLabel: money(item.cost), profitLabel: money(item.profit), averageTicketLabel: money(item.averageTicket), averagePriceLabel: money(item.averagePrice), averageCostLabel: money(item.averageCost), totalSoldLabel: money(item.totalSold), unitCostLabel: money(item.unitCost), unitPriceLabel: money(item.unitPrice), lineTotalLabel: money(item.lineTotal), inventoryValueLabel: money(item.inventoryValue), totalValueLabel: money(item.totalValue), lostValueLabel: money(item.lostValue), openingAmountLabel: money(item.openingAmount), expectedAmountLabel: money(item.expectedAmount), closingAmountLabel: money(item.closingAmount), differenceAmountLabel: money(item.differenceAmount), subtotalLabel: money(item.subtotal), taxLabel: money(item.tax), estimatedProfitLabel: money(item.estimatedProfit), marginLabel: `${Number(item.margin ?? 0).toFixed(2)}%`, purchaseCostLabel: money(item.purchaseCost), depreciationLabel: money(item.depreciation), bookValueLabel: money(item.bookValue), baseSalaryLabel: money(item.baseSalary), bonusesLabel: money(item.bonuses), deductionsLabel: money(item.deductions), totalLabel: money(item.total) };
+  }
+
+  private detailFiltersFor(row: any): any {
+    const filters: any = { startDate: this.filters.startDate, endDate: this.filters.endDate, limit: 200 };
+    if (row.branchId || this.filters.branchId) filters.branchId = row.branchId || this.filters.branchId;
+    if (row.medicineId) filters.medicineId = row.medicineId;
+    return filters;
+  }
+
+  private detailTitleFor(row: any): string {
+    if (row.medicineName) return `Detalle de ventas - ${row.medicineName}`;
+    if (row.branchName) return `Detalle de ventas - ${row.branchName}`;
+    return 'Detalle de ventas';
   }
 
   private fileName(format: 'xlsx' | 'pdf', label?: string): string {

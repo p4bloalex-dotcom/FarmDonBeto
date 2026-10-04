@@ -89,19 +89,54 @@ export const salesByPeriodReport = async filters => {
 export const salesByMedicineReport = async filters => {
   const query = AppDataSource.getRepository('SaleDetail').createQueryBuilder('d')
     .leftJoin('d.sale', 's').leftJoin('d.medicine', 'm').leftJoin('m.category', 'category')
-    .select('m.code', 'code').addSelect('m.name', 'medicineName').addSelect('category.name', 'categoryName')
+    .select('m.id', 'medicineId').addSelect('m.code', 'code').addSelect('m.name', 'medicineName').addSelect('category.name', 'categoryName')
     .addSelect('COALESCE(SUM(d.quantity), 0)', 'quantitySold')
     .addSelect('COALESCE(AVG(d.unitPrice), 0)', 'averagePrice')
     .addSelect('COALESCE(AVG(m.priceBuy), 0)', 'averageCost')
     .addSelect('COALESCE(SUM(d.total), 0)', 'totalSold')
     .addSelect('COALESCE(SUM(d.total - (d.quantity * m.priceBuy)), 0)', 'profit')
     .where('s.status = :saleStatus AND d.status = :detailStatus', { saleStatus: 'E', detailStatus: 'E' })
-    .groupBy('m.code').addGroupBy('m.name').addGroupBy('category.name')
+    .groupBy('m.id').addGroupBy('m.code').addGroupBy('m.name').addGroupBy('category.name')
     .orderBy('COALESCE(SUM(d.total), 0)', 'DESC');
   applyCommonFilters(query, filters, { branch: 's.branchId', medicine: 'd.medicineId', category: 'm.categoryId', paymentMethod: 's.paymentMethod' });
   bindDates(query, filters, 's.saleDate');
   limitRows(query, filters, 100);
   return (await query.getRawMany()).map(row => numberize(row, ['quantitySold', 'averagePrice', 'averageCost', 'totalSold', 'profit']));
+};
+
+export const saleDetailReport = async filters => {
+  const saleId = Number(filters.saleId || filters.recordId || filters.id || 0);
+  const query = AppDataSource.getRepository('SaleDetail').createQueryBuilder('d')
+    .leftJoin('d.sale', 's')
+    .leftJoin('s.branch', 'branch')
+    .leftJoin('s.employee', 'employee')
+    .leftJoin('d.medicine', 'm')
+    .leftJoin('SaleReceipt', 'receipt', 'receipt.saleId = s.id AND receipt.status = :receiptStatus', { receiptStatus: 'E' })
+    .select('s.id', 'saleId')
+    .addSelect('receipt.receiptNumber', 'receiptNumber')
+    .addSelect('s.saleDate', 'saleDate')
+    .addSelect('branch.name', 'branchName')
+    .addSelect("employee.firstName || ' ' || employee.lastName", 'employeeName')
+    .addSelect('receipt.customerTaxId', 'customerTaxId')
+    .addSelect('receipt.customerName', 'customerName')
+    .addSelect('s.paymentMethod', 'paymentMethod')
+    .addSelect('s.subtotal', 'saleSubtotal')
+    .addSelect('s.tax', 'saleTax')
+    .addSelect('s.total', 'saleTotal')
+    .addSelect('m.id', 'medicineId')
+    .addSelect('m.code', 'medicineCode')
+    .addSelect('m.name', 'medicineName')
+    .addSelect('d.quantity', 'quantity')
+    .addSelect('d.unitPrice', 'unitPrice')
+    .addSelect('d.total', 'lineTotal')
+    .where('s.status = :saleStatus AND d.status = :detailStatus', { saleStatus: 'E', detailStatus: 'E' })
+    .orderBy('s.saleDate', 'DESC')
+    .addOrderBy('d.id', 'ASC');
+  if (saleId) query.andWhere('s.id = :saleId', { saleId });
+  applyCommonFilters(query, filters, { branch: 's.branchId', medicine: 'd.medicineId', paymentMethod: 's.paymentMethod' });
+  bindDates(query, filters, 's.saleDate');
+  limitRows(query, filters, 200);
+  return (await query.getRawMany()).map(row => numberize(row, ['saleId', 'saleSubtotal', 'saleTax', 'saleTotal', 'quantity', 'unitPrice', 'lineTotal']));
 };
 
 export const topProductsReport = async filters => {

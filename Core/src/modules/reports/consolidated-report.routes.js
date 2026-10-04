@@ -10,6 +10,7 @@ export const consolidatedReportRoutes = Router();
 const reportCatalog = {
   'sales-period': 'Ventas por periodo',
   'sales-branch': 'Ventas por sucursal',
+  'sales-detail': 'Detalle de venta',
   'sales-medicine': 'Ventas por medicamento',
   'top-products': 'Productos mas vendidos',
   'low-movement-products': 'Productos con baja rotacion',
