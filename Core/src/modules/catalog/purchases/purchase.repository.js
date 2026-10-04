@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { registerKardex } from '../inventory/inventory-kardex.service.js';
 import { addLotStock } from '../inventory/inventory-lot.service.js';
+import { createFinancialMovement } from '../treasury/treasury.repository.js';
 import { calculateReceiptLine, determineInvoiceMatching } from './purchase-flow.js';
 
 const purchases = () => AppDataSource.getRepository('Purchase');
@@ -126,6 +127,13 @@ export const hasCashMovement = async (purchaseId, excludeStatus = null) => {
   return (await query.getCount()) > 0;
 };
 
+export const hasFinancialMovement = async purchaseId => (await AppDataSource.getRepository('FinancialMovement')
+  .createQueryBuilder('item')
+  .where('item.referenceType = :referenceType', { referenceType: 'PURCHASE' })
+  .andWhere('item.referenceId = :purchaseId', { purchaseId })
+  .andWhere('item.status = :status', { status: 'E' })
+  .getCount()) > 0;
+
 export const findOpenSessionByBranch = async branchId => AppDataSource.getRepository('CashSession')
   .findOneBy({ branchId, status: 'A' });
 
@@ -170,6 +178,29 @@ export const createPurchaseWithDetails = async (headerData, detailData, movement
       movementDate: movement.movementDate,
       status: 'E'
     }));
+    await createFinancialMovement(manager, {
+      cashSessionId: movement.cashSessionId,
+      branchId: headerData.branchId,
+      sourceType: 'CASH_SESSION',
+      operation: 'S',
+      amount: movement.amount,
+      description: movement.description,
+      referenceId: saved.id,
+      referenceType: 'PURCHASE',
+      movementDate: movement.movementDate
+    }, headerData.createdBy ?? null);
+  } else if (['BANK', 'CASH_FUND'].includes(headerData.paymentSourceType)) {
+    await createFinancialMovement(manager, {
+      financialAccountId: headerData.financialAccountId,
+      branchId: headerData.branchId,
+      sourceType: headerData.paymentSourceType,
+      operation: 'S',
+      amount: headerData.total,
+      description: `Compra - Factura ${headerData.invoiceNumber}`,
+      referenceId: saved.id,
+      referenceType: 'PURCHASE',
+      movementDate: headerData.purchaseDate
+    }, headerData.createdBy ?? null);
   }
 
   return saved.id;

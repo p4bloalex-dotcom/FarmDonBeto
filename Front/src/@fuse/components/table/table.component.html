@@ -122,7 +122,7 @@
     <mat-paginator
       class="table-paginator z-10 border-t bg-gray-50 dark:bg-transparent"
       [ngClass]="{ 'pointer-events-none': isLoading }"
-      [length] = "length"
+      [length] = "totalLength"
       [pageSize]="pageSize"
       [pageSizeOptions]="pageSizeOptions"
       [showFirstLastButtons]="true"

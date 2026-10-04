@@ -157,9 +157,15 @@ getList(endpoint: string) {
     return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/payments/${id}/void`, { reason });
   }
 
-  updatePayrollPeriodStatus(id: any, status: string) {
-    return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/periods/${id}/status`, { status });
+  updatePayrollPeriodStatus(id: any, status: any) {
+    const payload = typeof status === 'string' ? { status } : status;
+    return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/periods/${id}/status`, payload);
   }
+
+  getTreasury(path: string) { return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/treasury/${path}`); }
+  postTreasury(path: string, data: any) { return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/treasury/${path}`, data); }
+  putTreasury(path: string, id: any, data: any) { return this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/catalog/treasury/${path}/${id}`, data); }
+  patchTreasury(path: string, id: any, action: string, data: any) { return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/catalog/treasury/${path}/${id}/${action}`, data); }
 
   getPayrollPaymentDetails(id: any) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/payroll/payments/${id}/details`);

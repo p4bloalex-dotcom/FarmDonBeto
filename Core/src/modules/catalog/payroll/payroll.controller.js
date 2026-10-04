@@ -16,7 +16,7 @@ export const getPeriods = async (_req, res) => ok(res, await listPeriods());
 export const addPeriod = async (req, res) => created(res, await createPeriod(req.body, req.user?.id ?? null), 'Periodo registrado correctamente.');
 export const changePeriodStatus = async (req, res) => {
   try {
-    return ok(res, { updated: await updatePeriodStatus(Number(req.params.id), req.body.status, req.user?.id ?? null) }, 'Estado de periodo actualizado correctamente.');
+    return ok(res, { updated: await updatePeriodStatus(Number(req.params.id), req.body, req.user?.id ?? null) }, 'Estado de periodo actualizado correctamente.');
   } catch (error) {
     if (error instanceof BusinessRuleError) return badRequest(res, error.message);
     throw error;

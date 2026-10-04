@@ -35,7 +35,18 @@ export const periodSchema = Joi.object({
   return { name: value.name, branchId: value.branchId ?? value.branch_id ?? null, dateStart, dateEnd, payDate, periodType: value.periodType ?? value.period_type, status: value.status ?? 'DRAFT' };
 });
 
-export const periodStatusSchema = Joi.object({ status: Joi.string().valid('DRAFT', 'CALCULATED', 'REVIEWED', 'APPROVED', 'PAID', 'CLOSED').required() });
+export const periodStatusSchema = Joi.object({
+  status: Joi.string().valid('DRAFT', 'CALCULATED', 'REVIEWED', 'APPROVED', 'PAID', 'CLOSED').required(),
+  paymentSourceType: Joi.string().valid('BANK', 'CASH_FUND', 'CASH_SESSION'), payment_source_type: Joi.string().valid('BANK', 'CASH_FUND', 'CASH_SESSION'),
+  financialAccountId: Joi.number().integer().allow(null, ''), financial_account_id: Joi.number().integer().allow(null, ''),
+  cashSessionId: Joi.number().integer().allow(null, ''), cash_session_id: Joi.number().integer().allow(null, '')
+}).custom((value, helpers) => {
+  const paymentSourceType = value.paymentSourceType ?? value.payment_source_type ?? 'CASH_SESSION';
+  const financialAccountId = value.financialAccountId ?? value.financial_account_id ?? null;
+  const cashSessionId = value.cashSessionId ?? value.cash_session_id ?? null;
+  if (value.status === 'PAID' && paymentSourceType !== 'CASH_SESSION' && !financialAccountId) return helpers.error('any.required');
+  return { status: value.status, paymentSourceType, financialAccountId, cashSessionId };
+});
 
 export const salarySchema = Joi.object({
   employeeId: Joi.number().integer(), employee_id: Joi.number().integer(),

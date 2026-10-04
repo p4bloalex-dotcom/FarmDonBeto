@@ -49,15 +49,22 @@ export const purchaseSchema = Joi.object({
   tax: Joi.number().precision(2).min(0),
   taxRate: Joi.number().precision(2).min(0).max(100),
   tax_rate: Joi.number().precision(2).min(0).max(100),
+  paymentSourceType: Joi.string().valid('BANK', 'CASH_FUND', 'CASH_SESSION').default('CASH_SESSION'), payment_source_type: Joi.string().valid('BANK', 'CASH_FUND', 'CASH_SESSION'),
+  financialAccountId: Joi.number().integer().allow(null, ''), financial_account_id: Joi.number().integer().allow(null, ''),
+  cashSessionId: Joi.number().integer().allow(null, ''), cash_session_id: Joi.number().integer().allow(null, ''),
   details: Joi.array().items(detailSchema).min(1).required(),
   status: Joi.string().valid('E', 'I').default('E')
 }).custom((value, helpers) => {
   const supplierId = value.supplierId ?? value.supplier_id;
   const branchId = value.branchId ?? value.branch_id;
+  const paymentSourceType = value.paymentSourceType ?? value.payment_source_type ?? 'CASH_SESSION';
+  const financialAccountId = value.financialAccountId ?? value.financial_account_id ?? null;
+  const cashSessionId = value.cashSessionId ?? value.cash_session_id ?? null;
 
   if (!supplierId || !branchId) {
     return helpers.error('any.required');
   }
+  if (paymentSourceType !== 'CASH_SESSION' && !financialAccountId) return helpers.error('any.required');
 
   const purchaseDate = parseDate(value.purchaseDate);
   if (purchaseDate === undefined) {
@@ -96,6 +103,9 @@ export const purchaseSchema = Joi.object({
     subtotal,
     tax,
     total: round2(subtotal + tax),
+    paymentSourceType,
+    financialAccountId,
+    cashSessionId,
     details,
     status: value.status ?? 'E'
   };

@@ -1,3 +1,4 @@
+import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, HostListener, Input, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { TableAction, TableActionEvent, TableColumn } from './table-column.model';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,6 +9,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 @Component({
     selector: 'app-table',
     imports: [
+        CommonModule,
         MatIconModule,
         MatPaginatorModule,
         CellFormatPipe,
@@ -21,21 +23,27 @@ export class TableComponent {
   @Input() data: any[] = [];
   @Input() actions: TableAction[] = [];
   @Input() actionColumnWidth = '120px';
-  @Input() length = 0;
+  @Input() length: number | null = null;
+  @Input() isLoading = false;
   @Output() pageChange = new EventEmitter<PageEvent>();
   actionColumnLabel = 'Acciones';
   pagedData: any[] = this.data;
   pageSize = 10;
+  pageIndex = 0;
   pageSizeOptions: number[] = [5, 10, 20, 40];
   viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['data']) {
-      this.pagedData = this.data;
+    if (changes['data'] || changes['length']) {
+      if (changes['data']) this.pageIndex = 0;
+      this.updatePagedData();
     }
   }
 
   onPageEvent(event: PageEvent) {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    this.updatePagedData();
     this.pageChange.emit(event);
   }
 
@@ -59,6 +67,8 @@ export class TableComponent {
     return action.visible ? action.visible(row) : true;
   }
 
+  get totalLength(): number { return this.length ?? this.data?.length ?? 0; }
+
 
   getGridTemplate(): string {
     return this.getVisibleColumns()
@@ -78,6 +88,15 @@ export class TableComponent {
     if (!col?.hideAt) return false;
     const bpMap = { sm: 640, md: 768, lg: 1024 };
     return this.viewportWidth < (bpMap[col.hideAt] ?? 0);
+  }
+
+  private updatePagedData(): void {
+    if (this.pageChange.observed) {
+      this.pagedData = this.data ?? [];
+      return;
+    }
+    const start = this.pageIndex * this.pageSize;
+    this.pagedData = (this.data ?? []).slice(start, start + this.pageSize);
   }
 
 

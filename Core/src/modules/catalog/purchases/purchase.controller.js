@@ -15,6 +15,7 @@ import {
   findPurchaseByInvoice,
   findPurchaseById,
   findLatestSupplierInvoice,
+  hasFinancialMovement,
   hasCashMovement,
   listPurchaseDetails,
   listPurchaseRequests,
@@ -92,7 +93,9 @@ const validatePharmacyData = async (payload, excludePurchaseId = null, requireMa
 };
 
 const buildCashMovement = async (payload, supplier) => {
-  const session = await findOpenSessionByBranch(payload.branchId);
+  const session = payload.cashSessionId
+    ? await AppDataSource.getRepository('CashSession').findOneBy({ id: payload.cashSessionId, branchId: payload.branchId, status: 'A' })
+    : await findOpenSessionByBranch(payload.branchId);
   if (!session) {
     return null;
   }
@@ -127,7 +130,8 @@ export const addPurchase = async (req, res) => {
     return badRequest(res, message);
   }
 
-  const movement = await buildCashMovement(req.body, supplier);
+  const movement = req.body.paymentSourceType === 'CASH_SESSION' ? await buildCashMovement(req.body, supplier) : null;
+  if (req.body.paymentSourceType === 'CASH_SESSION' && !movement) return badRequest(res, 'Debe existir una sesion de caja abierta y valida para registrar el pago a proveedor.');
 
   const header = {
     supplierId: req.body.supplierId,
@@ -137,7 +141,10 @@ export const addPurchase = async (req, res) => {
     subtotal: req.body.subtotal,
     tax: req.body.tax,
     total: req.body.total,
-    status: req.body.status ?? 'E'
+    status: req.body.status ?? 'E',
+    paymentSourceType: req.body.paymentSourceType,
+    financialAccountId: req.body.financialAccountId,
+    createdBy: req.user?.id ?? req.user?.userId ?? null
   };
 
   try {
@@ -183,8 +190,8 @@ export const editPurchase = async (req, res) => {
   if (!editableStatuses.includes(existing.status)) {
     return conflict(res, 'Solo se pueden editar compras directas o borradores. Una orden aprobada debe continuar con recepcion, factura o devolucion.');
   }
-  if (await hasCashMovement(id)) {
-    return conflict(res, 'La compra ya fue registrada en el flujo de caja. No se puede modificar.');
+  if (await hasCashMovement(id) || await hasFinancialMovement(id)) {
+    return conflict(res, 'La compra ya fue registrada en el flujo financiero. No se puede modificar.');
   }
 
   const { ok: valid, message } = await validatePharmacyData(req.body, id);
@@ -216,8 +223,8 @@ export const removePurchase = async (req, res) => {
   if (!deletableStatuses.includes(existing.status)) {
     return conflict(res, 'No se puede eliminar una orden aprobada, recibida o facturada. Use devolucion a proveedor si corresponde.');
   }
-  if (await hasCashMovement(id)) {
-    return conflict(res, 'No se puede eliminar una compra registrada en el flujo de caja.');
+  if (await hasCashMovement(id) || await hasFinancialMovement(id)) {
+    return conflict(res, 'No se puede eliminar una compra registrada en el flujo financiero.');
   }
 
   try {

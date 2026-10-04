@@ -21,7 +21,7 @@
 
     <div class="flex-1 overflow-y-auto p-4">
         @if (!isViewMode) {
-            <div class="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">Al guardar la compra se aumenta automaticamente el inventario de la sucursal y se registra el pago al proveedor en el flujo de caja (si hay caja abierta).</div>
+            <div class="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">Al guardar la compra se aumenta automaticamente el inventario y se registra el pago al proveedor desde el origen seleccionado.</div>
         }
 
         @if (isViewMode) {
@@ -75,6 +75,30 @@
                 <mat-label>Impuesto (%)</mat-label>
                 <input matInput formControlName="taxRate" type="number" min="0" max="100" (input)="recalculate()" />
             </mat-form-field>
+            <mat-form-field class="w-full">
+                <mat-label>Origen de pago</mat-label>
+                <mat-select formControlName="paymentSourceType">
+                    <mat-option value="CASH_SESSION">Caja de turno</mat-option>
+                    <mat-option value="BANK">Banco</mat-option>
+                    <mat-option value="CASH_FUND">Fondo efectivo</mat-option>
+                </mat-select>
+            </mat-form-field>
+            @if (dataForm.get('paymentSourceType').value !== 'CASH_SESSION') {
+                <mat-form-field class="w-full">
+                    <mat-label>Cuenta/Fondo</mat-label>
+                    <mat-select formControlName="financialAccountId">
+                        @for (option of paymentAccounts; track option.id) {
+                            <mat-option [value]="option.id">{{ option.name }} - Q {{ (option.balance || 0).toFixed(2) }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            }
+            @if (dataForm.get('paymentSourceType').value === 'CASH_SESSION') {
+                <mat-form-field class="w-full">
+                    <mat-label>Sesión de caja específica</mat-label>
+                    <input matInput formControlName="cashSessionId" type="number" placeholder="Opcional" />
+                </mat-form-field>
+            }
         </div>
         }
 

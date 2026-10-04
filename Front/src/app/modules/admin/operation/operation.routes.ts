@@ -10,6 +10,7 @@ import { FixedAssetComponent } from "./fixed-asset/fixed-asset.component";
 import { CustomerOrderComponent } from "./customer-order/customer-order.component";
 import { SaleComponent } from "./sale/sale.component";
 import { PayrollComponent } from "./payroll/payroll.component";
+import { TreasuryComponent } from "./treasury/treasury.component";
 
 export default [
     {path: '', pathMatch : 'full', redirectTo: 'cashsession'},
@@ -22,6 +23,7 @@ export default [
     {path     : 'customer-order',component: CustomerOrderComponent},
     {path     : 'sale',component: SaleComponent},
     {path     : 'payroll',component: PayrollComponent},
+    {path     : 'treasury',component: TreasuryComponent},
     {path     : 'assign',component: AssignComponent,},
     {path     : 'inventory',component: InventoryComponent,},
     {path     : 'loan',component: LoanComponent,},

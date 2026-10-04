@@ -1,4 +1,5 @@
 import { AppDataSource } from '../../../config/data-source.js';
+import { BusinessRuleError as TreasuryBusinessRuleError, createFinancialMovement } from '../treasury/treasury.repository.js';
 
 export class BusinessRuleError extends Error {
   constructor(message) { super(message); this.name = 'BusinessRuleError'; }
@@ -110,7 +111,10 @@ const periodQuery = () => AppDataSource.getRepository('PayrollPeriod').createQue
   .leftJoin('item.branch', 'branch').addSelect(['branch.id', 'branch.name']);
 export const listPeriods = async () => (await periodQuery().orderBy('item.dateStart', 'DESC').getMany()).map(periodDto);
 export const createPeriod = async (data, userId) => periodDto(await AppDataSource.getRepository('PayrollPeriod').save(AppDataSource.getRepository('PayrollPeriod').create({ ...data, createdBy: userId })));
-export const updatePeriodStatus = async (id, status, userId) => {
+export const updatePeriodStatus = async (id, statusChange, userId) => {
+  const status = typeof statusChange === 'string' ? statusChange : statusChange.status;
+  const paymentSourceType = typeof statusChange === 'string' ? 'CASH_SESSION' : statusChange.paymentSourceType;
+  const paymentOptions = typeof statusChange === 'string' ? { paymentSourceType } : { ...statusChange, paymentSourceType };
   return AppDataSource.transaction(async manager => {
     const period = await manager.getRepository('PayrollPeriod').findOneBy({ id });
     if (!period) throw new BusinessRuleError('El periodo de nomina no existe.');
@@ -120,7 +124,7 @@ export const updatePeriodStatus = async (id, status, userId) => {
     if (status === 'PAID') {
       for (const payment of payments) {
         const employee = await manager.getRepository('Employee').findOneBy({ id: payment.employeeId });
-        await registerPayrollCashMovement(manager, payment, fullName(employee));
+        await registerPayrollPaymentMovement(manager, payment, fullName(employee), paymentOptions, userId);
       }
     }
     return (await manager.getRepository('PayrollPeriod').update(id, { status, updatedBy: userId })).affected > 0;
@@ -159,17 +163,52 @@ const activeAdjustmentsFor = async (manager, employeeId, branchId, periodStart, 
   .andWhere('adj.adjustmentDate <= :periodEnd', { periodEnd })
   .getMany();
 
-const registerPayrollCashMovement = async (manager, payment, employeeName) => {
-  const session = await manager.getRepository('CashSession').findOneBy({ branchId: payment.branchId, status: 'A' });
+const registerPayrollPaymentMovement = async (manager, payment, employeeName, options, userId) => {
+  const sourceType = options.paymentSourceType ?? 'CASH_SESSION';
+  const description = `Pago de nomina - ${employeeName}`;
+
+  if (await manager.getRepository('FinancialMovement').findOneBy({ referenceType: 'PAYROLL_PAYMENT', referenceId: payment.id, status: 'E' })) {
+    return;
+  }
+
+  let cashSessionId = options.cashSessionId ?? null;
+  if (sourceType === 'CASH_SESSION' && !cashSessionId) {
+    const session = await manager.getRepository('CashSession').findOneBy({ branchId: payment.branchId, status: 'A' });
+    if (!session) throw new BusinessRuleError('Debe existir una sesion de caja abierta en la sucursal para registrar el pago de nomina.');
+    cashSessionId = session.id;
+  }
+
+  try {
+    await createFinancialMovement(manager, {
+      financialAccountId: options.financialAccountId ?? null,
+      cashSessionId,
+      branchId: payment.branchId,
+      sourceType,
+      operation: 'S',
+      amount: payment.total,
+      description,
+      referenceId: payment.id,
+      referenceType: 'PAYROLL_PAYMENT',
+      movementDate: payment.paymentDate
+    }, userId);
+  } catch (error) {
+    if (error instanceof TreasuryBusinessRuleError) throw new BusinessRuleError(error.message);
+    throw error;
+  }
+
+  if (sourceType !== 'CASH_SESSION') return;
+
+  const session = await manager.getRepository('CashSession').findOneBy({ id: cashSessionId, status: 'A' });
   if (!session) throw new BusinessRuleError('Debe existir una sesion de caja abierta en la sucursal para registrar el pago de nomina.');
   const type = await manager.getRepository('CashMovementType').findOneBy({ code: 'PAYROLL_PAYMENT', status: 'E' });
   if (!type) throw new BusinessRuleError('No existe el tipo de movimiento de caja PAYROLL_PAYMENT.');
+  if (await manager.getRepository('CashMovement').findOneBy({ referenceType: 'PAYROLL_PAYMENT', referenceId: payment.id, status: 'E' })) return;
   await manager.getRepository('CashMovement').save(manager.getRepository('CashMovement').create({
     cashSessionId: session.id,
     branchId: payment.branchId,
     movementTypeId: type.id,
     amount: payment.total,
-    description: `Pago de nomina - ${employeeName}`,
+    description,
     referenceId: payment.id,
     referenceType: 'PAYROLL_PAYMENT',
     movementDate: payment.paymentDate,

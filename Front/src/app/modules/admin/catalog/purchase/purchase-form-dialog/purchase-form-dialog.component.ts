@@ -25,6 +25,7 @@ export class PurchaseFormDialogComponent implements OnInit {
   medicines: any[] = [];
   filteredMedicines: any[] = [];
   supplierMedicines: any[] = [];
+  financialAccounts: any[] = [];
   medicineSearchControl = new UntypedFormControl('');
   isViewMode = false;
   subtotal = 0;
@@ -51,6 +52,9 @@ export class PurchaseFormDialogComponent implements OnInit {
       invoiceNumber: [{ value: '', disabled: this.isViewMode }, Validators.required],
       purchaseDate: [{ value: this.toLocalInput(new Date()), disabled: this.isViewMode }, Validators.required],
       taxRate: [{ value: 12, disabled: this.isViewMode }, [Validators.required, Validators.min(0), Validators.max(100)]],
+      paymentSourceType: [{ value: 'CASH_SESSION', disabled: this.isViewMode }, Validators.required],
+      financialAccountId: [{ value: '', disabled: this.isViewMode }],
+      cashSessionId: [{ value: '', disabled: this.isViewMode }],
       details: this._formBuilder.array([])
     });
 
@@ -80,6 +84,7 @@ export class PurchaseFormDialogComponent implements OnInit {
       },
       error: () => this._toast.error('Error inesperado al cargar los catalogos.')
     });
+    this._generalApi.getTreasury('accounts').subscribe(resp => this.financialAccounts = resp.success ? (resp.data ?? []).filter(item => item.status === 'E') : []);
   }
 
   loadPurchase(id: number): void {
@@ -196,6 +201,9 @@ export class PurchaseFormDialogComponent implements OnInit {
       invoiceNumber: this.dataForm.get('invoiceNumber').value?.trim(),
       purchaseDate: this.dataForm.get('purchaseDate').value,
       tax: Math.round(this.tax * 100) / 100,
+      paymentSourceType: this.dataForm.get('paymentSourceType').value,
+      financialAccountId: this.dataForm.get('financialAccountId').value || null,
+      cashSessionId: this.dataForm.get('cashSessionId').value || null,
       details
     };
 
@@ -217,6 +225,10 @@ export class PurchaseFormDialogComponent implements OnInit {
 
   close(): void {
     this._matDialogRef.close();
+  }
+
+  get paymentAccounts(): any[] {
+    return this.financialAccounts.filter(item => item.type === this.dataForm?.get('paymentSourceType')?.value);
   }
 
   medicineLabel(item: any): string {
