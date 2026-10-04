@@ -3,7 +3,7 @@ import { TableColumn } from '@fuse/components/table/table-column.model';
 export interface PharmacyFieldConfig {
   name: string;
   label: string;
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'date' | 'datetime';
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'date' | 'datetime' | 'url';
   required?: boolean;
   endpoint?: string;
   optionLabel?: string;
@@ -77,6 +77,7 @@ export const pharmacyCatalogConfigs: Record<string, PharmacyCatalogConfig> = {
     service: 'Medicine',
     columns: [
       { field: 'code', header: 'Codigo', width: '1fr' },
+      { field: 'imageUrl', header: 'Img', width: '64px', type: 'image' },
       { field: 'name', header: 'Nombre', width: '2fr' },
       { field: 'laboratoryName', header: 'Laboratorio', width: '1.5fr'},
       { field: 'presentationName', header: 'Presentacion', width: '1.5fr'},
@@ -92,6 +93,7 @@ export const pharmacyCatalogConfigs: Record<string, PharmacyCatalogConfig> = {
       { name: 'unit_measurement_id', label: 'Unidad de medida', type: 'select', required: true, endpoint: 'UnitMeasurement' },
       { name: 'price_buy', label: 'Precio compra', type: 'number' },
       { name: 'price_sell', label: 'Precio venta', type: 'number' },
+      { name: 'image_url', label: 'Enlace de imagen', type: 'url' },
       { name: 'description', label: 'Descripcion', type: 'textarea' }
     ]
   },

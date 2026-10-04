@@ -3,7 +3,7 @@ import { AppDataSource } from '../../../config/data-source.js';
 const repository = entityName => AppDataSource.getRepository(entityName);
 
 const selectFields = {
-  Medicine: ['item.id', 'item.laboratoryId', 'item.presentationId', 'item.categoryId', 'item.unitMeasurementId', 'item.code', 'item.name', 'item.description', 'item.priceBuy', 'item.priceSell', 'item.status'],
+  Medicine: ['item.id', 'item.laboratoryId', 'item.presentationId', 'item.categoryId', 'item.unitMeasurementId', 'item.code', 'item.name', 'item.description', 'item.imageUrl', 'item.priceBuy', 'item.priceSell', 'item.status'],
   Supplier: ['item.id', 'item.name', 'item.address', 'item.status'],
   SupplierMedicine: ['item.id', 'item.supplierId', 'item.medicineId', 'item.status'],
   CashMovementType: ['item.id', 'item.name', 'item.code', 'item.operation', 'item.status'],
@@ -46,6 +46,8 @@ const dtoMappers = {
     code: item.code,
     name: item.name,
     description: item.description,
+    imageUrl: item.imageUrl,
+    image_url: item.imageUrl,
     priceBuy: Number(item.priceBuy ?? 0),
     price_buy: Number(item.priceBuy ?? 0),
     priceSell: Number(item.priceSell ?? 0),

@@ -55,6 +55,13 @@ export const MedicineEntity = new EntitySchema({
       nullable: true
     },
 
+    imageUrl: {
+      name: 'IMAGE_URL',
+      type: String,
+      length: 500,
+      nullable: true
+    },
+
     priceBuy: {
       name: 'PRICE_BUY',
       type: 'decimal',

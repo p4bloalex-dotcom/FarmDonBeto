@@ -37,7 +37,15 @@
                 [attr.data-label]="col.header"
               >
                 <!-- {{ row[col.field]  | cellFormat: col.field}} -->
-                @if (col.field == "status") { 
+                @if (col.type === "image") {
+                  <div class="image-cell" [class.image-cell-empty]="!row[col.field]">
+                    @if (row[col.field]) {
+                      <img [src]="row[col.field]" alt="Imagen relacionada" loading="lazy" />
+                    } @else {
+                      <mat-icon svgIcon="heroicons_outline:photo"></mat-icon>
+                    }
+                  </div>
+                } @else if (col.field == "status") { 
                   @if (row[col.field] == "E") {<div class="status status-active">Activo</div>}
                   @else if (row[col.field] == "D") { <div class="status status-desactive">Desactivado</div>}
                   @else {                  {{ row[col.field]  | cellFormat: col.field}}}
@@ -79,7 +87,15 @@
                 } @else {
                   <div class="mobile-meta-item">
                     <span class="mobile-meta-label">{{ col.header }}</span>
-                    @if (col.field == "status") {
+                    @if (col.type === "image") {
+                      <span class="image-cell" [class.image-cell-empty]="!row[col.field]">
+                        @if (row[col.field]) {
+                          <img [src]="row[col.field]" alt="Imagen relacionada" loading="lazy" />
+                        } @else {
+                          <mat-icon svgIcon="heroicons_outline:photo"></mat-icon>
+                        }
+                      </span>
+                    } @else if (col.field == "status") {
                       @if (row[col.field] == "E") {<span class="status status-active">Activo</span>}
                       @else if (row[col.field] == "D") {<span class="status status-desactive">Desactivado</span>}
                       @else {<span>{{ row[col.field] | cellFormat: col.field }}</span>}

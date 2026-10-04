@@ -32,6 +32,8 @@ export const medicineSchema = Joi.object({
   code: Joi.string().max(50).required(),
   name: Joi.string().max(150).required(),
   description: Joi.string().max(500).allow(null, ''),
+  imageUrl: Joi.string().uri({ scheme: ['http', 'https'] }).max(500).allow(null, ''),
+  image_url: Joi.string().uri({ scheme: ['http', 'https'] }).max(500).allow(null, ''),
   priceBuy: Joi.number().precision(2).min(0),
   price_buy: Joi.number().precision(2).min(0),
   priceSell: Joi.number().precision(2).min(0),
@@ -55,6 +57,7 @@ export const medicineSchema = Joi.object({
     code: value.code,
     name: value.name,
     description: value.description || null,
+    imageUrl: (value.imageUrl ?? value.image_url) || null,
     priceBuy: value.priceBuy ?? value.price_buy ?? 0,
     priceSell: value.priceSell ?? value.price_sell ?? 0,
     status: value.status ?? 'E'

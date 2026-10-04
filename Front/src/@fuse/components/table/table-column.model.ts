@@ -4,6 +4,7 @@ export interface TableColumn {
   header: string;
   width?: string;
   hideAt?: 'sm' | 'md' | 'lg';
+  type?: 'image';
 }
 
 export interface TableAction {

@@ -112,7 +112,7 @@ export class PharmacyCatalogDialogComponent {
   }
 
   isWideField(field: PharmacyFieldConfig): boolean {
-    return field.type === 'textarea' || field.name === 'description';
+    return field.type === 'textarea' || field.type === 'url' || field.name === 'description';
   }
 
   openNativePicker(event: Event): void {
@@ -132,6 +132,8 @@ export class PharmacyCatalogDialogComponent {
   }
 
   private buildRow(row: any): any {
+    if (row.image_url !== undefined) row.imageUrl = row.image_url || null;
+
     const relationNames: Record<string, string> = {
       laboratory_id: 'laboratoryName',
       presentation_id: 'presentationName',

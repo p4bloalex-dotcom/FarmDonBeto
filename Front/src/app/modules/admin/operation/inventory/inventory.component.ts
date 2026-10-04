@@ -35,6 +35,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   detailTitle = '';
   activeInsight = 'Inventario general';
   selectedRow: any = null;
+  showAdvancedFilters = false;
   pageSize = 10;
   pageIndex = 0;
   totalItems = 0;
@@ -51,12 +52,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
   ];
 
   columns: TableColumn[] = [
-    { field: 'branchName', header: 'Sucursal', width: '1.4fr' },
-    { field: 'medicineName', header: 'Medicamento', width: '1.8fr' },
+    { field: 'medicineImageUrl', header: '', width: '54px', type: 'image' },
+    { field: 'medicineName', header: 'Medicamento', width: 'minmax(220px,1.8fr)' },
+    { field: 'branchName', header: 'Sucursal', width: 'minmax(150px,1.1fr)', hideAt: 'md' },
     { field: 'stockAvailableLabel', header: 'Disponible', width: '120px' },
-    { field: 'reserveLabel', header: 'Reserva', width: '100px' },
-    { field: 'stockMinLabel', header: 'Minimo', width: '100px' },
-    { field: 'stockMaxLabel', header: 'Maximo', width: '100px' },
+    { field: 'reserveLabel', header: 'Reserva', width: '100px', hideAt: 'lg' },
+    { field: 'stockMinLabel', header: 'Min.', width: '86px', hideAt: 'lg' },
+    { field: 'stockMaxLabel', header: 'Max.', width: '86px', hideAt: 'lg' },
     { field: 'statusLabel', header: 'Estado', width: '120px' }
   ];
 
@@ -82,6 +84,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
   get totalReserved(): number { return this.filteredData.reduce((sum, item) => sum + Number(item.reserve ?? 0), 0); }
   get lowStockCount(): number { return this.filteredData.filter(item => Number(item.stockAvailable ?? 0) <= Number(item.stockMin ?? 0)).length; }
   get overStockCount(): number { return this.filteredData.filter(item => Number(item.stockMax ?? 0) > 0 && Number(item.stockAvailable ?? 0) > Number(item.stockMax ?? 0)).length; }
+  get activeFiltersCount(): number { return [this.searchInputControl.value, this.branchFilterControl.value !== 'ALL', this.statusFilterControl.value !== 'ALL'].filter(Boolean).length; }
+  get detailCount(): number { return this.detailRows.length; }
   get branchOptions(): any[] {
     const branches = new Map<number, string>();
     this.filteredData.forEach(item => { if (item.branchId) branches.set(item.branchId, item.branchName); });
@@ -121,6 +125,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
   selectRow(row: any): void {
     this.selectedRow = row;
     this.loadAvailability(row);
+  }
+
+  quickStatus(status: string): void {
+    this.statusFilterControl.setValue(status);
+    this.showAdvancedFilters = false;
   }
 
   loadLowStockAlerts(): void {
@@ -307,6 +316,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.branchFilterControl.setValue('ALL', { emitEvent: false });
     this.statusFilterControl.setValue('ALL', { emitEvent: false });
     this.applyFilters();
+  }
+
+  toggleAdvancedFilters(): void {
+    this.showAdvancedFilters = !this.showAdvancedFilters;
   }
 
   private applyFilters(): void {

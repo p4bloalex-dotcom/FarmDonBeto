@@ -1,0 +1,41 @@
+.inventory-metric {
+  align-items: center;
+  background: white;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 1rem;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+.inventory-metric:hover {
+  border-color: var(--fuse-primary-500, #4f46e5);
+}
+
+.inventory-metric span {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inventory-metric strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.inventory-metric-warn {
+  background: #fffbeb;
+}
+
+.inventory-metric-info {
+  background: #eff6ff;
+}
+
+:host-context(.dark) .inventory-metric,
+:host-context(.dark) .inventory-metric-warn,
+:host-context(.dark) .inventory-metric-info {
+  background: transparent;
+}

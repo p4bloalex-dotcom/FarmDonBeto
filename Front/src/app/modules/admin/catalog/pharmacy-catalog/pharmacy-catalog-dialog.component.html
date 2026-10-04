@@ -19,7 +19,7 @@
           } @else if (field.type === 'datetime' || field.type === 'date') {
             <input matInput [type]="field.type === 'date' ? 'date' : 'datetime-local'" [formControlName]="field.name" (click)="openNativePicker($event)" (focus)="openNativePicker($event)" />
           } @else {
-            <input matInput [type]="field.type === 'number' ? 'number' : 'text'" [formControlName]="field.name" />
+            <input matInput [type]="field.type === 'number' ? 'number' : field.type === 'url' ? 'url' : 'text'" [formControlName]="field.name" />
           }
         </mat-form-field>
       }

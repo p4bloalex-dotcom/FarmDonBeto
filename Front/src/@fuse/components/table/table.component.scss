@@ -194,3 +194,26 @@
     color: #e2e8f0;
   }
 }
+.image-cell {
+  align-items: center;
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  overflow: hidden;
+  width: 34px;
+}
+
+.image-cell img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.image-cell-empty mat-icon {
+  color: #64748b;
+  height: 18px;
+  width: 18px;
+}

@@ -9,6 +9,7 @@ const toDto = item => ({
   medicine_id: item.medicineId,
   medicineCode: item.medicine?.code ?? null,
   medicineName: item.medicine?.name ?? null,
+  medicineImageUrl: item.medicine?.imageUrl ?? null,
   branchId: item.branchId,
   branch_id: item.branchId,
   branchName: item.branch?.name ?? null,
@@ -24,7 +25,7 @@ const toDto = item => ({
 
 const queryBase = () => inventory().createQueryBuilder('item')
   .leftJoin('item.medicine', 'medicine')
-  .addSelect(['medicine.id', 'medicine.code', 'medicine.name'])
+  .addSelect(['medicine.id', 'medicine.code', 'medicine.name', 'medicine.imageUrl'])
   .leftJoin('item.branch', 'branch')
   .addSelect(['branch.id', 'branch.name']);
 
