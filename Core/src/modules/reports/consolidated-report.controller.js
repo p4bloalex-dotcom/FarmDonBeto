@@ -6,6 +6,9 @@ import {
   auditDetailReport,
   cashClosingReport,
   cashFlowReport,
+  cashMovementDetailReport,
+  cashReconciliationReport,
+  cashSessionHistoryReport,
   consolidatedInventoryReport,
   expiredMedicinesReport,
   expiringMedicinesReport,
@@ -41,6 +44,9 @@ const reports = {
   'stock-transfers': transferReport,
   'cash-flow': cashFlowReport,
   'cash-closing': cashClosingReport,
+  'cash-movement-detail': cashMovementDetailReport,
+  'cash-reconciliation': cashReconciliationReport,
+  'cash-session-history': cashSessionHistoryReport,
   'purchases-supplier': purchasesBySupplierReport,
   'profitability-branch': profitabilityByBranchReport,
   'fixed-assets': fixedAssetReport,
@@ -66,6 +72,9 @@ const reportTitles = {
   'stock-transfers': 'Traslados entre sucursales',
   'cash-flow': 'Flujo de efectivo',
   'cash-closing': 'Cierre y diferencias de caja',
+  'cash-movement-detail': 'Movimientos detallados por caja',
+  'cash-reconciliation': 'Conciliaciones de caja',
+  'cash-session-history': 'Historial de ingresos y egresos por sesion',
   'purchases-supplier': 'Compras por proveedor',
   'profitability-branch': 'Rentabilidad por sucursal',
   'fixed-assets': 'Activos fijos',
@@ -76,9 +85,9 @@ const reportTitles = {
 };
 
 const fieldLabels = {
-  action: 'Accion',
-  actionName: 'Accion',
-  auditId: 'Id auditoria',
+  action: 'Acción',
+  actionName: 'Acción',
+  auditId: 'Id auditoría',
   assetName: 'Activo',
   assets: 'Activos',
   averageCost: 'Costo promedio',
@@ -91,18 +100,24 @@ const fieldLabels = {
   branchId: 'Id sucursal',
   branchName: 'Sucursal',
   cashRegisterName: 'Caja',
-  category: 'Categoria',
-  categoryName: 'Categoria',
+  cashSessionId: 'Sesion caja',
+  calculatedExpectedAmount: 'Saldo esperado calculado',
+  category: 'Categoría',
+  categoryName: 'Categoría',
   closingAmount: 'Saldo contado',
   closingDate: 'Fecha cierre',
-  code: 'Codigo',
+  code: 'Código',
   cost: 'Costo',
   createdAt: 'Fecha',
+  customerName: 'Cliente',
+  customerTaxId: 'NIT',
+  declaredAmount: 'Monto declarado',
   deductions: 'Descuentos',
-  depreciation: 'Depreciacion',
+  depreciation: 'Depreciación',
   destinationName: 'Destino',
   differenceAmount: 'Diferencia',
   discounts: 'Descuentos',
+  employeeName: 'Empleado',
   expense: 'Egresos',
   expirationDate: 'Fecha vencimiento',
   expectedAmount: 'Saldo esperado',
@@ -111,18 +126,20 @@ const fieldLabels = {
   income: 'Ingresos',
   inventoryValue: 'Valor inventario',
   items: 'Items',
-  lastSaleDate: 'Ultima venta',
-  lineTotal: 'Total linea',
-  location: 'Ubicacion',
+  lastSaleDate: 'Última venta',
+  lineTotal: 'Total línea',
+  location: 'Ubicación',
   lostValue: 'Valor perdido',
   lotNumber: 'Lote',
   margin: 'Margen %',
   medicineId: 'Id medicamento',
-  medicineCode: 'Codigo medicamento',
+  medicineCode: 'Código medicamento',
   medicineName: 'Medicamento',
   missing: 'Faltante',
-  module: 'Objeto tecnico',
+  module: 'Objeto técnico',
+  method: 'Metodo',
   movementDate: 'Fecha movimiento',
+  movementTypeName: 'Tipo movimiento',
   nearestExpirationDate: 'Vencimiento mas proximo',
   net: 'Neto',
   netAmount: 'Monto neto',
@@ -131,19 +148,23 @@ const fieldLabels = {
   oldValues: 'Valor anterior',
   openingAmount: 'Saldo inicial',
   openingDate: 'Fecha apertura',
+  operation: 'Operacion',
   orders: 'Ordenes',
   originName: 'Origen',
+  paymentMethod: 'Forma de pago',
   payments: 'Pagos',
   products: 'Productos',
   profit: 'Utilidad',
-  purchaseCost: 'Costo adquisicion',
-  purchaseDate: 'Fecha adquisicion',
+  purchaseCost: 'Costo adquisición',
+  purchaseDate: 'Fecha adquisición',
   quantity: 'Cantidad',
   quantityIn: 'Entrada',
   quantityOut: 'Salida',
   quantitySold: 'Cantidad vendida',
   reason: 'Motivo',
   recordId: 'Registro',
+  referenceId: 'Referencia',
+  referenceType: 'Tipo referencia',
   responsible: 'Responsable',
   receiptNumber: 'Comprobante',
   saleDate: 'Fecha venta',
@@ -158,6 +179,7 @@ const fieldLabels = {
   stockAvailable: 'Existencia',
   stockMin: 'Stock minimo',
   subtotal: 'Subtotal',
+  systemAmount: 'Monto sistema',
   supplierName: 'Proveedor',
   tax: 'Impuestos',
   total: 'Total',
@@ -168,6 +190,30 @@ const fieldLabels = {
   unitPrice: 'Precio unitario',
   units: 'Unidades',
   usefulLifeMonths: 'Vida util meses',
+  userId: 'Usuario'
+};
+
+const filterLabels = {
+  action: 'Acción',
+  auditId: 'Id auditoría',
+  branchId: 'Sucursal',
+  categoryId: 'Categoría',
+  days: 'Días',
+  endDate: 'Hasta',
+  format: 'Formato',
+  id: 'Id',
+  limit: 'Límite',
+  medicineId: 'Medicamento',
+  module: 'Objeto',
+  page: 'Página',
+  paymentMethod: 'Forma de pago',
+  productId: 'Producto',
+  recordId: 'Registro',
+  saleId: 'Venta',
+  sortBy: 'Ordenado por',
+  startDate: 'Desde',
+  status: 'Estado',
+  supplierId: 'Proveedor',
   userId: 'Usuario'
 };
 
@@ -184,6 +230,8 @@ const palette = {
 };
 
 const humanize = value => fieldLabels[value] ?? String(value).replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase());
+
+const humanizeFilter = key => filterLabels[key] ?? humanize(key);
 
 const processStamp = () => {
   const now = new Date();
@@ -210,6 +258,18 @@ const prettyJson = value => {
   }
 };
 
+const formatFilterValue = (key, value) => {
+  if (value === null || value === undefined || value === '') return '';
+  if (key === 'format') return String(value).toUpperCase();
+  if (key.toLowerCase().includes('date')) return String(readableDate(value)).replace(', 00:00', '');
+  return String(value);
+};
+
+const filtersText = filters => Object.entries(filters)
+  .filter(([, value]) => value !== '' && value !== null && value !== undefined)
+  .map(([key, value]) => `${humanizeFilter(key)}: ${formatFilterValue(key, value)}`)
+  .join(' | ') || 'Sin filtros';
+
 const exportRows = rows => rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [humanize(key), key === 'oldValues' || key === 'newValues' ? prettyJson(value) : key.toLowerCase().includes('date') || key === 'createdAt' ? readableDate(value) : formatValue(value)])));
 
 const responseRows = rows => rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, key.toLowerCase().includes('date') || key === 'createdAt' ? readableDate(value) : value])));
@@ -223,7 +283,7 @@ const formatValue = value => {
 const toXlsx = async (rows, reportName, filters) => {
   const exportData = exportRows(rows);
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'App Farmacia';
+  workbook.creator = 'Farmacia Don Beto';
   workbook.created = new Date();
   workbook.subject = reportTitles[reportName] ?? reportName;
   const worksheet = workbook.addWorksheet('Reporte');
@@ -233,7 +293,7 @@ const toXlsx = async (rows, reportName, filters) => {
   const lastColumn = Math.max(headers.length, 4);
   const lastLetter = worksheet.getColumn(lastColumn).letter;
   worksheet.mergeCells(`A1:${lastLetter}1`);
-  worksheet.getCell('A1').value = 'App Farmacia';
+  worksheet.getCell('A1').value = 'Farmacia Don Beto';
   worksheet.getCell('A1').font = { bold: true, size: 20, color: { argb: palette.white } };
   worksheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: palette.purple } };
   worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
@@ -247,7 +307,7 @@ const toXlsx = async (rows, reportName, filters) => {
   worksheet.getCell('A4').value = 'Generado';
   worksheet.getCell('B4').value = localDateTime();
   worksheet.getCell('A5').value = 'Filtros';
-  worksheet.getCell('B5').value = Object.entries(filters).filter(([, value]) => value !== '' && value !== null && value !== undefined).map(([key, value]) => `${key}: ${value}`).join(' | ') || 'Sin filtros';
+  worksheet.getCell('B5').value = filtersText(filters);
   worksheet.getCell('A6').value = 'Registros';
   worksheet.getCell('B6').value = rows.length;
   ['A4', 'A5', 'A6'].forEach(cell => {
@@ -301,10 +361,10 @@ const toPdf = (rows, reportName, filters) => new Promise((resolve, reject) => {
   const drawHeader = () => {
     doc.rect(0, 0, doc.page.width, 68).fill('#4633B9');
     doc.rect(0, 68, doc.page.width, 5).fill('#ffe4e6');
-    doc.fillColor('#ffffff').fontSize(18).font('Helvetica-Bold').text('App Farmacia', 36, 18);
+    doc.fillColor('#ffffff').fontSize(18).font('Helvetica-Bold').text('Farmacia Don Beto', 36, 18);
     doc.fontSize(11).font('Helvetica').text(title, 36, 42);
     doc.fillColor('#1b1533').fontSize(8).text(`Generado: ${localDateTime()}`, 36, 82);
-    const filterText = Object.entries(filters).filter(([, value]) => value !== '' && value !== null && value !== undefined).map(([key, value]) => `${key}: ${value}`).join(' | ') || 'Sin filtros';
+    const filterText = filtersText(filters);
     doc.roundedRect(36, 96, pageWidth, 34, 6).fill('#f4f2fa');
     doc.fillColor('#1b1533').text(`Filtros: ${filterText}`, 46, 104, { width: pageWidth - 20 });
     doc.text(`Registros: ${rows.length}`, 46, 118);
@@ -319,20 +379,21 @@ const toPdf = (rows, reportName, filters) => new Promise((resolve, reject) => {
   if (reportName === 'sales-detail') {
     const row = rows[0] ?? {};
     const lineTotal = rows.reduce((sum, item) => sum + Number(item.lineTotal ?? 0), 0);
-    doc.fillColor('#1b1533').font('Helvetica-Bold').fontSize(10).text(filters.saleId ? `Venta #${row.saleId ?? filters.saleId}` : 'Detalle de ventas', 44, y + 8);
-    doc.font('Helvetica').fontSize(8).text(`Comprobante: ${row.receiptNumber ?? 'Varios'} | Sucursal: ${row.branchName ?? filters.branchId ?? 'Todas'} | Registros: ${rows.length}`, 44, y + 24, { width: pageWidth - 16 });
-    doc.text(`Cliente: ${filters.saleId ? (row.customerName ?? 'Consumidor final') : 'Varios'} | NIT: ${filters.saleId ? (row.customerTaxId ?? 'CF') : 'Varios'} | Vendedor: ${filters.saleId ? (row.employeeName ?? '-') : 'Varios'}`, 44, y + 38, { width: pageWidth - 16 });
+    doc.roundedRect(36, y, pageWidth, 54, 6).fill('#f4f2fa');
+    doc.fillColor('#1b1533').font('Helvetica-Bold').fontSize(11).text(filters.saleId ? `Venta #${row.saleId ?? filters.saleId}` : 'Detalle de ventas', 48, y + 10);
+    doc.font('Helvetica').fontSize(8).text(`Comprobante: ${row.receiptNumber ?? 'Varios'} | Sucursal: ${row.branchName ?? filters.branchId ?? 'Todas'} | Registros: ${rows.length}`, 48, y + 27, { width: pageWidth - 24 });
+    doc.text(`Cliente: ${filters.saleId ? (row.customerName ?? 'Consumidor final') : 'Varios'} | NIT: ${filters.saleId ? (row.customerTaxId ?? 'CF') : 'Varios'} | Vendedor: ${filters.saleId ? (row.employeeName ?? '-') : 'Varios'}`, 48, y + 40, { width: pageWidth - 24 });
     y += 62;
-    const detailHeaders = ['Venta', 'Fecha', 'Codigo', 'Medicamento', 'Cant.', 'Precio', 'Total'];
+    const detailHeaders = ['Venta', 'Fecha', 'Código', 'Medicamento', 'Cant.', 'Precio', 'Total'];
     const widths = [62, 82, 78, pageWidth - 454, 54, 80, 80];
-    doc.roundedRect(36, y, pageWidth, 24, 4).fill('#1b1533');
+    doc.roundedRect(36, y, pageWidth, 26, 4).fill('#1b1533');
     doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
     let x = 44;
     detailHeaders.forEach((header, index) => {
-      doc.text(header, x, y + 8, { width: widths[index] - 8, ellipsis: true });
+      doc.text(header, x, y + 9, { width: widths[index] - 8, ellipsis: true });
       x += widths[index];
     });
-    y += 26;
+    y += 28;
     rows.forEach((item, index) => {
       if (y > doc.page.height - 90) {
         doc.addPage();
@@ -348,9 +409,9 @@ const toPdf = (rows, reportName, filters) => new Promise((resolve, reject) => {
       y += 22;
     });
     y += 12;
-    doc.roundedRect(pageWidth - 210, y, 246, 60, 6).fill('#f4f2fa');
-    doc.fillColor('#1b1533').font('Helvetica-Bold').fontSize(9).text(`Lineas: ${rows.length}`, pageWidth - 190, y + 14, { width: 210, align: 'right' });
-    doc.fillColor('#4633B9').fontSize(11).text(`Total detalle: Q ${lineTotal.toFixed(2)}`, pageWidth - 190, y + 34, { width: 210, align: 'right' });
+    doc.roundedRect(pageWidth - 210, y, 246, 58, 6).fill('#f4f2fa');
+    doc.fillColor('#1b1533').font('Helvetica-Bold').fontSize(9).text(`Lineas: ${rows.length}`, pageWidth - 190, y + 13, { width: 210, align: 'right' });
+    doc.fillColor('#4633B9').fontSize(12).text(`Total detalle: Q ${lineTotal.toFixed(2)}`, pageWidth - 190, y + 33, { width: 210, align: 'right' });
     doc.end();
     return;
   }

@@ -32,17 +32,17 @@ export class SaleDetailDialogComponent {
     this._dialogRef.close();
   }
 
-  downloadPdf(): void {
-    this._api.downloadConsolidatedReport('sales-detail', 'pdf', this.filters).subscribe({
+  download(format: 'pdf' | 'xlsx'): void {
+    this._api.downloadConsolidatedReport('sales-detail', format, this.filters).subscribe({
       next: (blob: Blob) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'Detalle_ventas.pdf';
+        link.download = `Detalle_ventas.${format}`;
         link.click();
         URL.revokeObjectURL(url);
       },
-      error: () => this._toast.error('No se pudo descargar el PDF de la venta.')
+      error: () => this._toast.error(`No se pudo descargar el archivo ${format.toUpperCase()}.`)
     });
   }
 

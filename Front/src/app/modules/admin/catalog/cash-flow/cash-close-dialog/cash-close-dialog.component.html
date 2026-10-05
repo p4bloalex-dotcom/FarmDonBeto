@@ -9,7 +9,6 @@
                 <span class="text-base font-bold text-foreground">Q {{ expectedAmount | number: '1.2-2' }}</span>
             </div>
         </div>
-        <p class="mb-4 text-secondary">Cuenta el dinero fisico y escribe el monto total que hay en la caja.</p>
         <mat-form-field class="w-full">
             <mat-label>Monto contado</mat-label>
             <input matInput type="number" min="0" step="0.01" formControlName="closingAmount" />
@@ -21,6 +20,18 @@
             <mat-form-field><mat-label>Q10</mat-label><input matInput type="number" min="0" formControlName="q10" /></mat-form-field>
             <mat-form-field><mat-label>Q5</mat-label><input matInput type="number" min="0" formControlName="q5" /></mat-form-field>
             <mat-form-field><mat-label>Q1</mat-label><input matInput type="number" min="0" formControlName="q1" /></mat-form-field>
+        </div>
+        <div class="mb-4 rounded-xl border bg-card p-4 text-sm">
+            <div class="flex items-center justify-between text-secondary">
+                <span>Total por denominaciones</span>
+                <span class="font-semibold text-foreground">Q {{ breakdownTotal | number: '1.2-2' }}</span>
+            </div>
+            @if (dataForm.hasError('breakdownMismatch')) {
+                <div class="mt-2 text-red-600">El desglose debe sumar el mismo monto contado.</div>
+            }
+            @if (dataForm.hasError('differenceExplanationRequired')) {
+                <div class="mt-2 text-red-600">Explique la diferencia antes de cerrar la caja.</div>
+            }
         </div>
         <div class="rounded-xl border bg-card p-4" [class.border-t]="false">
             <div class="flex items-center justify-between text-sm text-secondary">

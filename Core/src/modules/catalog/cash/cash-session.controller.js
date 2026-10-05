@@ -19,6 +19,20 @@ const buildBalance = async session => {
   return { income, expense, expectedAmount };
 };
 
+const breakdownTotal = breakdown => {
+  if (!breakdown) return null;
+  const denominations = { q100: 100, q50: 50, q20: 20, q10: 10, q5: 5, q1: 1 };
+  return Object.entries(denominations).reduce((total, [key, value]) => total + (Number(breakdown[key]) || 0) * value, 0);
+};
+
+const hasInvalidBreakdown = breakdown => {
+  if (!breakdown) return false;
+  return ['q100', 'q50', 'q20', 'q10', 'q5', 'q1'].some(key => {
+    const value = Number(breakdown[key] ?? 0);
+    return !Number.isInteger(value) || value < 0;
+  });
+};
+
 export const addSession = async (req, res) => {
   const { cashRegisterId, openingAmount, openingDate } = req.body;
 
@@ -90,6 +104,15 @@ export const closeSession = async (req, res) => {
   const { closingAmount, closingDate, countedBreakdown, differenceExplanation, authorizedBy } = req.body;
   if (new Date(closingDate).getTime() < new Date(session.openingDate).getTime()) {
     return badRequest(res, 'La fecha de cierre no puede ser anterior a la apertura.');
+  }
+
+  if (hasInvalidBreakdown(countedBreakdown)) {
+    return badRequest(res, 'El desglose de efectivo solo puede contener cantidades enteras no negativas.');
+  }
+
+  const countedTotal = breakdownTotal(countedBreakdown);
+  if (countedTotal !== null && Math.abs(countedTotal - Number(closingAmount)) > 0.009) {
+    return badRequest(res, 'El desglose de efectivo debe coincidir con el monto contado.');
   }
 
   const { expectedAmount } = await buildBalance(session);

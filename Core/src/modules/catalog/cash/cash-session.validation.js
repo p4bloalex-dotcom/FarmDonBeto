@@ -35,8 +35,22 @@ export const openSessionSchema = Joi.object({
 export const closeSessionSchema = Joi.object({
   closingDate: Joi.alternatives().try(Joi.date(), Joi.string()),
   closingAmount: Joi.number().precision(2).min(0).required(),
-  countedBreakdown: Joi.object().unknown(true),
-  counted_breakdown: Joi.object().unknown(true),
+  countedBreakdown: Joi.object({
+    q100: Joi.number().integer().min(0),
+    q50: Joi.number().integer().min(0),
+    q20: Joi.number().integer().min(0),
+    q10: Joi.number().integer().min(0),
+    q5: Joi.number().integer().min(0),
+    q1: Joi.number().integer().min(0)
+  }).unknown(true),
+  counted_breakdown: Joi.object({
+    q100: Joi.number().integer().min(0),
+    q50: Joi.number().integer().min(0),
+    q20: Joi.number().integer().min(0),
+    q10: Joi.number().integer().min(0),
+    q5: Joi.number().integer().min(0),
+    q1: Joi.number().integer().min(0)
+  }).unknown(true),
   differenceExplanation: Joi.string().trim().max(500).allow(null, ''),
   difference_explanation: Joi.string().trim().max(500).allow(null, ''),
   authorizedBy: Joi.number().integer().allow(null),

@@ -49,6 +49,7 @@ export class CashFlowComponent implements OnInit, OnDestroy {
   ];
 
   historyColumns: TableColumn[] = [
+    { field: 'cashRegisterName', header: 'Caja', width: '1fr' },
     { field: 'openingDate', header: 'Apertura', width: '1fr' },
     { field: 'closingDate', header: 'Cierre', width: '1fr', hideAt: 'sm' },
     { field: 'openingAmount', header: 'Inicial', width: '1fr' },
@@ -136,7 +137,7 @@ export class CashFlowComponent implements OnInit, OnDestroy {
   applyRegisterContext(): void {
     const registerId = this.selectedRegisterId;
     this.openSession = this.sessions.find(session => session.status === 'A' && session.cashRegisterId === registerId) ?? null;
-    this.closedSessions = this.sessions.filter(session => session.cashRegisterId === registerId && session.status !== 'A');
+    this.closedSessions = this.sessions.filter(session => session.status !== 'A');
     this.refreshSessionDetails();
   }
 

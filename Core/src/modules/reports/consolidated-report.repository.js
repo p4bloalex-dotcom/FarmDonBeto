@@ -166,7 +166,7 @@ export const lowMovementProductsReport = async filters => {
 export const cashFlowReport = async filters => {
   const query = AppDataSource.getRepository('CashMovement').createQueryBuilder('m')
     .leftJoin('m.branch', 'branch')
-    .leftJoin('m.cashMovementType', 'type')
+    .leftJoin('m.cashMovementType', 'movementType')
     .select('m.branchId', 'branchId')
     .addSelect('branch.name', 'branchName')
     .addSelect('COALESCE(SUM(CASE WHEN type.operation = :income THEN m.amount ELSE 0 END), 0)', 'income')
@@ -275,10 +275,100 @@ export const cashClosingReport = async filters => {
     .addSelect('s.openingAmount', 'openingAmount').addSelect('s.expectedAmount', 'expectedAmount')
     .addSelect('s.closingAmount', 'closingAmount').addSelect('s.differenceAmount', 'differenceAmount')
     .addSelect('s.differenceExplanation', 'reason')
-    .where('s.status = :status', { status: 'E' }).orderBy('s.openingDate', 'DESC');
+    .where('s.status = :status', { status: 'C' }).orderBy('s.openingDate', 'DESC');
   applyCommonFilters(query, filters, { branch: 's.branchId' });
   bindDates(query, filters, 's.openingDate');
   return (await query.getRawMany()).map(row => numberize(row, ['openingAmount', 'expectedAmount', 'closingAmount', 'differenceAmount']));
+};
+
+export const cashMovementDetailReport = async filters => {
+  const query = AppDataSource.getRepository('CashMovement').createQueryBuilder('m')
+    .leftJoin('m.branch', 'branch')
+    .leftJoin('m.cashSession', 'session')
+    .leftJoin('session.cashRegister', 'cashRegister')
+    .leftJoin('m.cashMovementType', 'type')
+    .select('branch.name', 'branchName')
+    .addSelect('cashRegister.name', 'cashRegisterName')
+    .addSelect('m.cashSessionId', 'cashSessionId')
+    .addSelect('session.openingDate', 'openingDate')
+    .addSelect('session.closingDate', 'closingDate')
+    .addSelect('m.movementDate', 'movementDate')
+    .addSelect('movementType.name', 'movementTypeName')
+    .addSelect('movementType.operation', 'operation')
+    .addSelect('m.amount', 'amount')
+    .addSelect('m.description', 'description')
+    .addSelect('m.referenceType', 'referenceType')
+    .addSelect('m.referenceId', 'referenceId')
+    .addSelect('m.status', 'status')
+    .orderBy('m.movementDate', 'DESC')
+    .addOrderBy('m.id', 'DESC');
+  applyCommonFilters(query, filters, { branch: 'm.branchId', status: 'm.status' });
+  bindDates(query, filters, 'm.movementDate');
+  paginateRows(query, filters);
+  return (await query.getRawMany()).map(row => numberize(row, ['cashSessionId', 'amount', 'referenceId']));
+};
+
+export const cashReconciliationReport = async filters => {
+  const query = AppDataSource.getRepository('CashReconciliation').createQueryBuilder('r')
+    .leftJoin('r.branch', 'branch')
+    .leftJoin('r.cashSession', 'session')
+    .leftJoin('session.cashRegister', 'cashRegister')
+    .select('branch.name', 'branchName')
+    .addSelect('cashRegister.name', 'cashRegisterName')
+    .addSelect('r.cashSessionId', 'cashSessionId')
+    .addSelect('session.openingDate', 'openingDate')
+    .addSelect('session.closingDate', 'closingDate')
+    .addSelect('r.method', 'method')
+    .addSelect('r.systemAmount', 'systemAmount')
+    .addSelect('r.declaredAmount', 'declaredAmount')
+    .addSelect('r.differenceAmount', 'differenceAmount')
+    .addSelect('r.notes', 'notes')
+    .addSelect('r.authorizedBy', 'authorizedBy')
+    .addSelect('r.createdAt', 'createdAt')
+    .addSelect('r.status', 'status')
+    .orderBy('r.createdAt', 'DESC')
+    .addOrderBy('r.id', 'DESC');
+  applyCommonFilters(query, filters, { branch: 'r.branchId', status: 'r.status' });
+  bindDates(query, filters, 'r.createdAt');
+  paginateRows(query, filters);
+  return (await query.getRawMany()).map(row => numberize(row, ['cashSessionId', 'systemAmount', 'declaredAmount', 'differenceAmount', 'authorizedBy']));
+};
+
+export const cashSessionHistoryReport = async filters => {
+  const query = AppDataSource.getRepository('CashSession').createQueryBuilder('s')
+    .leftJoin('s.branch', 'branch')
+    .leftJoin('s.cashRegister', 'cashRegister')
+    .leftJoin('CashMovement', 'movement', 'movement.cashSessionId = s.id AND movement.status = :movementStatus', { movementStatus: 'E' })
+    .leftJoin('CashMovementType', 'movementType', 'movementType.id = movement.movementTypeId')
+    .select('branch.name', 'branchName')
+    .addSelect('cashRegister.name', 'cashRegisterName')
+    .addSelect('s.id', 'cashSessionId')
+    .addSelect('s.openingDate', 'openingDate')
+    .addSelect('s.closingDate', 'closingDate')
+    .addSelect('s.openingAmount', 'openingAmount')
+    .addSelect('COALESCE(SUM(CASE WHEN movementType.operation = :income THEN movement.amount ELSE 0 END), 0)', 'income')
+    .addSelect('COALESCE(SUM(CASE WHEN movementType.operation = :expense THEN movement.amount ELSE 0 END), 0)', 'expense')
+    .addSelect('s.openingAmount + COALESCE(SUM(CASE WHEN movementType.operation = :income THEN movement.amount ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN movementType.operation = :expense THEN movement.amount ELSE 0 END), 0)', 'calculatedExpectedAmount')
+    .addSelect('s.expectedAmount', 'expectedAmount')
+    .addSelect('s.closingAmount', 'closingAmount')
+    .addSelect('s.differenceAmount', 'differenceAmount')
+    .addSelect('s.status', 'status')
+    .setParameters({ income: 'I', expense: 'E' })
+    .groupBy('branch.name')
+    .addGroupBy('cashRegister.name')
+    .addGroupBy('s.id')
+    .addGroupBy('s.openingDate')
+    .addGroupBy('s.closingDate')
+    .addGroupBy('s.openingAmount')
+    .addGroupBy('s.expectedAmount')
+    .addGroupBy('s.closingAmount')
+    .addGroupBy('s.differenceAmount')
+    .addGroupBy('s.status')
+    .orderBy('s.openingDate', 'DESC');
+  applyCommonFilters(query, filters, { branch: 's.branchId', status: 's.status' });
+  bindDates(query, filters, 's.openingDate');
+  paginateRows(query, filters);
+  return (await query.getRawMany()).map(row => numberize(row, ['cashSessionId', 'openingAmount', 'income', 'expense', 'calculatedExpectedAmount', 'expectedAmount', 'closingAmount', 'differenceAmount']));
 };
 
 export const purchasesBySupplierReport = async filters => {
