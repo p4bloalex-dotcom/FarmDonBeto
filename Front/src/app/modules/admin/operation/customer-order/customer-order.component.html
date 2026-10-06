@@ -1,55 +1,180 @@
-<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+<div class="bg-card flex min-w-0 flex-auto flex-col overflow-y-auto dark:bg-transparent sm:absolute sm:inset-0">
     @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
-    <div class="border-b px-4 py-4 md:px-8">
-        <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Ordenes de cliente</div>
-        <div class="text-sm text-secondary">Call center, promesa de entrega y reserva de inventario.</div>
+
+    <div class="relative flex flex-0 flex-col gap-2 border-b px-4 py-2 md:px-5">
+        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0">
+                <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Call Center</div>
+                <div class="text-sm text-secondary">Atencion telefonica, disponibilidad en tiempo real, sucursal sugerida y promesa de entrega.</div>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+                <button type="button" class="rounded-full border px-3 py-1 text-sm font-semibold hover:border-primary" (click)="selectStep('customer')">Cliente</button>
+                <button type="button" class="rounded-full border px-3 py-1 text-sm font-semibold hover:border-primary" (click)="selectStep('items')">Pedido</button>
+                <button type="button" class="rounded-full border px-3 py-1 text-sm font-semibold hover:border-primary" (click)="selectStep('availability')">Disponibilidad</button>
+                <button type="button" class="rounded-full border px-3 py-1 text-sm font-semibold hover:border-primary" (click)="selectStep('manage')">Seguimiento</button>
+            </div>
+        </div>
     </div>
-    <div class="grid gap-4 overflow-auto p-4 md:grid-cols-[420px_1fr] md:p-8">
-        <form [formGroup]="form" class="rounded-2xl border p-4 shadow-sm">
-            <div class="mb-3 text-lg font-semibold">Nueva orden</div>
-            <mat-form-field class="w-full"><mat-label>Cliente</mat-label><input matInput formControlName="customerName" /></mat-form-field>
-            <mat-form-field class="w-full"><mat-label>Telefono</mat-label><input matInput formControlName="customerPhone" /></mat-form-field>
-            <mat-form-field class="w-full"><mat-label>Direccion entrega</mat-label><input matInput formControlName="deliveryAddress" /></mat-form-field>
-            <div class="grid grid-cols-2 gap-2">
-                <mat-form-field><mat-label>Latitud entrega</mat-label><input matInput type="number" formControlName="deliveryLatitude" /></mat-form-field>
-                <mat-form-field><mat-label>Longitud entrega</mat-label><input matInput type="number" formControlName="deliveryLongitude" /></mat-form-field>
-            </div>
-            <mat-form-field class="w-full"><mat-label>Referencia</mat-label><input matInput formControlName="deliveryReference" /></mat-form-field>
-            <div formArrayName="items" class="space-y-3">
-                @for (item of items.controls; track $index) {
-                    <div [formGroupName]="$index" class="grid grid-cols-[1fr_90px_40px] gap-2">
-                        <mat-form-field><mat-label>Medicamento</mat-label><mat-select formControlName="medicineId">@for (med of medicines; track med.id) { <mat-option [value]="med.id">{{ med.name }}</mat-option> }</mat-select></mat-form-field>
-                        <mat-form-field><mat-label>Cant.</mat-label><input matInput type="number" formControlName="quantity" /></mat-form-field>
-                        <button mat-icon-button type="button" (click)="removeItem($index)"><mat-icon svgIcon="heroicons_outline:trash"></mat-icon></button>
-                    </div>
-                }
-            </div>
-            <button mat-button type="button" (click)="addItem()"><mat-icon svgIcon="heroicons_outline:plus"></mat-icon>Agregar medicamento</button>
-            <div class="mt-3 grid grid-cols-2 gap-2">
-                <mat-form-field><mat-label>Pago</mat-label><mat-select formControlName="paymentMethod"><mat-option value="COD">Contra entrega</mat-option><mat-option value="CASH">Efectivo</mat-option><mat-option value="CARD">Tarjeta</mat-option><mat-option value="TRANSFER">Transferencia</mat-option></mat-select></mat-form-field>
-                <mat-form-field><mat-label>Envio</mat-label><input matInput type="number" formControlName="deliveryFee" /></mat-form-field>
-                <mat-form-field><mat-label>ETA minutos</mat-label><input matInput type="number" formControlName="estimatedDeliveryMinutes" /></mat-form-field>
-            </div>
-            <mat-form-field class="w-full"><mat-label>Notas</mat-label><input matInput formControlName="notes" /></mat-form-field>
-            <div class="flex gap-2">
-                <button mat-stroked-button type="button" (click)="checkAvailability()">Consultar disponibilidad</button>
-                <button mat-flat-button color="primary" type="button" (click)="createOrder()">Crear orden</button>
-            </div>
-            @if (availability.length) {
-                <div class="mt-4 space-y-2">
-                    <div class="font-semibold">Sucursal sugerida</div>
-                    @for (option of availability; track option.branchId) {
-                        <button class="w-full rounded-xl border px-3 py-2 text-left" type="button" [class.border-primary]="selectedBranchId === option.branchId" [disabled]="!option.canFulfill" (click)="selectedBranchId = option.branchId">
-                            <div class="font-medium">{{ option.branchName }}</div>
-                            <div class="text-sm" [class.text-green-600]="option.canFulfill" [class.text-red-600]="!option.canFulfill">{{ option.canFulfill ? 'Disponible ahora' : (option.insideCoverage ? 'Stock insuficiente' : 'Fuera de cobertura') }}</div>
-                            <div class="text-xs text-secondary"><span *ngIf="option.distanceKm !== null">{{ option.distanceKm }} km · </span>ETA {{ option.estimatedDeliveryMinutes || '-' }} min · Radio {{ option.coverageRadiusKm }} km</div>
+
+    <div class="grid gap-2 border-b bg-slate-50 p-2 dark:bg-slate-900 md:grid-cols-4 md:px-5">
+        <button type="button" class="rounded-xl bg-white p-2 text-left shadow-sm dark:bg-slate-800" (click)="selectStep('customer')">
+            <div class="text-sm text-secondary">Cliente</div>
+            <div class="mt-1 truncate text-xl font-bold">{{ form.value.customerName || 'Sin identificar' }}</div>
+        </button>
+        <button type="button" class="rounded-xl bg-white p-2 text-left shadow-sm dark:bg-slate-800" (click)="selectStep('availability')">
+            <div class="text-sm text-secondary">Sucursal sugerida</div>
+            <div class="mt-1 truncate text-xl font-bold">{{ selectedBranch?.branchName || 'Pendiente' }}</div>
+        </button>
+        <button type="button" class="rounded-xl bg-white p-2 text-left shadow-sm dark:bg-slate-800" (click)="selectStep('confirm')">
+            <div class="text-sm text-secondary">Total estimado</div>
+            <div class="mt-1 text-xl font-bold">Q {{ total.toFixed(2) }}</div>
+        </button>
+        <button type="button" class="rounded-xl bg-primary p-2 text-left shadow-sm" (click)="selectStep('confirm')">
+            <div class="text-sm text-on-primary">ETA</div>
+            <div class="mt-1 text-xl font-bold text-on-primary">{{ form.value.estimatedDeliveryMinutes || '-' }} min</div>
+        </button>
+    </div>
+
+    <div class="grid flex-auto gap-2 p-2 md:px-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div class="min-w-0 space-y-2">
+            <div class="rounded-xl border bg-white p-2 shadow-sm dark:bg-slate-900">
+                <div class="hidden gap-1 lg:grid lg:grid-cols-5">
+                    @for (step of [{value: 'customer', title: 'Buscar cliente'}, {value: 'items', title: 'Capturar pedido'}, {value: 'availability', title: 'Consultar stock'}, {value: 'confirm', title: 'Confirmar'}, {value: 'manage', title: 'Seguimiento'}]; track step.value; let index = $index) {
+                        <button type="button" class="rounded-lg px-3 py-1.5 text-left transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-800" [class.bg-primary]="stepState(step.value) === 'active'" [class.text-on-primary]="stepState(step.value) === 'active'" [class.bg-primary-50]="stepState(step.value) === 'done'" [disabled]="stepState(step.value) === 'locked'" (click)="selectStep($any(step.value))">
+                            <div class="text-xs font-semibold opacity-80">{{ index + 1 }}. Fase</div>
+                            <div class="truncate text-sm font-bold">{{ step.title }}</div>
                         </button>
                     }
                 </div>
+            </div>
+
+            <form [formGroup]="form" class="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-900">
+                @if (activeStep === 'customer') {
+                    <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                        <mat-form-field class="fuse-mat-dense flex-1"><mat-label>Telefono del cliente</mat-label><input matInput [formControl]="searchPhoneControl" placeholder="Buscar por telefono" (keydown.enter)="$event.preventDefault(); searchCustomer()" /></mat-form-field>
+                        <button mat-flat-button color="primary" type="button" (click)="searchCustomer()">Buscar historial</button>
+                    </div>
+                    <div class="grid gap-2 md:grid-cols-2">
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Cliente</mat-label><input matInput formControlName="customerName" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Telefono confirmado</mat-label><input matInput formControlName="customerPhone" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense md:col-span-2"><mat-label>Direccion entrega</mat-label><input matInput formControlName="deliveryAddress" /></mat-form-field>
+                        <div class="md:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl border bg-slate-50 p-3 dark:bg-slate-800">
+                            <div class="text-sm text-secondary">Use OpenRouteService/OpenStreetMap para obtener coordenadas automaticamente.</div>
+                            <button mat-stroked-button type="button" (click)="geocodeDeliveryAddress()">Geolocalizar direccion</button>
+                        </div>
+                        @if (geocodeMatches.length > 1) {
+                            <div class="md:col-span-2 grid gap-2 md:grid-cols-2">
+                                @for (match of geocodeMatches; track match.label) {
+                                    <button type="button" class="rounded-lg border p-2 text-left text-sm transition hover:border-primary" (click)="applyGeocode(match)">
+                                        <div class="font-semibold">{{ match.name || 'Ubicacion encontrada' }}</div>
+                                        <div class="text-secondary">{{ match.label }}</div>
+                                    </button>
+                                }
+                            </div>
+                        }
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Latitud entrega</mat-label><input matInput type="number" formControlName="deliveryLatitude" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Longitud entrega</mat-label><input matInput type="number" formControlName="deliveryLongitude" /></mat-form-field>
+                        <div class="md:col-span-2">
+                            <app-location-map title="Ubicacion de entrega" [latitude]="form.value.deliveryLatitude" [longitude]="form.value.deliveryLongitude" [address]="geocodeMatches[0]" [height]="220" (locationChange)="onDeliveryMapSelected($event)"></app-location-map>
+                        </div>
+                        <mat-form-field class="fuse-mat-dense md:col-span-2"><mat-label>Referencia</mat-label><input matInput formControlName="deliveryReference" /></mat-form-field>
+                    </div>
+                    <div class="mt-3 flex justify-end"><button mat-flat-button color="primary" type="button" [disabled]="!form.value.customerPhone" (click)="activeStep = 'items'">Continuar pedido</button></div>
+                }
+
+                @if (activeStep === 'items') {
+                    <mat-form-field class="fuse-mat-dense w-full">
+                        <mat-label>Buscar medicamento</mat-label>
+                        <mat-icon class="icon-size-5" matPrefix svgIcon="heroicons_solid:magnifying-glass"></mat-icon>
+                        <input matInput placeholder="Nombre o codigo" (input)="filterMedicines($any($event.target).value)" />
+                    </mat-form-field>
+                    <div formArrayName="items" class="space-y-2">
+                        @for (item of items.controls; track $index) {
+                            <div [formGroupName]="$index" class="grid gap-2 rounded-xl border p-3 md:grid-cols-[minmax(0,1fr)_120px_120px_44px]">
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select formControlName="medicineId">@for (med of filteredMedicines; track med.id) { <mat-option [value]="med.id">{{ med.code }} - {{ med.name }}</mat-option> }</mat-select></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Cantidad</mat-label><input matInput type="number" min="0.01" formControlName="quantity" /></mat-form-field>
+                                <div class="rounded-lg bg-slate-50 p-2 text-right dark:bg-slate-800"><div class="text-xs text-secondary">Subtotal</div><div class="font-bold">Q {{ lineTotal($index).toFixed(2) }}</div></div>
+                                <button mat-icon-button type="button" (click)="removeItem($index)"><mat-icon svgIcon="heroicons_outline:trash"></mat-icon></button>
+                            </div>
+                        }
+                    </div>
+                    <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <button mat-button type="button" (click)="addItem()"><mat-icon svgIcon="heroicons_outline:plus"></mat-icon>Agregar medicamento</button>
+                        <button mat-flat-button color="primary" type="button" [disabled]="!canCheckAvailability" (click)="checkAvailability()">Consultar disponibilidad</button>
+                    </div>
+                }
+
+                @if (activeStep === 'availability') {
+                    <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div><div class="text-lg font-bold">Disponibilidad por sucursal</div><div class="text-sm text-secondary">Seleccione una sucursal con stock suficiente y dentro de cobertura.</div></div>
+                        <button mat-stroked-button type="button" [disabled]="!canCheckAvailability" (click)="checkAvailability()">Actualizar</button>
+                    </div>
+                    <div class="grid gap-2 md:grid-cols-2">
+                        @for (option of availability; track option.branchId) {
+                            <button class="rounded-xl border p-3 text-left transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-60" type="button" [class.border-primary]="selectedBranchId === option.branchId" [class.bg-primary-50]="selectedBranchId === option.branchId" [disabled]="!option.canFulfill" (click)="selectAvailability(option)">
+                                <div class="flex items-start justify-between gap-3"><div class="font-bold">{{ option.branchName }}</div><div class="rounded-full px-2 py-1 text-xs font-semibold" [class.bg-green-50]="option.canFulfill" [class.text-green-700]="option.canFulfill" [class.bg-red-50]="!option.canFulfill" [class.text-red-700]="!option.canFulfill">{{ option.canFulfill ? 'Disponible' : (option.insideCoverage ? 'Sin stock' : 'Fuera de cobertura') }}</div></div>
+                                <div class="mt-2 grid grid-cols-3 gap-2 text-sm"><div><span class="text-secondary">ETA</span><div class="font-bold">{{ option.estimatedDeliveryMinutes || '-' }} min</div></div><div><span class="text-secondary">Dist.</span><div class="font-bold">{{ option.distanceKm ?? '-' }} km</div></div><div><span class="text-secondary">Carga</span><div class="font-bold">{{ option.activeOrders }}</div></div></div>
+                                <div class="mt-2 text-xs text-secondary">Fuente ETA: {{ option.etaSource === 'OPENROUTE' ? 'OpenRouteService' : 'estimacion local' }}</div>
+                            </button>
+                        }
+                        @if (!availability.length) { <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900 md:col-span-2">Consulte disponibilidad para ver sucursales sugeridas.</div> }
+                    </div>
+                }
+
+                @if (activeStep === 'confirm') {
+                    <div class="mb-3"><div class="text-lg font-bold">Confirmacion de llamada</div><div class="text-sm text-secondary">Informe al cliente disponibilidad, forma de pago y tiempo estimado antes de registrar.</div></div>
+                    <div class="grid gap-2 md:grid-cols-3">
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Pago</mat-label><mat-select formControlName="paymentMethod"><mat-option value="COD">Contra entrega</mat-option><mat-option value="CASH">Efectivo</mat-option><mat-option value="CARD">Tarjeta</mat-option><mat-option value="TRANSFER">Transferencia</mat-option></mat-select></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Envio</mat-label><input matInput type="number" formControlName="deliveryFee" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>ETA minutos</mat-label><input matInput type="number" formControlName="estimatedDeliveryMinutes" /></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense md:col-span-3"><mat-label>Notas de llamada</mat-label><input matInput formControlName="notes" maxlength="255" /></mat-form-field>
+                    </div>
+                    <div class="mt-3 rounded-xl border bg-slate-50 p-3 dark:bg-slate-800">
+                        <div class="grid gap-2 md:grid-cols-4">
+                            <div><div class="text-secondary">Sucursal</div><div class="font-bold">{{ selectedBranch?.branchName || '-' }}</div></div>
+                            <div><div class="text-secondary">Subtotal</div><div class="font-bold">Q {{ subtotal.toFixed(2) }}</div></div>
+                            <div><div class="text-secondary">Total</div><div class="font-bold">Q {{ total.toFixed(2) }}</div></div>
+                            <div><div class="text-secondary">Promesa</div><div class="font-bold">{{ form.value.estimatedDeliveryMinutes }} min</div></div>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex justify-end"><button mat-flat-button color="primary" type="button" [disabled]="!canCreateOrder" (click)="createOrder()">Crear orden y reservar inventario</button></div>
+                }
+            </form>
+
+            @if (activeStep === 'manage') {
+                <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-900">
+                    <div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><div class="text-lg font-bold">Seguimiento de ordenes</div><div class="text-sm text-secondary">Estados bloqueados: pendiente -> en ruta -> entregada; pendiente/en ruta -> cancelada.</div></div><button mat-stroked-button type="button" (click)="loadOrders()">Actualizar</button></div>
+                    <app-table [columns]="columns" [data]="rows" [actions]="actions" [length]="totalItems" (pageChange)="loadOrders($event)" (rowAction)="handleRowAction($event)"></app-table>
+                </div>
             }
-        </form>
-        <div class="min-w-0 rounded-2xl border p-4 shadow-sm">
-            <app-table [columns]="columns" [data]="rows" [actions]="actions" [length]="totalItems" (pageChange)="loadOrders($event)" (rowAction)="handleRowAction($event)"></app-table>
+        </div>
+
+        <div class="space-y-2 xl:sticky xl:top-2 xl:self-start">
+            <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-900">
+                <div class="text-base font-bold">Resumen para operador</div>
+                <div class="mt-2 space-y-2 text-sm">
+                    <div class="flex justify-between"><span>Telefono</span><strong>{{ form.value.customerPhone || '-' }}</strong></div>
+                    <div class="flex justify-between"><span>Items</span><strong>{{ items.length }}</strong></div>
+                    <div class="flex justify-between"><span>Subtotal</span><strong>Q {{ subtotal.toFixed(2) }}</strong></div>
+                    <div class="flex justify-between"><span>Envio</span><strong>Q {{ deliveryFeeAmount.toFixed(2) }}</strong></div>
+                    <div class="flex justify-between border-t pt-2 text-lg"><span>Total</span><strong>Q {{ total.toFixed(2) }}</strong></div>
+                    <div class="flex justify-between"><span>Pago</span><strong>{{ form.value.paymentMethod || '-' }}</strong></div>
+                    <div class="flex justify-between"><span>ETA</span><strong>{{ form.value.estimatedDeliveryMinutes || '-' }} min</strong></div>
+                </div>
+            </div>
+
+            <div class="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-900">
+                <div class="mb-2 flex items-center justify-between"><div class="text-base font-bold">Historial del cliente</div><span class="text-xs text-secondary">{{ customerHistory.length }} orden(es)</span></div>
+                <div class="space-y-2">
+                    @for (order of customerHistory; track order.id) {
+                        <button type="button" class="w-full rounded-lg border p-2 text-left text-sm transition hover:border-primary" (click)="selectHistoryOrder(order)">
+                            <div class="flex justify-between gap-2"><strong>#{{ order.id }} · {{ order.statusLabel }}</strong><span>{{ order.totalLabel }}</span></div>
+                            <div class="truncate text-secondary">{{ order.deliveryAddress }}</div>
+                        </button>
+                    }
+                    @if (!customerHistory.length) { <div class="rounded-lg bg-slate-50 p-3 text-sm text-secondary dark:bg-slate-800">Sin historial cargado.</div> }
+                </div>
+            </div>
         </div>
     </div>
 </div>

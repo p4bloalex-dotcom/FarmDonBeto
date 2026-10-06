@@ -35,7 +35,7 @@ export const changeCustomerOrderStatus = async (req, res) => {
   const order = await findOrderById(Number(req.params.id));
   if (!order) return notFound(res);
   try {
-    await updateOrderStatus(order, req.body.status, req.user?.id ?? null);
+    await updateOrderStatus(order, req.body.status, req.user?.id ?? null, req.body.reason ?? null);
     return ok(res, toOrderDto(await findOrderById(order.id)), 'Estado de orden actualizado correctamente.');
   } catch (error) {
     return handleBusiness(res, error);

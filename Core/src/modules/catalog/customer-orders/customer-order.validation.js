@@ -49,6 +49,8 @@ export const customerOrderSchema = Joi.object({
   estimatedDeliveryMinutes: Joi.number().integer().min(10).max(480).required(),
   deliveryFee: Joi.number().precision(2).min(0).default(0),
   notes: Joi.string().trim().max(255).allow('', null),
+  callNotes: Joi.string().trim().max(255).allow('', null),
+  call_notes: Joi.string().trim().max(255).allow('', null),
   items: Joi.array().items(itemSchema).min(1).required()
 }).custom((value, helpers) => {
   const branchId = value.branchId ?? value.branch_id;
@@ -68,9 +70,12 @@ export const customerOrderSchema = Joi.object({
     paymentStatus: value.paymentStatus ?? value.payment_status ?? 'PENDING',
     estimatedDeliveryMinutes: value.estimatedDeliveryMinutes,
     deliveryFee: value.deliveryFee ?? 0,
-    notes: value.notes || null,
+    notes: value.notes || value.callNotes || value.call_notes || null,
     items: value.items
   };
 });
 
-export const orderStatusSchema = Joi.object({ status: Joi.string().valid('S', 'D', 'C').required() });
+export const orderStatusSchema = Joi.object({
+  status: Joi.string().valid('S', 'D', 'C').required(),
+  reason: Joi.when('status', { is: 'C', then: Joi.string().trim().min(5).max(255).required(), otherwise: Joi.string().trim().max(255).allow('', null) })
+});

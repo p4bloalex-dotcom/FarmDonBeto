@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { FormsModule, ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,32 +13,39 @@ import { TableAction, TableColumn } from '@fuse/components/table/table-column.mo
 import { TableComponent } from '@fuse/components/table/table.component';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
+import { LocationMapComponent, LocationMapSelection } from 'app/shared/location-map/location-map.component';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-customer-order',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, TableComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, TableComponent, LocationMapComponent],
   templateUrl: './customer-order.component.html',
   styleUrl: './customer-order.component.scss'
 })
 export class CustomerOrderComponent implements OnInit, OnDestroy {
   form: UntypedFormGroup;
+  searchPhoneControl = new UntypedFormControl('');
   medicines: any[] = [];
+  filteredMedicines: any[] = [];
   branches: any[] = [];
   availability: any[] = [];
+  geocodeMatches: any[] = [];
+  customerHistory: any[] = [];
   rows: any[] = [];
   pageSize = 10;
   pageIndex = 0;
   totalItems = 0;
   isLoading = false;
   selectedBranchId: number | null = null;
+  activeStep: 'customer' | 'items' | 'availability' | 'confirm' | 'manage' = 'customer';
+  cancelReason = '';
   private _unsubscribeAll = new Subject<void>();
 
   columns: TableColumn[] = [
     { field: 'id', header: 'Orden', width: '80px' },
     { field: 'customerName', header: 'Cliente', width: '1.2fr' },
     { field: 'branchName', header: 'Sucursal', width: '1.2fr' },
-    { field: 'paymentMethod', header: 'Pago', width: '100px' },
+    { field: 'paymentLabel', header: 'Pago', width: '120px' },
     { field: 'totalLabel', header: 'Total', width: '100px' },
     { field: 'etaLabel', header: 'ETA', width: '90px' },
     { field: 'statusLabel', header: 'Estado', width: '120px' }
@@ -82,13 +89,101 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
 
   loadCatalogs(): void {
     this._api.comboList(['Medicine', 'Branch']).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: ([medicines, branches]) => { this.medicines = medicines; this.branches = branches; },
+      next: ([medicines, branches]) => { this.medicines = medicines; this.filteredMedicines = medicines; this.branches = branches; },
       error: () => this._toast.error('No se pudieron cargar catalogos.')
     });
   }
 
+  searchCustomer(): void {
+    const phone = String(this.searchPhoneControl.value || this.form.value.customerPhone || '').trim();
+    if (phone.length < 6) {
+      this._toast.error('Ingrese un telefono valido para buscar historial.');
+      return;
+    }
+    this.form.patchValue({ customerPhone: phone });
+    this.isLoading = true;
+    this._api.customerOrderHistory(phone).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo consultar historial.');
+        this.customerHistory = (resp.data ?? []).map(this.decorate);
+        const last = this.customerHistory[0];
+        if (last) {
+          this.form.patchValue({ customerName: last.customerName, deliveryAddress: last.deliveryAddress, deliveryReference: last.deliveryReference, deliveryLatitude: last.deliveryLatitude, deliveryLongitude: last.deliveryLongitude, paymentMethod: last.paymentMethod });
+        }
+        this.activeStep = 'items';
+      },
+      error: () => { this.isLoading = false; this._toast.error('Error inesperado al consultar historial.'); }
+    });
+  }
+
+  filterMedicines(term: string): void {
+    const text = String(term ?? '').toLowerCase().trim();
+    this.filteredMedicines = !text ? this.medicines : this.medicines.filter(item => `${item.code ?? ''} ${item.name ?? ''}`.toLowerCase().includes(text)).slice(0, 25);
+  }
+
+  geocodeDeliveryAddress(): void {
+    const address = String(this.form.value.deliveryAddress ?? '').trim();
+    if (address.length < 5) {
+      this._toast.error('Ingrese una direccion de entrega para geolocalizar.');
+      return;
+    }
+    this.isLoading = true;
+    this._api.geocodeAddress(address).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo geolocalizar la direccion.');
+        this.geocodeMatches = resp.data ?? [];
+        const first = this.geocodeMatches[0];
+        if (!first) return this._toast.error('No se encontraron coordenadas para esa direccion.');
+        this.applyGeocode(first);
+        this._toast.success('Direccion geolocalizada.');
+      },
+      error: () => { this.isLoading = false; this._toast.error('Error inesperado al geolocalizar.'); }
+    });
+  }
+
+  applyGeocode(match: any): void {
+    this.form.patchValue({ deliveryLatitude: match.latitude, deliveryLongitude: match.longitude, deliveryAddress: match.label || this.form.value.deliveryAddress });
+    this.activeStep = 'items';
+  }
+
+  onDeliveryMapSelected(selection: LocationMapSelection): void {
+    this.form.patchValue({
+      deliveryLatitude: selection.latitude,
+      deliveryLongitude: selection.longitude,
+      deliveryAddress: selection.address?.label || this.form.value.deliveryAddress
+    });
+    if (selection.address) this.geocodeMatches = [selection.address];
+  }
+
+  medicineForLine(index: number): any {
+    const id = this.items.at(index)?.value?.medicineId;
+    return this.medicines.find(item => Number(item.id) === Number(id));
+  }
+
+  lineTotal(index: number): number {
+    const item = this.items.at(index)?.value;
+    const medicine = this.medicineForLine(index);
+    return Number(item?.quantity ?? 0) * Number(medicine?.priceSell ?? medicine?.price_sell ?? 0);
+  }
+
+  get subtotal(): number { return this.items.controls.reduce((sum, _item, index) => sum + this.lineTotal(index), 0); }
+  get total(): number { return this.subtotal + Number(this.form.value.deliveryFee ?? 0); }
+  get deliveryFeeAmount(): number { return Number(this.form.value.deliveryFee ?? 0); }
+  get selectedBranch(): any { return this.availability.find(item => Number(item.branchId) === Number(this.selectedBranchId)); }
+  get canCheckAvailability(): boolean { return this.form.get('deliveryAddress')?.valid && this.form.get('deliveryLatitude')?.value != null && this.form.get('deliveryLongitude')?.value != null && this.items.valid; }
+  get canCreateOrder(): boolean { return this.form.valid && !!this.selectedBranchId && !!this.selectedBranch?.canFulfill; }
+
+  selectStep(step: 'customer' | 'items' | 'availability' | 'confirm' | 'manage'): void {
+    if (this.stepState(step) !== 'locked') this.activeStep = step;
+  }
+
   checkAvailability(): void {
-    if (this.items.invalid) return;
+    if (!this.canCheckAvailability) {
+      this._toast.error('Complete direccion, coordenadas y medicamentos para consultar disponibilidad.');
+      return;
+    }
     this.isLoading = true;
       this._api.customerOrderAvailability({
         deliveryAddress: this.form.value.deliveryAddress,
@@ -103,6 +198,7 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
         const first = this.availability.find(item => item.canFulfill);
         this.selectedBranchId = first?.branchId ?? null;
         if (first) this.form.patchValue({ estimatedDeliveryMinutes: first.estimatedDeliveryMinutes });
+        this.activeStep = 'availability';
       },
       error: () => { this.isLoading = false; this._toast.error('Error inesperado al consultar disponibilidad.'); }
     });
@@ -120,10 +216,14 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
         if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo registrar la orden.');
         this._toast.success('Orden registrada con inventario reservado.');
         this.form.reset({ paymentMethod: 'COD', estimatedDeliveryMinutes: 45, deliveryFee: 0 });
+        this.searchPhoneControl.reset('');
         this.items.clear();
         this.addItem();
         this.availability = [];
+        this.geocodeMatches = [];
+        this.customerHistory = [];
         this.selectedBranchId = null;
+        this.activeStep = 'customer';
         this.loadOrders();
       },
       error: () => { this.isLoading = false; this._toast.error('Error inesperado al crear la orden.'); }
@@ -136,7 +236,7 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
     this._api.getPaged('CustomerOrder', this.pageIndex + 1, this.pageSize).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => {
         this.isLoading = false;
-        this.rows = (resp.data?.data ?? []).map(this.decorate);
+        this.rows = (resp.data?.data ?? []).map(item => this.decorate(item));
         this.totalItems = resp.data?.meta?.totalItemCount ?? 0;
       },
       error: () => { this.isLoading = false; this._toast.error('No se pudieron cargar ordenes.'); }
@@ -145,14 +245,44 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
 
   handleRowAction(event: { action: string; row: any }): void {
     const next = event.action === 'ship' ? 'S' : event.action === 'deliver' ? 'D' : 'C';
-    this._api.changeStatus('CustomerOrder', event.row.id, { status: next }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+    if (next === 'S' && event.row.status !== 'P') { this._toast.error('Solo una orden pendiente puede enviarse.'); return; }
+    if (next === 'D' && event.row.status !== 'S') { this._toast.error('Solo una orden en ruta puede entregarse.'); return; }
+    if (next === 'C' && !['P', 'S'].includes(event.row.status)) { this._toast.error('Solo se pueden cancelar ordenes pendientes o en ruta.'); return; }
+    const reason = next === 'C' ? (this.cancelReason || window.prompt('Motivo de cancelacion') || '') : null;
+    if (next === 'C' && reason.trim().length < 5) { this._toast.error('Ingrese un motivo de cancelacion de al menos 5 caracteres.'); return; }
+    this._api.changeStatus('CustomerOrder', event.row.id, { status: next, reason }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => resp.success ? this.loadOrders() : this._toast.error(resp.error?.detail ?? 'No se pudo actualizar la orden.'),
       error: () => this._toast.error('Error inesperado al actualizar orden.')
     });
   }
 
+  selectHistoryOrder(order: any): void {
+    this.form.patchValue({ customerName: order.customerName, customerPhone: order.customerPhone, deliveryAddress: order.deliveryAddress, deliveryReference: order.deliveryReference, deliveryLatitude: order.deliveryLatitude, deliveryLongitude: order.deliveryLongitude, paymentMethod: order.paymentMethod });
+    this.activeStep = 'items';
+  }
+
+  selectAvailability(option: any): void {
+    if (!option.canFulfill) return;
+    this.selectedBranchId = option.branchId;
+    this.form.patchValue({ estimatedDeliveryMinutes: option.estimatedDeliveryMinutes });
+    this.activeStep = 'confirm';
+  }
+
+  stepState(step: string): 'active' | 'done' | 'locked' | 'available' {
+    const order = ['customer', 'items', 'availability', 'confirm', 'manage'];
+    const current = order.indexOf(this.activeStep);
+    const target = order.indexOf(step);
+    if (current === target) return 'active';
+    if (target < current) return 'done';
+    if (step === 'items' && !this.form.value.customerPhone) return 'locked';
+    if (step === 'availability' && !this.items.valid) return 'locked';
+    if (step === 'confirm' && !this.selectedBranchId) return 'locked';
+    return 'available';
+  }
+
   private decorate(item: any): any {
     const labels: Record<string, string> = { P: 'Pendiente', S: 'En ruta', D: 'Entregada', C: 'Cancelada' };
-    return { ...item, totalLabel: `Q ${Number(item.total ?? 0).toFixed(2)}`, etaLabel: `${item.estimatedDeliveryMinutes} min`, statusLabel: labels[item.status] ?? item.status };
+    const payments: Record<string, string> = { COD: 'Contra entrega', CASH: 'Efectivo', CARD: 'Tarjeta', TRANSFER: 'Transferencia' };
+    return { ...item, totalLabel: `Q ${Number(item.total ?? 0).toFixed(2)}`, etaLabel: `${item.estimatedDeliveryMinutes} min`, statusLabel: labels[item.status] ?? item.status, paymentLabel: payments[item.paymentMethod] ?? item.paymentMethod };
   }
 }

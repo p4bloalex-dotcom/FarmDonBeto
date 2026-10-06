@@ -44,6 +44,9 @@ const schema = Joi.object({
   SMTP_USER: Joi.string().allow('').default(''),
   SMTP_PASSWORD: Joi.string().allow('').default(''),
   MAIL_FROM: Joi.string().allow('').default(''),
+  GEOCODING_PROVIDER: Joi.string().valid('OPENROUTE', 'DISABLED').default('OPENROUTE'),
+  OPENROUTE_API_KEY: Joi.string().allow('').default(''),
+  OPENROUTE_BASE_URL: Joi.string().uri().default('https://api.openrouteservice.org'),
   LOG_LEVEL: Joi.string().default('info')
 }).unknown(true);
 
@@ -99,6 +102,11 @@ export const env = {
     user: value.SMTP_USER,
     password: value.SMTP_PASSWORD,
     from: value.MAIL_FROM,
+  },
+  geocoding: {
+    provider: value.GEOCODING_PROVIDER,
+    openRouteApiKey: value.OPENROUTE_API_KEY,
+    openRouteBaseUrl: value.OPENROUTE_BASE_URL
   },
   logLevel: value.LOG_LEVEL
 };

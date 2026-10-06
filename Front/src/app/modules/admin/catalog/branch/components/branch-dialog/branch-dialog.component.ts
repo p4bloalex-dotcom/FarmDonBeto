@@ -9,10 +9,11 @@ import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 import { HotToastService } from '@fuse/components/hot-toast';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
+import { LocationMapComponent, LocationMapSelection } from 'app/shared/location-map/location-map.component';
 
 @Component({
   selector: 'app-branch-dialog',
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatSelectModule, MatDialogModule, MatCheckboxModule],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatSelectModule, MatDialogModule, MatCheckboxModule, LocationMapComponent],
   templateUrl: './branch-dialog.component.html',
   styleUrl: './branch-dialog.component.scss'
 })
@@ -21,6 +22,7 @@ export class BranchDialogComponent {
   dataForm: UntypedFormGroup;
   departments: any[] = [];
   municipalities: any[] = [];
+  geocodeMatches: any[] = [];
   service = 'Branch';
   branchTypes = [
     { value: 'CENTRO_COMERCIAL', label: 'Centro comercial' },
@@ -70,6 +72,38 @@ export class BranchDialogComponent {
       next: (resp: ApiResponse<any>) => this.municipalities = resp.success ? resp.data : [],
       error: () => this._toast.error('Error inesperado. Intenta más tarde.')
     });
+  }
+
+  geocodeBranchAddress(): void {
+    const address = String(this.dataForm.value.address ?? '').trim();
+    if (address.length < 5) {
+      this._toast.error('Ingrese una direccion para geolocalizar.');
+      return;
+    }
+    this._generalApi.geocodeAddress(address).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo geolocalizar la direccion.');
+        this.geocodeMatches = resp.data ?? [];
+        const first = this.geocodeMatches[0];
+        if (!first) return this._toast.error('No se encontraron coordenadas para esa direccion.');
+        this.applyGeocode(first);
+        this._toast.success('Ubicacion encontrada.');
+      },
+      error: () => this._toast.error('Error inesperado al geolocalizar.')
+    });
+  }
+
+  applyGeocode(match: any): void {
+    this.dataForm.patchValue({ latitude: match.latitude, longitude: match.longitude, address: match.label || this.dataForm.value.address });
+  }
+
+  onMapLocationSelected(selection: LocationMapSelection): void {
+    this.dataForm.patchValue({
+      latitude: selection.latitude,
+      longitude: selection.longitude,
+      address: selection.address?.label || this.dataForm.value.address
+    });
+    if (selection.address) this.geocodeMatches = [selection.address];
   }
 
   save(): void {

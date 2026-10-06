@@ -19,6 +19,7 @@ import { customerOrderRoutes } from '../modules/catalog/customer-orders/customer
 import { saleRoutes } from '../modules/catalog/sales/sale.routes.js';
 import { consolidatedReportRoutes } from '../modules/reports/consolidated-report.routes.js';
 import { dashboardRoutes } from '../modules/dashboard/dashboard.routes.js';
+import { geolocationRoutes } from '../modules/geolocation/geolocation.routes.js';
 import { payrollRoutes } from '../modules/catalog/payroll/payroll.routes.js';
 import { treasuryRoutes } from '../modules/catalog/treasury/treasury.routes.js';
 import { menuRoutes } from '../modules/security/menus/menu.routes.js';
@@ -31,6 +32,7 @@ export const routes = Router();
 
 routes.use('/auth', authRoutes);
 routes.use('/dashboard', dashboardRoutes);
+routes.use('/geolocation', geolocationRoutes);
 routes.use('/security/roles', roleRoutes);
 routes.use('/security/role-menus', roleMenuRoutes);
 routes.use('/security/users', userRoutes);

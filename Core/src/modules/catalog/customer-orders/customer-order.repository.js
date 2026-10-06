@@ -1,4 +1,5 @@
 import { AppDataSource } from '../../../config/data-source.js';
+import { calculateDrivingRoute } from '../../../services/geolocation.service.js';
 import { registerKardex } from '../inventory/inventory-kardex.service.js';
 import { consumeLotsFefo, LotConsumptionError } from '../inventory/inventory-lot.service.js';
 import { Like } from 'typeorm';
@@ -45,7 +46,10 @@ const toDto = item => ({
   total: Number(item.total ?? 0),
   itemsCount: Number(item.itemsCount ?? 0),
   notes: item.notes,
-  status: item.status
+  status: item.status,
+  canShip: item.status === 'P',
+  canDeliver: item.status === 'S',
+  canCancel: ['P', 'S'].includes(item.status)
 });
 
 const queryBase = () => orders().createQueryBuilder('item')
@@ -57,6 +61,8 @@ export const paginateOrders = async ({ offset, pageSize }, filters = {}) => {
   const query = queryBase();
   if (filters.customerPhone) query.andWhere('item.customerPhone = :customerPhone', { customerPhone: filters.customerPhone });
   if (filters.paymentStatus) query.andWhere('item.paymentStatus = :paymentStatus', { paymentStatus: filters.paymentStatus });
+  if (filters.status) query.andWhere('item.status = :status', { status: filters.status });
+  if (filters.branchId) query.andWhere('item.branchId = :branchId', { branchId: Number(filters.branchId) });
   const [rows, total] = await query.orderBy('item.orderDate', 'DESC').skip(offset).take(pageSize).getManyAndCount();
   return { rows: rows.map(toDto), total };
 };
@@ -95,6 +101,21 @@ const estimateDeliveryMinutes = (branch, distance) => {
   return Math.max(10, base + Math.ceil((distance / 25) * 60));
 };
 
+const routeEstimate = async (branch, deliveryLatitude, deliveryLongitude, fallbackDistance) => {
+  const fallback = {
+    distanceKm: fallbackDistance === null ? null : Math.round(fallbackDistance * 100) / 100,
+    estimatedDeliveryMinutes: estimateDeliveryMinutes(branch, fallbackDistance),
+    etaSource: fallbackDistance === null ? 'BRANCH_AVERAGE' : 'DISTANCE_ESTIMATE'
+  };
+  if ([branch.latitude, branch.longitude, deliveryLatitude, deliveryLongitude].some(value => value === null || value === undefined)) return fallback;
+  try {
+    const route = await calculateDrivingRoute({ fromLatitude: branch.latitude, fromLongitude: branch.longitude, toLatitude: deliveryLatitude, toLongitude: deliveryLongitude });
+    return { distanceKm: route.distanceKm, estimatedDeliveryMinutes: Math.max(Number(branch.averageDeliveryMinutes ?? 0), route.durationMinutes), etaSource: 'OPENROUTE' };
+  } catch {
+    return fallback;
+  }
+};
+
 export const getAvailability = async data => {
   const items = Array.isArray(data) ? data : data.items;
   const deliveryLatitude = Array.isArray(data) ? null : data.deliveryLatitude;
@@ -127,6 +148,7 @@ export const getAvailability = async data => {
     const activeLoad = loadByBranch.get(Number(branch.id)) ?? 0;
     const stockRatio = availability.length ? availability.reduce((sum, item) => sum + Math.min(item.available / Math.max(item.requested, 1), 2), 0) / availability.length : 0;
     const score = Math.round(((canFulfill ? 1000 : 0) + Math.min(stockRatio, 2) * 100 - Number(distance ?? 99) * 10 - activeLoad * 25 + (insideCoverage ? 100 : -300)) * 100) / 100;
+    const route = await routeEstimate(branch, deliveryLatitude, deliveryLongitude, distance);
     result.push({
       branchId: branch.id,
       branchName: branch.name,
@@ -134,10 +156,11 @@ export const getAvailability = async data => {
       score,
       suggested: false,
       activeOrders: activeLoad,
-      distanceKm: distance === null ? null : Math.round(distance * 100) / 100,
+      distanceKm: route.distanceKm,
       coverageRadiusKm,
       insideCoverage,
-      estimatedDeliveryMinutes: canFulfill ? estimateDeliveryMinutes(branch, distance) : null,
+      estimatedDeliveryMinutes: canFulfill ? route.estimatedDeliveryMinutes : null,
+      etaSource: canFulfill ? route.etaSource : null,
       availability
     });
   }
@@ -169,6 +192,10 @@ const releaseReserve = async (manager, branchId, detailsRows) => {
 export const createOrder = async (data, userId = null) => AppDataSource.transaction(async manager => {
   if (data.deliveryLatitude == null || data.deliveryLongitude == null) throw new BusinessRuleError('Debe indicar coordenadas de entrega validas.');
   if (['CARD', 'TRANSFER'].includes(data.paymentMethod) && data.paymentStatus !== 'PAID') throw new BusinessRuleError('Las ordenes con tarjeta o transferencia deben registrarse con pago confirmado.');
+  const availability = await getAvailability({ deliveryLatitude: data.deliveryLatitude, deliveryLongitude: data.deliveryLongitude, items: data.items });
+  const selectedBranch = availability.find(item => Number(item.branchId) === Number(data.branchId));
+  if (!selectedBranch) throw new BusinessRuleError('La sucursal seleccionada no esta disponible para el operador actual.');
+  if (!selectedBranch.canFulfill) throw new BusinessRuleError(selectedBranch.insideCoverage ? 'La sucursal seleccionada no tiene stock suficiente.' : 'La sucursal seleccionada esta fuera de cobertura para la entrega.');
   const medicineRepo = manager.getRepository('Medicine');
   const normalizedItems = [];
   for (const item of data.items) {
@@ -191,7 +218,7 @@ export const createOrder = async (data, userId = null) => AppDataSource.transact
   return order.id;
 });
 
-export const updateOrderStatus = async (order, status, userId = null) => AppDataSource.transaction(async manager => {
+export const updateOrderStatus = async (order, status, userId = null, reason = null) => AppDataSource.transaction(async manager => {
   if (order.status === status) throw new BusinessRuleError('La orden ya tiene ese estado.');
   const rows = await manager.getRepository('CustomerOrderDetail').findBy({ orderId: order.id });
   if (status === 'S' && order.status !== 'P') throw new BusinessRuleError('Solo una orden pendiente puede marcarse en ruta.');
@@ -241,7 +268,9 @@ export const updateOrderStatus = async (order, status, userId = null) => AppData
     await manager.getRepository('CashMovement').save(manager.getRepository('CashMovement').create({ cashSessionId: session.id, branchId: order.branchId, movementTypeId: movementType.id, amount: Number(order.total ?? 0), description: `Orden entregada #${order.id}`, referenceId: sale.id, referenceType: 'CUSTOMER_ORDER', movementDate: new Date(), status: 'E', createdBy: userId }));
     order.saleId = sale.id;
   }
-  await manager.getRepository('CustomerOrder').update(order.id, { status, saleId: order.saleId ?? null, paymentStatus: status === 'D' && order.paymentMethod === 'COD' ? 'PAID' : order.paymentStatus, updatedBy: userId });
+  const statusUpdate = { status, saleId: order.saleId ?? null, paymentStatus: status === 'D' && order.paymentMethod === 'COD' ? 'PAID' : order.paymentStatus, updatedBy: userId };
+  if (status === 'C') statusUpdate.notes = [order.notes, `Cancelada: ${reason}`].filter(Boolean).join(' | ').slice(0, 255);
+  await manager.getRepository('CustomerOrder').update(order.id, statusUpdate);
 });
 
 export const searchMedicines = async term => (await AppDataSource.getRepository('Medicine').find({

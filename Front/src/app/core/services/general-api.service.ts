@@ -53,6 +53,26 @@ getList(endpoint: string) {
       .pipe(map(resp => this.normalizeResponse('CustomerOrder', resp)));
   }
 
+  customerOrderHistory(phone: string) {
+    return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath('CustomerOrder')}/history/${encodeURIComponent(phone)}`)
+      .pipe(map(resp => this.normalizeResponse('CustomerOrder', resp)));
+  }
+
+  geocodeAddress(address: string) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/geolocation/geocode`, { address })
+      .pipe(map(resp => this.normalizeResponse('Geolocation', resp)));
+  }
+
+  reverseGeocode(latitude: number, longitude: number) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/geolocation/reverse`, { latitude, longitude })
+      .pipe(map(resp => this.normalizeResponse('Geolocation', resp)));
+  }
+
+  calculateRoute(data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/geolocation/route`, data)
+      .pipe(map(resp => this.normalizeResponse('Geolocation', resp)));
+  }
+
   getConsolidatedReport(report: string, filters: any = {}) {
     let params = new HttpParams();
     Object.keys(filters).forEach(key => {
@@ -182,7 +202,7 @@ getList(endpoint: string) {
 
   changeStatus(endpoint: string, id: any, data: any) {
     if (endpoint === 'Menu' || endpoint === 'DeliveryRequest' || endpoint === 'CustomerOrder') {
-      return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}/status`, { status: data.status })
+      return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}/${id}/status`, data)
         .pipe(map(resp => this.normalizeResponse(endpoint, resp)));
     }
 

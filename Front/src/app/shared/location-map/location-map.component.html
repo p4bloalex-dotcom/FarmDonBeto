@@ -1,0 +1,14 @@
+<div class="rounded-xl border bg-white shadow-sm dark:bg-slate-900">
+  <div class="flex flex-col gap-2 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="min-w-0">
+      <div class="font-bold">{{ title }}</div>
+      <div class="truncate text-sm text-secondary">{{ displayAddress() }}</div>
+      <div class="text-xs text-secondary">{{ coordinatesLabel() }} @if (isResolving) { · normalizando direccion... }</div>
+    </div>
+    <div class="flex shrink-0 gap-2">
+      <button mat-stroked-button type="button" (click)="locateCurrentPosition()"><mat-icon svgIcon="heroicons_outline:map-pin"></mat-icon><span class="ml-1 hidden sm:inline">Mi ubicacion</span></button>
+      <button mat-flat-button color="primary" type="button" (click)="useLocation()">Usar</button>
+    </div>
+  </div>
+  <div [id]="mapId" class="w-full rounded-b-xl" [style.height.px]="height"></div>
+</div>
