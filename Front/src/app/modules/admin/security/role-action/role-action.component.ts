@@ -80,11 +80,30 @@ onPermisoChange(data: any): void {
     this.pendingChanges = this.modifiedPermissions.length;
   }
 
-  toggleMenuPermissions(menu: any, isCheck: boolean): void {
+  toggleMenuPermissions(menu: any): void {
+    const isCheck = !this.isEveryMenuPermissionChecked(menu);
+
     for (const permiso of menu.Permissions) {
       permiso.isCheck = isCheck;
       this.onPermisoChange(permiso);
     }
+  }
+
+  toggleMenuGlobalPermissions(menu: any): void {
+    const isGlobal = !this.isEveryMenuPermissionGlobal(menu);
+
+    for (const permiso of menu.Permissions) {
+      permiso.isGlobal = isGlobal;
+      this.onPermisoChange(permiso);
+    }
+  }
+
+  isEveryMenuPermissionChecked(menu: any): boolean {
+    return menu.Permissions?.length > 0 && menu.Permissions.every((permiso: any) => permiso.isCheck);
+  }
+
+  isEveryMenuPermissionGlobal(menu: any): boolean {
+    return menu.Permissions?.length > 0 && menu.Permissions.every((permiso: any) => permiso.isGlobal);
   }
 
   getList(): void {

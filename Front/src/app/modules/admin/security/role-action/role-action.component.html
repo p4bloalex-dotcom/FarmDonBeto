@@ -49,9 +49,13 @@
                                 </mat-panel-title>
                             </mat-expansion-panel-header>
 
-                            <div class="flex justify-end gap-2 border-b border-gray-100 px-4 py-2">
-                                <button mat-button type="button" (click)="toggleMenuPermissions(menu, true)">Marcar todo</button>
-                                <button mat-button type="button" (click)="toggleMenuPermissions(menu, false)">Desmarcar todo</button>
+                            <div class="flex flex-wrap items-center justify-end gap-2 border-b border-gray-100 px-4 py-2">
+                                <button mat-button type="button" (click)="toggleMenuPermissions(menu)">
+                                    {{ isEveryMenuPermissionChecked(menu) ? 'Desmarcar acciones' : 'Marcar acciones' }}
+                                </button>
+                                <button mat-button type="button" (click)="toggleMenuGlobalPermissions(menu)">
+                                    {{ isEveryMenuPermissionGlobal(menu) ? 'Desmarcar global' : 'Marcar global' }}
+                                </button>
                             </div>
 
                             @for (permiso of menu.Permissions; track $index) {
