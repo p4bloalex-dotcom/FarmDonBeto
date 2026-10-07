@@ -84,7 +84,6 @@
                 }
 
                 @if (activeStep === 'delivery') {
-                    <div class="mb-3"><div class="text-lg font-bold">Direccion y ubicacion de entrega</div><div class="text-sm text-secondary">Antes de consultar disponibilidad, confirme donde debe entregarse el pedido.</div></div>
                     <div class="grid gap-2 md:grid-cols-2">
                         <mat-form-field class="fuse-mat-dense md:col-span-2"><mat-label>Direccion entrega</mat-label><input matInput formControlName="deliveryAddress" (input)="onDeliveryAddressInput()" /></mat-form-field>
                         <div class="rounded-xl border bg-slate-50 p-3 dark:bg-slate-800 md:col-span-2">

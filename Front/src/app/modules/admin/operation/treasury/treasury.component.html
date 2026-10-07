@@ -2,7 +2,7 @@
     @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
     <div class="flex flex-0 flex-col gap-4 border-b px-4 py-4 md:px-8">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div><div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Caja y bancos</div><div class="text-secondary">Cuentas, ingresos, egresos y conciliación</div></div>
+            <div><div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Caja y bancos</div></div>
             <div class="flex flex-wrap gap-2"><button mat-flat-button color="primary" (click)="open('account')">Nueva cuenta/fondo</button><button mat-stroked-button (click)="openMovement('E')">Registrar ingreso</button><button mat-stroked-button (click)="openMovement('S')">Registrar egreso</button><button mat-stroked-button (click)="open('transfer')">Transferir</button></div>
         </div>
         <div class="grid gap-3 md:grid-cols-4">

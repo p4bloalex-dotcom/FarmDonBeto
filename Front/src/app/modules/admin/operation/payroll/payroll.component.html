@@ -5,7 +5,6 @@
         <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Nómina</div>
         <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <mat-form-field class="fuse-mat-dense fuse-mat-rounded w-full sm:min-w-72" [subscriptSizing]="'dynamic'">
-                <mat-label>Período</mat-label>
                 <mat-select [formControl]="generateForm.get('periodId')">
                     <mat-option value="">Manual</mat-option>
                     <mat-option *ngFor="let item of periods" [value]="item.id">{{ item.name }}</mat-option>

@@ -1,26 +1,31 @@
 <div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
     @if (isLoading) { <mat-progress-bar mode="indeterminate"></mat-progress-bar> }
 
-    <div class="border-b px-4 py-3 md:px-6">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div class="border-b px-3 py-2 md:px-4">
+        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <div class="text-2xl font-extrabold tracking-tight">Punto de venta</div>
-                <div class="text-sm text-secondary">{{ selectedBranchName }} · {{ loggedEmployeeName }} · {{ selectedCashSession?.cashRegisterName || 'Sin caja activa' }}</div>
             </div>
-
-            <form [formGroup]="form" class="grid gap-2 sm:grid-cols-2 lg:w-[520px]">
+            <form [formGroup]="form" class="grid gap-2 sm:grid-cols-2 lg:ml-auto lg:w-[700px] lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]">
+                <button class="h-12 justify-self-start" mat-stroked-button type="button" (click)="openHistoryDialog()"><mat-icon svgIcon="heroicons_outline:clock"></mat-icon>Historial</button>
                 @if (needsBranchSelection) {
-                    <mat-form-field class="w-full"><mat-label>Sucursal</mat-label><mat-select formControlName="branchId"><mat-option *ngFor="let branch of branches" [value]="branch.id">{{ branch.name }}</mat-option></mat-select></mat-form-field>
+                    <mat-form-field class="w-full">
+                    <mat-select formControlName="branchId" placeholder="Seleccione una sucursal">
+                        <mat-option *ngFor="let branch of branches" [value]="branch.id">
+                        {{ branch.name }}
+                        </mat-option>
+                    </mat-select>
+                    </mat-form-field>
                 }
                 @if (needsCashSessionSelection) {
-                    <mat-form-field class="w-full"><mat-label>Caja abierta</mat-label><mat-select formControlName="cashSessionId"><mat-option *ngFor="let session of openSessions" [value]="session.id">{{ session.cashRegisterName }}</mat-option></mat-select></mat-form-field>
                 }
+                
             </form>
         </div>
     </div>
 
-    <div class="grid min-h-0 flex-auto gap-4 overflow-auto p-4 lg:grid-cols-[minmax(0,1fr)_380px] md:p-6">
-        <div class="min-w-0 space-y-4">
+    <div class="grid min-h-0 flex-auto gap-2 overflow-hidden p-2 lg:grid-cols-[minmax(0,1fr)_360px] md:p-3">
+        <div class="min-w-0 space-y-2 overflow-hidden">
             @if (!hasSaleContext) {
                 <div class="rounded-2xl border bg-amber-50 p-4 text-amber-900 shadow-sm">
                     <div class="font-semibold">Venta bloqueada</div>
@@ -29,29 +34,33 @@
             }
 
             @if (hasSaleContext) {
-                <div class="rounded-2xl border bg-white p-4 shadow-sm dark:bg-transparent">
-                    <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="flex max-h-[38vh] min-h-[220px] flex-col rounded-xl border bg-white p-2 shadow-sm dark:bg-transparent lg:max-h-[44vh]">
+                    <div class="mb-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                         <div>
-                            <div class="text-lg font-semibold">Escanear o buscar producto</div>
-                            <div class="text-sm text-secondary">Enter agrega el primer resultado. Si ya esta en el carrito, suma 1.</div>
+                            <div class="text-base font-semibold">Escanear o buscar producto</div>
                         </div>
-                        <mat-form-field class="w-full lg:w-[420px]">
-                            <mat-label>Codigo o nombre</mat-label>
+                        <mat-form-field class="fuse-mat-dense w-full lg:w-[380px]">
                             <input #medicineSearchInput matInput [formControl]="medicineSearchControl" placeholder="Escanee codigo o escriba nombre" (keydown.enter)="$event.preventDefault(); addFirstFilteredMedicine()" />
                         </mat-form-field>
                     </div>
 
-                    <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    <div class="grid min-h-0 flex-1 gap-2 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">
                         @for (med of filteredMedicines(); track med.id) {
-                            <button class="rounded-xl border p-3 text-left transition hover:border-primary hover:bg-primary-50 dark:hover:bg-gray-800" type="button" (click)="addMedicineToSale(med)">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="min-w-0">
-                                        <div class="truncate text-xs font-semibold uppercase tracking-wide text-secondary">{{ med.code || 'Sin codigo' }}</div>
-                                        <div class="line-clamp-2 font-medium">{{ med.name }}</div>
-                                    </div>
-                                    <div class="whitespace-nowrap rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">{{ med.availableToPromise }}</div>
+                            <button class="grid grid-cols-[52px_minmax(0,1fr)] gap-2 rounded-lg border p-2 text-left transition hover:border-primary hover:bg-primary-50 dark:hover:bg-gray-800" type="button" (click)="addMedicineToSale(med)">
+                                <div class="flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                                    @if (med.imageUrl) { <img class="h-full w-full object-cover" [src]="assetUrl(med.imageUrl)" [alt]="med.name" loading="lazy" /> }
+                                    @else { <mat-icon class="text-slate-400" svgIcon="heroicons_outline:photo"></mat-icon> }
                                 </div>
-                                <div class="mt-2 text-lg font-bold">Q {{ med.priceSell.toFixed(2) }}</div>
+                                <div class="min-w-0">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="min-w-0">
+                                            <div class="truncate text-xs font-semibold uppercase tracking-wide text-secondary">{{ med.code || 'Sin codigo' }}</div>
+                                            <div class="line-clamp-2 text-sm font-medium leading-tight">{{ med.name }}</div>
+                                        </div>
+                                        <div class="whitespace-nowrap rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">{{ med.availableToPromise }}</div>
+                                    </div>
+                                    <div class="mt-1 text-base font-bold">Q {{ med.priceSell.toFixed(2) }}</div>
+                                </div>
                             </button>
                         }
                         @if (form.value.branchId && filteredMedicines().length === 0) {
@@ -60,19 +69,18 @@
                     </div>
                 </div>
 
-                <form [formGroup]="form" class="rounded-2xl border bg-white p-4 shadow-sm dark:bg-transparent">
-                    <div class="mb-3 flex items-center justify-between">
+                <form [formGroup]="form" class="rounded-xl border bg-white p-2 shadow-sm dark:bg-transparent">
+                    <div class="mb-2 flex items-center justify-between">
                         <div>
-                            <div class="text-lg font-semibold">Carrito</div>
-                            <div class="text-sm text-secondary">Ajuste cantidades solo si es necesario.</div>
+                            <div class="text-base font-semibold">Carrito</div>
                         </div>
                         <button mat-stroked-button type="button" (click)="addItem()"><mat-icon svgIcon="heroicons_outline:pencil-square"></mat-icon>Manual</button>
                     </div>
 
-                    <div formArrayName="details" class="space-y-2">
+                    <div formArrayName="details" class="max-h-[32vh] space-y-2 overflow-y-auto pr-1">
                         @for (item of details.controls; track $index) {
                             @if (medicineForLine($index)) {
-                                <div [formGroupName]="$index" class="grid items-center gap-2 rounded-xl border p-3 md:grid-cols-[minmax(0,1fr)_170px_120px_44px]">
+                                <div [formGroupName]="$index" class="grid items-center gap-2 rounded-lg border p-2 md:grid-cols-[minmax(0,1fr)_160px_110px_44px]">
                                     <div class="min-w-0">
                                         <div class="truncate font-semibold">{{ medicineForLine($index)?.name }}</div>
                                         <div class="text-xs text-secondary">{{ medicineForLine($index)?.code }} · Disp. {{ medicineForLine($index)?.availableToPromise }} · Q {{ item.value.unitPrice }}</div>
@@ -96,17 +104,17 @@
                         }
                     </div>
                 </form>
+
             }
         </div>
 
-        <div class="space-y-2 lg:sticky lg:top-0 lg:self-start">
+        <div class="space-y-2 overflow-y-auto lg:max-h-[calc(100vh-92px)] lg:self-start">
             <form [formGroup]="customerForm" class="rounded-xl border bg-white px-3 py-2 shadow-sm dark:bg-transparent">
                 <div class="flex items-center justify-between gap-2">
                     <div>
                         <div class="text-base font-semibold leading-tight">Comprobante</div>
-                        <div class="text-xs text-secondary">Recibo CF por defecto.</div>
                     </div>
-                    <mat-form-field class="fuse-mat-dense w-40"><mat-label>Tipo</mat-label><mat-select formControlName="documentType"><mat-option value="RECEIPT">Recibo</mat-option><mat-option value="INVOICE">Factura FEL</mat-option></mat-select></mat-form-field>
+                    <mat-form-field class="fuse-mat-dense w-40"><mat-select formControlName="documentType"><mat-option value="RECEIPT">Recibo</mat-option><mat-option value="INVOICE">Factura FEL</mat-option></mat-select></mat-form-field>
                 </div>
                 @if (isInvoice) {
                     <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
@@ -142,11 +150,11 @@
                                 <mat-form-field class="fuse-mat-dense w-full"><mat-label>Monto a cobrar</mat-label><input matInput type="number" min="0.01" formControlName="amount" /></mat-form-field>
                             </div>
                             @if (!showPaymentReference(0)) {
-                                <div class="grid grid-cols-2 gap-2">
+                                <!-- <div class="grid grid-cols-2 gap-2">
                                     @for (amount of quickCashOptions(); track amount) {
                                         <button class="min-h-8" mat-stroked-button type="button" (click)="setReceivedAmount(amount)">{{ amount === total ? 'Exacto' : 'Recibe Q ' + amount.toFixed(0) }}</button>
                                     }
-                                </div>
+                                </div> -->
                                 <mat-form-field class="fuse-mat-dense w-full"><mat-label>Efectivo recibido</mat-label><input matInput type="number" min="0" formControlName="receivedAmount" /></mat-form-field>
                             } @else {
                                 <mat-form-field class="fuse-mat-dense w-full"><mat-label>{{ paymentReferenceLabel(0) }}</mat-label><input matInput formControlName="authorizationCode" /></mat-form-field>

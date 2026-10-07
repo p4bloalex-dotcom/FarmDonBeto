@@ -12,7 +12,9 @@ import { HotToastService } from '@fuse/components/hot-toast';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
 import { UserService } from 'app/core/user/user.service';
+import { environment } from 'environments/environment';
 import { Subject, takeUntil } from 'rxjs';
+import { SaleHistoryDialogComponent } from './sale-history-dialog/sale-history-dialog.component';
 import { SaleReceiptDialogComponent } from './sale-receipt-dialog/sale-receipt-dialog.component';
 
 @Component({
@@ -140,6 +142,12 @@ export class SaleComponent implements OnInit, OnDestroy {
     return 'Referencia';
   }
 
+  assetUrl(value: string): string {
+    if (!value || value.startsWith('data:') || value.startsWith('http')) return value;
+    const apiRoot = environment.apiUrl.replace(/\/api\/?$/, '');
+    return apiRoot.startsWith('http') ? `${apiRoot}${value}` : value;
+  }
+
   private updateMainPaymentMethod(): void {
     if (!this.payments?.length) return;
     const method = this.payments.length > 1 ? 'MIXED' : this.payments.at(0).value.method;
@@ -168,7 +176,7 @@ export class SaleComponent implements OnInit, OnDestroy {
       next: (resp: ApiResponse<any>) => {
         this.medicines = (resp.success ? resp.data ?? [] : [])
           .filter((item: any) => Number(item.availableToPromise ?? 0) > 0)
-          .map((item: any) => ({ id: item.medicineId, code: item.medicineCode, name: item.medicineName, availableToPromise: item.availableToPromise, priceSell: Number(item.priceSell ?? 0) }));
+          .map((item: any) => ({ id: item.medicineId, code: item.medicineCode, name: item.medicineName, imageUrl: item.medicineImageUrl ?? null, availableToPromise: item.availableToPromise, priceSell: Number(item.priceSell ?? 0) }));
         this.applySingleMedicineDefault();
         this.focusMedicineSearch();
       },
@@ -341,6 +349,14 @@ export class SaleComponent implements OnInit, OnDestroy {
       width: '520px',
       maxWidth: '95vw',
       data: { sale }
+    });
+  }
+
+  openHistoryDialog(): void {
+    this._matDialog.open(SaleHistoryDialogComponent, {
+      autoFocus: false,
+      width: '94vw',
+      maxWidth: '1180px'
     });
   }
 
