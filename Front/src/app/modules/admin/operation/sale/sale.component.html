@@ -147,7 +147,7 @@
 
                             <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
                                 <mat-form-field class="fuse-mat-dense w-full"><mat-label>Metodo</mat-label><mat-select formControlName="method" (selectionChange)="onPaymentMethodSelected(0)"><mat-option value="CASH">Efectivo</mat-option><mat-option value="CARD">Tarjeta</mat-option><mat-option value="TRANSFER">Transferencia</mat-option><mat-option value="QR">Pago QR</mat-option><mat-option value="ONLINE">Pago en linea</mat-option><mat-option value="COD">Contra entrega</mat-option></mat-select></mat-form-field>
-                                <mat-form-field class="fuse-mat-dense w-full"><mat-label>Monto a cobrar</mat-label><input matInput type="number" min="0.01" formControlName="amount" /></mat-form-field>
+                                <!-- <mat-form-field class="fuse-mat-dense w-full"><mat-label>Monto a cobrar</mat-label><input matInput type="number" min="0.01" formControlName="amount" /></mat-form-field> -->
                             </div>
                             @if (!showPaymentReference(0)) {
                                 <!-- <div class="grid grid-cols-2 gap-2">

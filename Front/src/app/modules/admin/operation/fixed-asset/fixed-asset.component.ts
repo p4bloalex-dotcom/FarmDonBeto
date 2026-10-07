@@ -39,6 +39,7 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
   totalItems = 0;
   service = 'FixedAsset';
   isLoading = false;
+  showFilters = false;
 
   actions: TableAction[] = [
     { action: 'view', label: 'Ver detalle', icon: 'feather:eye' },
@@ -105,7 +106,6 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
         this.filteredData = (resp.data?.data ?? []).map((item: any) => this.decorateRow(item));
         this.totalItems = resp.data?.meta?.totalItemCount ?? 0;
         this.applyFilters();
-        if (!this.selectedAsset && this.filteredData.length) this.selectAsset(this.filteredData[0], false);
         this.finishLoad();
       },
       error: () => this.finishLoad('Error inesperado al cargar activos fijos.')
@@ -122,8 +122,7 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
   }
 
   handleRowAction(event: { action: string; row: any }): void {
-    this.selectAsset(event.row);
-    if (event.action === 'view') return;
+    if (event.action === 'view') { this.openDialog(event.row, 7); return; }
     if (event.action === 'edit') this.openDialog(event.row, 2);
     if (event.action === 'transfer') this.openDialog(event.row, 8);
     if (event.action === 'disable') this.retireAsset(event.row);
@@ -168,6 +167,8 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
   quickStatus(status: 'ALL' | 'E' | 'M' | 'D'): void {
     this.statusFilterControl.setValue(status);
   }
+
+  toggleFilters(): void { this.showFilters = !this.showFilters; }
 
   private decorateRow(item: any): any {
     const money = (value: number) => `Q ${Number(value ?? 0).toFixed(2)}`;
