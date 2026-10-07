@@ -32,6 +32,8 @@ export const SaleEntity = new EntitySchema({
 
     felStatus: { name: 'FEL_STATUS', type: String, length: 20, default: 'PENDING' },
 
+    saleChannel: { name: 'SALE_CHANNEL', type: String, length: 30, default: 'IN_STORE' },
+
     originalOrderId: { name: 'ORIGINAL_ORDER_ID', type: Number, nullable: true },
 
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },

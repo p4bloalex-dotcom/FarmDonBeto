@@ -21,6 +21,7 @@ import {
   listPurchaseRequests,
   listPurchases,
   paginatePurchases,
+  paySupplierInvoice,
   purchaseDashboard,
   receivePurchase,
   registerSupplierInvoice,
@@ -42,6 +43,11 @@ const toPurchaseResponse = async purchase => {
       total: Number(supplierInvoice.total ?? 0),
       matchingStatus: supplierInvoice.matchingStatus,
       status: supplierInvoice.status,
+      paymentSourceType: supplierInvoice.paymentSourceType ?? null,
+      financialAccountId: supplierInvoice.financialAccountId ?? null,
+      cashSessionId: supplierInvoice.cashSessionId ?? null,
+      paidAt: supplierInvoice.paidAt ?? null,
+      paidBy: supplierInvoice.paidBy ?? null,
       invoiceDate: supplierInvoice.invoiceDate
     } : null,
     details
@@ -355,6 +361,16 @@ export const addSupplierInvoice = async (req, res) => {
   try {
     const id = await registerSupplierInvoice(bodyWithUser(req));
     return created(res, { id }, 'Factura registrada y conciliada contra orden/recepcion.');
+  } catch (error) {
+    if (error instanceof BusinessRuleError) return badRequest(res, error.message);
+    throw error;
+  }
+};
+
+export const payInvoice = async (req, res) => {
+  try {
+    const id = await paySupplierInvoice(Number(req.params.id), req.body, req.user?.id ?? req.user?.userId ?? null);
+    return ok(res, { id }, 'Factura de proveedor pagada correctamente.');
   } catch (error) {
     if (error instanceof BusinessRuleError) return badRequest(res, error.message);
     throw error;

@@ -5,11 +5,11 @@
         <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div class="min-w-0">
                 <div class="text-2xl font-extrabold tracking-tight sm:text-3xl">Call Center</div>
-                <div class="text-sm text-secondary">Atencion telefonica, disponibilidad en tiempo real, sucursal sugerida y promesa de entrega.</div>
             </div>
             <div class="flex flex-wrap gap-1.5">
                 <button type="button" class="rounded-full border px-3 py-1 text-sm font-semibold hover:border-primary" (click)="selectStep('customer')">Cliente</button>
                 <button type="button" class="rounded-full border px-3 py-1 text-sm font-semibold hover:border-primary" (click)="selectStep('items')">Pedido</button>
+                <button type="button" class="rounded-full border px-3 py-1 text-sm font-semibold hover:border-primary" (click)="selectStep('delivery')">Entrega</button>
                 <button type="button" class="rounded-full border px-3 py-1 text-sm font-semibold hover:border-primary" (click)="selectStep('availability')">Disponibilidad</button>
                 <button type="button" class="rounded-full border px-3 py-1 text-sm font-semibold hover:border-primary" (click)="selectStep('manage')">Seguimiento</button>
             </div>
@@ -21,9 +21,9 @@
             <div class="text-sm text-secondary">Cliente</div>
             <div class="mt-1 truncate text-xl font-bold">{{ form.value.customerName || 'Sin identificar' }}</div>
         </button>
-        <button type="button" class="rounded-xl bg-white p-2 text-left shadow-sm dark:bg-slate-800" (click)="selectStep('availability')">
-            <div class="text-sm text-secondary">Sucursal sugerida</div>
-            <div class="mt-1 truncate text-xl font-bold">{{ selectedBranch?.branchName || 'Pendiente' }}</div>
+        <button type="button" class="rounded-xl bg-white p-2 text-left shadow-sm dark:bg-slate-800" (click)="selectStep('delivery')">
+            <div class="text-sm text-secondary">Entrega</div>
+            <div class="mt-1 truncate text-xl font-bold">{{ hasDeliveryLocation ? 'Ubicacion lista' : 'Pendiente' }}</div>
         </button>
         <button type="button" class="rounded-xl bg-white p-2 text-left shadow-sm dark:bg-slate-800" (click)="selectStep('confirm')">
             <div class="text-sm text-secondary">Total estimado</div>
@@ -38,8 +38,8 @@
     <div class="grid flex-auto gap-2 p-2 md:px-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div class="min-w-0 space-y-2">
             <div class="rounded-xl border bg-white p-2 shadow-sm dark:bg-slate-900">
-                <div class="hidden gap-1 lg:grid lg:grid-cols-5">
-                    @for (step of [{value: 'customer', title: 'Buscar cliente'}, {value: 'items', title: 'Capturar pedido'}, {value: 'availability', title: 'Consultar stock'}, {value: 'confirm', title: 'Confirmar'}, {value: 'manage', title: 'Seguimiento'}]; track step.value; let index = $index) {
+                <div class="hidden gap-1 lg:grid lg:grid-cols-6">
+                    @for (step of [{value: 'customer', title: 'Buscar cliente'}, {value: 'items', title: 'Capturar pedido'}, {value: 'delivery', title: 'Lugar entrega'}, {value: 'availability', title: 'Consultar stock'}, {value: 'confirm', title: 'Confirmar'}, {value: 'manage', title: 'Seguimiento'}]; track step.value; let index = $index) {
                         <button type="button" class="rounded-lg px-3 py-1.5 text-left transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-800" [class.bg-primary]="stepState(step.value) === 'active'" [class.text-on-primary]="stepState(step.value) === 'active'" [class.bg-primary-50]="stepState(step.value) === 'done'" [disabled]="stepState(step.value) === 'locked'" (click)="selectStep($any(step.value))">
                             <div class="text-xs font-semibold opacity-80">{{ index + 1 }}. Fase</div>
                             <div class="truncate text-sm font-bold">{{ step.title }}</div>
@@ -57,29 +57,8 @@
                     <div class="grid gap-2 md:grid-cols-2">
                         <mat-form-field class="fuse-mat-dense"><mat-label>Cliente</mat-label><input matInput formControlName="customerName" /></mat-form-field>
                         <mat-form-field class="fuse-mat-dense"><mat-label>Telefono confirmado</mat-label><input matInput formControlName="customerPhone" /></mat-form-field>
-                        <mat-form-field class="fuse-mat-dense md:col-span-2"><mat-label>Direccion entrega</mat-label><input matInput formControlName="deliveryAddress" /></mat-form-field>
-                        <div class="md:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl border bg-slate-50 p-3 dark:bg-slate-800">
-                            <div class="text-sm text-secondary">Use OpenRouteService/OpenStreetMap para obtener coordenadas automaticamente.</div>
-                            <button mat-stroked-button type="button" (click)="geocodeDeliveryAddress()">Geolocalizar direccion</button>
-                        </div>
-                        @if (geocodeMatches.length > 1) {
-                            <div class="md:col-span-2 grid gap-2 md:grid-cols-2">
-                                @for (match of geocodeMatches; track match.label) {
-                                    <button type="button" class="rounded-lg border p-2 text-left text-sm transition hover:border-primary" (click)="applyGeocode(match)">
-                                        <div class="font-semibold">{{ match.name || 'Ubicacion encontrada' }}</div>
-                                        <div class="text-secondary">{{ match.label }}</div>
-                                    </button>
-                                }
-                            </div>
-                        }
-                        <mat-form-field class="fuse-mat-dense"><mat-label>Latitud entrega</mat-label><input matInput type="number" formControlName="deliveryLatitude" /></mat-form-field>
-                        <mat-form-field class="fuse-mat-dense"><mat-label>Longitud entrega</mat-label><input matInput type="number" formControlName="deliveryLongitude" /></mat-form-field>
-                        <div class="md:col-span-2">
-                            <app-location-map title="Ubicacion de entrega" [latitude]="form.value.deliveryLatitude" [longitude]="form.value.deliveryLongitude" [address]="geocodeMatches[0]" [height]="220" (locationChange)="onDeliveryMapSelected($event)"></app-location-map>
-                        </div>
-                        <mat-form-field class="fuse-mat-dense md:col-span-2"><mat-label>Referencia</mat-label><input matInput formControlName="deliveryReference" /></mat-form-field>
                     </div>
-                    <div class="mt-3 flex justify-end"><button mat-flat-button color="primary" type="button" [disabled]="!form.value.customerPhone" (click)="activeStep = 'items'">Continuar pedido</button></div>
+                    <div class="mt-3 flex justify-end"><button mat-flat-button color="primary" type="button" [disabled]="!canContinueCustomer" (click)="activeStep = 'items'">Continuar pedido</button></div>
                 }
 
                 @if (activeStep === 'items') {
@@ -91,8 +70,8 @@
                     <div formArrayName="items" class="space-y-2">
                         @for (item of items.controls; track $index) {
                             <div [formGroupName]="$index" class="grid gap-2 rounded-xl border p-3 md:grid-cols-[minmax(0,1fr)_120px_120px_44px]">
-                                <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select formControlName="medicineId">@for (med of filteredMedicines; track med.id) { <mat-option [value]="med.id">{{ med.code }} - {{ med.name }}</mat-option> }</mat-select></mat-form-field>
-                                <mat-form-field class="fuse-mat-dense"><mat-label>Cantidad</mat-label><input matInput type="number" min="0.01" formControlName="quantity" /></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Medicamento</mat-label><mat-select formControlName="medicineId" (selectionChange)="clearAvailability()">@for (med of filteredMedicines; track med.id) { <mat-option [value]="med.id">{{ med.code }} - {{ med.name }}</mat-option> }</mat-select></mat-form-field>
+                                <mat-form-field class="fuse-mat-dense"><mat-label>Cantidad</mat-label><input matInput type="number" min="0.01" formControlName="quantity" (input)="clearAvailability()" /></mat-form-field>
                                 <div class="rounded-lg bg-slate-50 p-2 text-right dark:bg-slate-800"><div class="text-xs text-secondary">Subtotal</div><div class="font-bold">Q {{ lineTotal($index).toFixed(2) }}</div></div>
                                 <button mat-icon-button type="button" (click)="removeItem($index)"><mat-icon svgIcon="heroicons_outline:trash"></mat-icon></button>
                             </div>
@@ -100,14 +79,45 @@
                     </div>
                     <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <button mat-button type="button" (click)="addItem()"><mat-icon svgIcon="heroicons_outline:plus"></mat-icon>Agregar medicamento</button>
-                        <button mat-flat-button color="primary" type="button" [disabled]="!canCheckAvailability" (click)="checkAvailability()">Consultar disponibilidad</button>
+                        <button mat-flat-button color="primary" type="button" [disabled]="!items.valid" (click)="activeStep = 'delivery'">Continuar entrega</button>
                     </div>
+                }
+
+                @if (activeStep === 'delivery') {
+                    <div class="mb-3"><div class="text-lg font-bold">Direccion y ubicacion de entrega</div><div class="text-sm text-secondary">Antes de consultar disponibilidad, confirme donde debe entregarse el pedido.</div></div>
+                    <div class="grid gap-2 md:grid-cols-2">
+                        <mat-form-field class="fuse-mat-dense md:col-span-2"><mat-label>Direccion entrega</mat-label><input matInput formControlName="deliveryAddress" (input)="onDeliveryAddressInput()" /></mat-form-field>
+                        <div class="rounded-xl border bg-slate-50 p-3 dark:bg-slate-800 md:col-span-2">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="min-w-0 text-sm text-secondary">
+                                    <div class="truncate font-semibold text-slate-700 dark:text-slate-200">{{ form.value.deliveryAddress || 'Sin direccion seleccionada' }}</div>
+                                    <div>{{ hasDeliveryLocation ? 'Coordenadas confirmadas' : 'Faltan coordenadas para calcular sucursal cercana y cobertura' }}</div>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button mat-stroked-button type="button" (click)="geocodeDeliveryAddress()">Geolocalizar direccion</button>
+                                    <button mat-stroked-button type="button" (click)="openDeliveryMapDialog()">Abrir mapa</button>
+                                </div>
+                            </div>
+                            @if (geocodeMatches.length > 1) {
+                                <div class="mt-3 grid gap-2 md:grid-cols-2">
+                                    @for (match of geocodeMatches; track match.label) {
+                                        <button type="button" class="rounded-lg border bg-white p-2 text-left text-sm transition hover:border-primary dark:bg-slate-900" (click)="applyGeocode(match)">
+                                            <div class="font-semibold">{{ match.name || 'Ubicacion encontrada' }}</div>
+                                            <div class="text-secondary">{{ match.label }}</div>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <mat-form-field class="fuse-mat-dense md:col-span-2"><mat-label>Referencia</mat-label><input matInput formControlName="deliveryReference" /></mat-form-field>
+                    </div>
+                    <div class="mt-3 flex justify-end"><button mat-flat-button color="primary" type="button" (click)="checkAvailability()">Consultar disponibilidad</button></div>
                 }
 
                 @if (activeStep === 'availability') {
                     <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div><div class="text-lg font-bold">Disponibilidad por sucursal</div><div class="text-sm text-secondary">Seleccione una sucursal con stock suficiente y dentro de cobertura.</div></div>
-                        <button mat-stroked-button type="button" [disabled]="!canCheckAvailability" (click)="checkAvailability()">Actualizar</button>
+                        <button mat-stroked-button type="button" (click)="checkAvailability()">Actualizar</button>
                     </div>
                     <div class="grid gap-2 md:grid-cols-2">
                         @for (option of availability; track option.branchId) {
@@ -124,7 +134,7 @@
                 @if (activeStep === 'confirm') {
                     <div class="mb-3"><div class="text-lg font-bold">Confirmacion de llamada</div><div class="text-sm text-secondary">Informe al cliente disponibilidad, forma de pago y tiempo estimado antes de registrar.</div></div>
                     <div class="grid gap-2 md:grid-cols-3">
-                        <mat-form-field class="fuse-mat-dense"><mat-label>Pago</mat-label><mat-select formControlName="paymentMethod"><mat-option value="COD">Contra entrega</mat-option><mat-option value="CASH">Efectivo</mat-option><mat-option value="CARD">Tarjeta</mat-option><mat-option value="TRANSFER">Transferencia</mat-option></mat-select></mat-form-field>
+                        <mat-form-field class="fuse-mat-dense"><mat-label>Pago</mat-label><mat-select formControlName="paymentMethod" (selectionChange)="onPaymentMethodChange($event.value)"><mat-option value="COD">Contra entrega</mat-option><mat-option value="CASH">Efectivo confirmado</mat-option><mat-option value="CARD">Tarjeta confirmada</mat-option><mat-option value="TRANSFER">Transferencia confirmada</mat-option></mat-select></mat-form-field>
                         <mat-form-field class="fuse-mat-dense"><mat-label>Envio</mat-label><input matInput type="number" formControlName="deliveryFee" /></mat-form-field>
                         <mat-form-field class="fuse-mat-dense"><mat-label>ETA minutos</mat-label><input matInput type="number" formControlName="estimatedDeliveryMinutes" /></mat-form-field>
                         <mat-form-field class="fuse-mat-dense md:col-span-3"><mat-label>Notas de llamada</mat-label><input matInput formControlName="notes" maxlength="255" /></mat-form-field>
@@ -135,6 +145,7 @@
                             <div><div class="text-secondary">Subtotal</div><div class="font-bold">Q {{ subtotal.toFixed(2) }}</div></div>
                             <div><div class="text-secondary">Total</div><div class="font-bold">Q {{ total.toFixed(2) }}</div></div>
                             <div><div class="text-secondary">Promesa</div><div class="font-bold">{{ form.value.estimatedDeliveryMinutes }} min</div></div>
+                            <div><div class="text-secondary">Estado pago</div><div class="font-bold">{{ form.value.paymentStatus === 'PAID' ? 'Confirmado' : 'Pendiente contra entrega' }}</div></div>
                         </div>
                     </div>
                     <div class="mt-3 flex justify-end"><button mat-flat-button color="primary" type="button" [disabled]="!canCreateOrder" (click)="createOrder()">Crear orden y reservar inventario</button></div>
@@ -159,6 +170,7 @@
                     <div class="flex justify-between"><span>Envio</span><strong>Q {{ deliveryFeeAmount.toFixed(2) }}</strong></div>
                     <div class="flex justify-between border-t pt-2 text-lg"><span>Total</span><strong>Q {{ total.toFixed(2) }}</strong></div>
                     <div class="flex justify-between"><span>Pago</span><strong>{{ form.value.paymentMethod || '-' }}</strong></div>
+                    <div class="flex justify-between"><span>Estado pago</span><strong>{{ form.value.paymentStatus === 'PAID' ? 'Confirmado' : 'Pendiente' }}</strong></div>
                     <div class="flex justify-between"><span>ETA</span><strong>{{ form.value.estimatedDeliveryMinutes || '-' }} min</strong></div>
                 </div>
             </div>

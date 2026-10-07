@@ -27,6 +27,7 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
   @Input() title = 'Ubicacion';
   @Input() compact = true;
   @Output() locationChange = new EventEmitter<LocationMapSelection>();
+  @Output() mapAvailabilityChange = new EventEmitter<boolean>();
 
   readonly mapId = `location-map-${Math.random().toString(36).slice(2)}`;
   resolvedAddress: any = null;
@@ -34,6 +35,7 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
   private map?: L.Map;
   private marker?: L.Marker;
   private initialized = false;
+  private isMapAvailable = true;
 
   constructor(private _api: GeneralApiService, private _toast: HotToastService) { }
 
@@ -84,19 +86,22 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
   }
 
   private initMap(): void {
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png'
-    });
     const initialLat = Number(this.latitude ?? 14.6349);
     const initialLng = Number(this.longitude ?? -90.5069);
     this.resolvedAddress = this.address;
-    this.map = L.map(this.mapId, { zoomControl: true }).setView([initialLat, initialLng], this.latitude && this.longitude ? 15 : 8);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    try {
+      this.map = L.map(this.mapId, { zoomControl: true }).setView([initialLat, initialLng], this.latitude != null && this.longitude != null ? 15 : 8);
+    } catch {
+      this.setMapAvailability(false);
+      return;
+    }
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(this.map);
+    });
+    tileLayer.on('load', () => this.setMapAvailability(true));
+    tileLayer.on('tileerror', () => this.setMapAvailability(false));
+    tileLayer.addTo(this.map);
     this.map.on('click', event => this.setLocation(event.latlng.lat, event.latlng.lng, true));
     this.renderMarker();
     setTimeout(() => this.map?.invalidateSize(), 0);
@@ -106,7 +111,8 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
     if (!this.map || this.latitude == null || this.longitude == null) return;
     const point = L.latLng(Number(this.latitude), Number(this.longitude));
     if (!this.marker) {
-      this.marker = L.marker(point, { draggable: true }).addTo(this.map);
+      const icon = L.divIcon({ className: 'app-location-marker', iconSize: [28, 28], iconAnchor: [14, 28] });
+      this.marker = L.marker(point, { draggable: true, icon }).addTo(this.map);
       this.marker.on('dragend', () => {
         const position = this.marker?.getLatLng();
         if (position) this.setLocation(position.lat, position.lng, true, false);
@@ -137,5 +143,11 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
         this.locationChange.emit({ latitude: this.latitude, longitude: this.longitude, address: this.resolvedAddress });
       }
     });
+  }
+
+  private setMapAvailability(isAvailable: boolean): void {
+    if (this.isMapAvailable === isAvailable) return;
+    this.isMapAvailable = isAvailable;
+    this.mapAvailabilityChange.emit(isAvailable);
   }
 }

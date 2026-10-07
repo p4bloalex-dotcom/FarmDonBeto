@@ -55,7 +55,7 @@ const toDto = item => ({
 const queryBase = () => orders().createQueryBuilder('item')
   .leftJoin('item.branch', 'branch')
   .addSelect(['branch.id', 'branch.name'])
-  .addSelect(subQuery => subQuery.select('COUNT(detail.id)', 'itemsCount').from('CustomerOrderDetail', 'detail').where('detail.orderId = item.id'), 'itemsCount');
+  .loadRelationCountAndMap('item.itemsCount', 'item.details');
 
 export const paginateOrders = async ({ offset, pageSize }, filters = {}) => {
   const query = queryBase();
@@ -165,8 +165,9 @@ export const getAvailability = async data => {
     });
   }
   const ordered = result.sort((a, b) => b.score - a.score || Number(b.canFulfill) - Number(a.canFulfill) || Number(a.distanceKm ?? 999999) - Number(b.distanceKm ?? 999999) || a.branchName.localeCompare(b.branchName));
-  if (ordered[0]) ordered[0].suggested = true;
-  return ordered;
+  const suggested = ordered.find(item => item.canFulfill);
+  if (suggested) suggested.suggested = true;
+  return ordered.slice(0, 5);
 };
 
 const reserveStock = async (manager, branchId, items) => {
@@ -191,7 +192,7 @@ const releaseReserve = async (manager, branchId, detailsRows) => {
 
 export const createOrder = async (data, userId = null) => AppDataSource.transaction(async manager => {
   if (data.deliveryLatitude == null || data.deliveryLongitude == null) throw new BusinessRuleError('Debe indicar coordenadas de entrega validas.');
-  if (['CARD', 'TRANSFER'].includes(data.paymentMethod) && data.paymentStatus !== 'PAID') throw new BusinessRuleError('Las ordenes con tarjeta o transferencia deben registrarse con pago confirmado.');
+  if (data.paymentMethod !== 'COD' && data.paymentStatus !== 'PAID') throw new BusinessRuleError('Las ordenes que no son contra entrega deben registrarse con pago confirmado.');
   const availability = await getAvailability({ deliveryLatitude: data.deliveryLatitude, deliveryLongitude: data.deliveryLongitude, items: data.items });
   const selectedBranch = availability.find(item => Number(item.branchId) === Number(data.branchId));
   if (!selectedBranch) throw new BusinessRuleError('La sucursal seleccionada no esta disponible para el operador actual.');
@@ -247,6 +248,7 @@ export const updateOrderStatus = async (order, status, userId = null, reason = n
     if (!session) throw new BusinessRuleError('No hay caja abierta para convertir la orden entregada a venta.');
     const employee = await manager.getRepository('Employee').findOneBy({ branchId: order.branchId, status: 'E' });
     if (!employee) throw new BusinessRuleError('No hay empleado activo asociado a la sucursal para registrar la venta.');
+    const salePaymentMethod = order.paymentMethod === 'COD' ? 'CASH' : order.paymentMethod;
     const sale = await manager.getRepository('Sale').save(manager.getRepository('Sale').create({
       branchId: order.branchId,
       employeeId: employee.id,
@@ -254,18 +256,21 @@ export const updateOrderStatus = async (order, status, userId = null, reason = n
       subtotal: Number(order.subtotal ?? 0),
       tax: 0,
       total: Number(order.total ?? 0),
-      paymentMethod: order.paymentMethod,
+      paymentMethod: salePaymentMethod,
       cashSessionId: session.id,
       felStatus: 'PENDING',
+      saleChannel: 'CALL_CENTER',
       originalOrderId: order.id,
       status: 'E',
       createdBy: userId
     }));
     await manager.getRepository('SaleDetail').save(rows.map(item => manager.getRepository('SaleDetail').create({ saleId: sale.id, medicineId: item.medicineId, quantity: Number(item.quantity ?? 0), unitPrice: Number(item.unitPrice ?? 0), total: Number(item.subtotal ?? 0), status: 'E', createdBy: userId })));
-    await manager.getRepository('SalePayment').save(manager.getRepository('SalePayment').create({ saleId: sale.id, branchId: order.branchId, method: order.paymentMethod, amount: Number(order.total ?? 0), status: 'E', createdBy: userId }));
-    const movementType = await manager.getRepository('CashMovementType').findOneBy({ code: 'SALE', status: 'E' });
-    if (!movementType) throw new BusinessRuleError('No existe el tipo de movimiento de caja SALE.');
-    await manager.getRepository('CashMovement').save(manager.getRepository('CashMovement').create({ cashSessionId: session.id, branchId: order.branchId, movementTypeId: movementType.id, amount: Number(order.total ?? 0), description: `Orden entregada #${order.id}`, referenceId: sale.id, referenceType: 'CUSTOMER_ORDER', movementDate: new Date(), status: 'E', createdBy: userId }));
+    await manager.getRepository('SalePayment').save(manager.getRepository('SalePayment').create({ saleId: sale.id, branchId: order.branchId, method: salePaymentMethod, amount: Number(order.total ?? 0), status: 'E', createdBy: userId }));
+    if (salePaymentMethod === 'CASH') {
+      const movementType = await manager.getRepository('CashMovementType').findOneBy({ code: 'SALE', status: 'E' });
+      if (!movementType) throw new BusinessRuleError('No existe el tipo de movimiento de caja SALE.');
+      await manager.getRepository('CashMovement').save(manager.getRepository('CashMovement').create({ cashSessionId: session.id, branchId: order.branchId, movementTypeId: movementType.id, amount: Number(order.total ?? 0), description: `Orden entregada #${order.id}`, referenceId: sale.id, referenceType: 'CUSTOMER_ORDER', movementDate: new Date(), status: 'E', createdBy: userId }));
+    }
     order.saleId = sale.id;
   }
   const statusUpdate = { status, saleId: order.saleId ?? null, paymentStatus: status === 'D' && order.paymentMethod === 'COD' ? 'PAID' : order.paymentStatus, updatedBy: userId };

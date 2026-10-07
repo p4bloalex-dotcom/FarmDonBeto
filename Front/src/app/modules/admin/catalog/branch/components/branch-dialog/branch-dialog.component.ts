@@ -2,18 +2,19 @@ import { Component, Inject } from '@angular/core';
 import { ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 import { HotToastService } from '@fuse/components/hot-toast';
 import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
-import { LocationMapComponent, LocationMapSelection } from 'app/shared/location-map/location-map.component';
+import { LocationMapDialogComponent } from 'app/shared/location-map/location-map-dialog.component';
+import { LocationMapSelection } from 'app/shared/location-map/location-map.component';
 
 @Component({
   selector: 'app-branch-dialog',
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatSelectModule, MatDialogModule, MatCheckboxModule, LocationMapComponent],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatSelectModule, MatDialogModule, MatCheckboxModule],
   templateUrl: './branch-dialog.component.html',
   styleUrl: './branch-dialog.component.scss'
 })
@@ -29,7 +30,7 @@ export class BranchDialogComponent {
     { value: 'STAND_GASOLINERA', label: 'Stand en gasolinera' }
   ];
 
-  constructor(@Inject(MAT_DIALOG_DATA) public _data: any, private _matDialogRef: MatDialogRef<BranchDialogComponent>, private _formBuilder: UntypedFormBuilder, private _generalApi: GeneralApiService, private _toast: HotToastService) {}
+  constructor(@Inject(MAT_DIALOG_DATA) public _data: any, private _matDialogRef: MatDialogRef<BranchDialogComponent>, private _matDialog: MatDialog, private _formBuilder: UntypedFormBuilder, private _generalApi: GeneralApiService, private _toast: HotToastService) {}
 
   ngOnInit(): void {
     this.actionDialog = this._data?.action;
@@ -104,6 +105,23 @@ export class BranchDialogComponent {
       address: selection.address?.label || this.dataForm.value.address
     });
     if (selection.address) this.geocodeMatches = [selection.address];
+  }
+
+  openLocationMapDialog(): void {
+    const dialogRef = this._matDialog.open(LocationMapDialogComponent, {
+      autoFocus: false,
+      data: {
+        title: 'Ubicacion de sucursal',
+        latitude: this.dataForm.value.latitude,
+        longitude: this.dataForm.value.longitude,
+        address: this.geocodeMatches[0]
+      },
+      width: '94vw',
+      maxWidth: '1100px'
+    });
+    dialogRef.afterClosed().subscribe((selection?: LocationMapSelection) => {
+      if (selection) this.onMapLocationSelected(selection);
+    });
   }
 
   save(): void {

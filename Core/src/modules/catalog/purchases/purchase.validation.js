@@ -110,3 +110,24 @@ export const purchaseSchema = Joi.object({
     status: value.status ?? 'E'
   };
 });
+
+export const supplierInvoicePaymentSchema = Joi.object({
+  paymentSourceType: Joi.string().valid('BANK', 'CASH_FUND', 'CASH_SESSION').required(),
+  payment_source_type: Joi.string().valid('BANK', 'CASH_FUND', 'CASH_SESSION'),
+  financialAccountId: Joi.number().integer().allow(null, ''),
+  financial_account_id: Joi.number().integer().allow(null, ''),
+  cashSessionId: Joi.number().integer().allow(null, ''),
+  cash_session_id: Joi.number().integer().allow(null, ''),
+  paymentDate: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''),
+  payment_date: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''),
+  notes: Joi.string().trim().max(255).allow('', null)
+}).custom((value, helpers) => {
+  const paymentSourceType = value.paymentSourceType ?? value.payment_source_type;
+  const financialAccountId = value.financialAccountId ?? value.financial_account_id ?? null;
+  const cashSessionId = value.cashSessionId ?? value.cash_session_id ?? null;
+  const paymentDate = parseDate(value.paymentDate ?? value.payment_date ?? new Date());
+  if (!paymentSourceType) return helpers.error('any.required');
+  if (paymentSourceType !== 'CASH_SESSION' && !financialAccountId) return helpers.error('any.required');
+  if (paymentDate === undefined) return helpers.error('date.base');
+  return { paymentSourceType, financialAccountId, cashSessionId, paymentDate: paymentDate ?? new Date(), notes: value.notes || null };
+});

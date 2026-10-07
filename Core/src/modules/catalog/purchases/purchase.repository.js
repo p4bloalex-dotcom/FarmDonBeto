@@ -675,6 +675,58 @@ export const registerSupplierInvoice = async payload => AppDataSource.transactio
   return saved.id;
 });
 
+export const paySupplierInvoice = async (invoiceId, payload, userId = null) => AppDataSource.transaction(async manager => {
+  const invoiceRepo = manager.getRepository('SupplierInvoice');
+  const invoice = await invoiceRepo.findOneBy({ id: invoiceId });
+  if (!invoice) throw new BusinessRuleError('La factura de proveedor indicada no existe.');
+  if (invoice.status === 'PAID') throw new BusinessRuleError('La factura de proveedor ya esta pagada.');
+  if (invoice.status !== 'APPROVED') throw new BusinessRuleError(`La factura no puede pagarse porque esta en estado ${invoice.status}. Debe estar aprobada y conciliada.`);
+
+  const purchase = await manager.getRepository('Purchase').findOneBy({ id: invoice.purchaseId });
+  if (!purchase) throw new BusinessRuleError('La compra asociada a la factura no existe.');
+
+  const amount = Number(invoice.total ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) throw new BusinessRuleError('La factura no tiene un total valido para pagar.');
+  const movementDate = payload.paymentDate ? new Date(payload.paymentDate) : new Date();
+  const description = `Pago proveedor factura ${invoice.invoiceNumber}`;
+
+  if (payload.paymentSourceType === 'CASH_SESSION') {
+    const session = payload.cashSessionId
+      ? await manager.getRepository('CashSession').findOneBy({ id: payload.cashSessionId, branchId: purchase.branchId, status: 'A' })
+      : await manager.getRepository('CashSession').findOneBy({ branchId: purchase.branchId, status: 'A' });
+    if (!session) throw new BusinessRuleError('Debe existir una caja abierta de la sucursal para pagar la factura.');
+    const movementType = await manager.getRepository('CashMovementType').findOneBy({ code: 'SUPPLIER_PAYMENT', status: 'E' });
+    if (!movementType) throw new BusinessRuleError('No existe el tipo de movimiento de caja SUPPLIER_PAYMENT.');
+    await manager.getRepository('CashMovement').save(manager.getRepository('CashMovement').create({
+      cashSessionId: session.id,
+      branchId: purchase.branchId,
+      movementTypeId: movementType.id,
+      amount,
+      description,
+      referenceId: invoice.id,
+      referenceType: 'SUPPLIER_INVOICE',
+      movementDate,
+      status: 'E',
+      createdBy: userId
+    }));
+    await createFinancialMovement(manager, { cashSessionId: session.id, branchId: purchase.branchId, sourceType: 'CASH_SESSION', operation: 'S', amount, description, referenceId: invoice.id, referenceType: 'SUPPLIER_INVOICE', movementDate }, userId);
+    invoice.cashSessionId = session.id;
+    invoice.financialAccountId = null;
+  } else {
+    await createFinancialMovement(manager, { financialAccountId: payload.financialAccountId, branchId: purchase.branchId, sourceType: payload.paymentSourceType, operation: 'S', amount, description, referenceId: invoice.id, referenceType: 'SUPPLIER_INVOICE', movementDate }, userId);
+    invoice.cashSessionId = null;
+    invoice.financialAccountId = payload.financialAccountId;
+  }
+
+  invoice.paymentSourceType = payload.paymentSourceType;
+  invoice.paidAt = movementDate;
+  invoice.paidBy = userId;
+  invoice.status = 'PAID';
+  await invoiceRepo.save(invoice);
+  await manager.getRepository('Purchase').update(purchase.id, { status: 'PAID' });
+  return invoice.id;
+});
+
 export const createSupplierReturn = async payload => AppDataSource.transaction(async manager => {
   const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
   if (!purchase) throw new BusinessRuleError('La compra indicada no existe.');

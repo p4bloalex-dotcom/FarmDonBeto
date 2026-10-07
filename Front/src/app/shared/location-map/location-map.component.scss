@@ -5,3 +5,33 @@
 :host ::ng-deep .leaflet-container {
   font-family: inherit;
 }
+
+:host ::ng-deep .app-location-marker {
+  background: transparent;
+  border: 0;
+  position: relative;
+}
+
+:host ::ng-deep .app-location-marker::before {
+  background: #2563eb;
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 8px 18px rgb(15 23 42 / 0.35);
+  content: '';
+  display: block;
+  height: 22px;
+  transform: rotate(-45deg);
+  width: 22px;
+}
+
+:host ::ng-deep .app-location-marker::after {
+  background: #fff;
+  border-radius: 9999px;
+  content: '';
+  display: block;
+  height: 6px;
+  left: 8px;
+  position: absolute;
+  top: 8px;
+  width: 6px;
+}

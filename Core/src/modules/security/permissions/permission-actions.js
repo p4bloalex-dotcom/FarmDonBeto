@@ -13,6 +13,7 @@ export const actions = {
   approve: { key: 'approve', name: 'Aprobar' },
   receive: { key: 'receive', name: 'Recibir' },
   invoice: { key: 'invoice', name: 'Facturar' },
+  pay: { key: 'pay', name: 'Pagar' },
   return: { key: 'return', name: 'Devolver' },
   accept: { key: 'accept', name: 'Aceptar' },
   send: { key: 'send', name: 'Enviar' },

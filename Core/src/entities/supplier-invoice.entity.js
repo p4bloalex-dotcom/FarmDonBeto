@@ -20,6 +20,11 @@ export const SupplierInvoiceEntity = new EntitySchema({
     total: { name: 'TOTAL', type: 'decimal', precision: 14, scale: 2, default: 0 },
     matchingStatus: { name: 'MATCHING_STATUS', type: String, length: 30, default: 'PENDING' },
     status: { name: 'STATUS', type: String, length: 30, default: 'REGISTERED' },
+    paymentSourceType: { name: 'PAYMENT_SOURCE_TYPE', type: String, length: 20, nullable: true },
+    financialAccountId: { name: 'FINANCIAL_ACCOUNT_ID', type: Number, nullable: true },
+    cashSessionId: { name: 'CASH_SESSION_ID', type: Number, nullable: true },
+    paidAt: { name: 'PAID_AT', type: 'timestamp', nullable: true },
+    paidBy: { name: 'PAID_BY', type: Number, nullable: true },
     documentAttachment: { name: 'DOCUMENT_ATTACHMENT', type: String, length: 500, nullable: true },
     createdBy: { name: 'CREATED_BY', type: Number, nullable: true },
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true }

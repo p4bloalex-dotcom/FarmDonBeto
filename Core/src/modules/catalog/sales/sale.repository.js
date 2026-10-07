@@ -26,6 +26,8 @@ const toDto = item => ({
   paymentMethod: item.paymentMethod,
   cashSessionId: item.cashSessionId ?? null,
   felStatus: item.felStatus ?? 'PENDING',
+  saleChannel: item.saleChannel ?? 'IN_STORE',
+  originalOrderId: item.originalOrderId ?? null,
   status: item.status,
   itemsCount: Number(item.itemsCount ?? 0)
 });
@@ -151,6 +153,7 @@ export const createSaleWithDetails = async (header, rawDetails, userId = null) =
     total,
     paymentMethod: rawPayments.length > 1 ? 'MIXED' : rawPayments[0].method,
     felStatus: 'PENDING',
+    saleChannel: 'IN_STORE',
     status: 'E',
     createdBy: userId
   }));
