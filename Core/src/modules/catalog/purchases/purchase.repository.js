@@ -17,6 +17,15 @@ const purchaseDetailIdsFromNotes = (notes, purchaseId) => [...String(notes ?? ''
 
 const appendNote = (notes, addition) => [notes, addition].filter(Boolean).join(' | ').slice(0, 1000);
 
+const setGlobalRlsContext = async runner => {
+  try {
+    await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain, :isGlobal); END;', [null, 0, 1]);
+  } catch (error) {
+    if (error?.errorNum !== 6550 && error?.driverError?.errorNum !== 6550) throw error;
+    await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain); END;', [null, 1]);
+  }
+};
+
 export class BusinessRuleError extends Error {
   constructor(message) {
     super(message);
@@ -362,7 +371,7 @@ export const checkNetworkAvailability = async (medicineId, targetBranchId, reque
   runner.__branchRlsApplied = true;
   await runner.connect();
   try {
-    await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch); END;', [null]);
+    await setGlobalRlsContext(runner);
     const targetRows = await runner.query('SELECT ID, NAME, LATITUDE, LONGITUDE FROM TB_BRANCH WHERE ID = :branchId', [targetBranchId]);
     const target = targetRows?.[0] ?? {};
     const rows = await runner.query(`
@@ -618,7 +627,6 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
   receipt.branchId = purchase?.branchId ?? payload.branchId ?? null;
   await receiptRepo.save(receipt);
   const detailRepo = manager.getRepository('PurchaseDetail');
-  const inventoryRepo = manager.getRepository('Inventory');
   const receiptDetailRepo = manager.getRepository('PurchaseReceiptDetail');
 
   for (const detail of payload.details || []) {
@@ -641,14 +649,8 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
     purchaseDetail.quantityPending = receiptLine.pendingAfter;
     purchaseDetail.status = purchaseDetail.quantityPending > 0 ? 'PARTIALLY_RECEIVED' : 'RECEIVED';
     await detailRepo.save(purchaseDetail);
-    if (accepted > 0) {
-      let stock = await inventoryRepo.findOneBy({ medicineId: purchaseDetail.medicineId, branchId: purchase.branchId });
-      if (!stock) stock = inventoryRepo.create({ medicineId: purchaseDetail.medicineId, branchId: purchase.branchId, stockAvailable: 0, reserve: 0, stockMin: 0, stockMax: 0 });
-      stock.stockAvailable = Number(stock.stockAvailable ?? 0) + accepted;
-      await inventoryRepo.save(stock);
-      await addLotStock(manager, { branchId: purchase.branchId, medicineId: purchaseDetail.medicineId, lotNumber: detail.batchNumber, expirationDate: detail.expirationDate, quantity: accepted, userId: payload.userId ?? null });
-      await registerKardex(manager, { branchId: purchase.branchId, medicineId: purchaseDetail.medicineId, movementType: 'PURCHASE_RECEIPT', quantityIn: accepted, balanceAfter: Number(stock.stockAvailable ?? 0), unitCost: purchaseDetail.unitPrice, referenceType: 'PURCHASE_RECEIPT', referenceId: receipt.id });
-    }
+    if (accepted > 0 && !detail.batchNumber) throw new BusinessRuleError('Debe ingresar lote para los productos aceptados.');
+    if (accepted > 0 && !detail.expirationDate) throw new BusinessRuleError('Debe ingresar vencimiento para los productos aceptados.');
   }
   const allDetails = await detailRepo.findBy({ purchaseId: payload.purchaseId });
   const pending = allDetails.reduce((sum, item) => sum + Number(item.quantityPending ?? Math.max(0, Number(item.quantity ?? 0) - Number(item.quantityReceived ?? 0))), 0);
@@ -656,6 +658,38 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
   await manager.getRepository('Purchase').update(payload.purchaseId, { status: nextStatus });
   if (nextStatus === 'RECEIVED') await createFulfillmentDeliveryRequests(manager, { ...purchase, status: nextStatus }, allDetails);
   return receipt.id;
+});
+
+export const reviewReceiptTechnically = async (receiptId, payload = {}) => AppDataSource.transaction(async manager => {
+  const receiptRepo = manager.getRepository('PurchaseReceipt');
+  const receipt = await receiptRepo.findOneBy({ id: receiptId });
+  if (!receipt) throw new BusinessRuleError('La recepcion indicada no existe.');
+  if (receipt.status === 'TECHNICALLY_APPROVED') throw new BusinessRuleError('La recepcion ya fue validada tecnicamente.');
+
+  const purchase = await manager.getRepository('Purchase').findOneBy({ id: receipt.purchaseId });
+  if (!purchase) throw new BusinessRuleError('La compra asociada a la recepcion no existe.');
+
+  const receiptDetails = await manager.getRepository('PurchaseReceiptDetail').findBy({ receiptId });
+  if (!receiptDetails.length) throw new BusinessRuleError('La recepcion no tiene detalle para validar.');
+
+  const inventoryRepo = manager.getRepository('Inventory');
+  const detailRepo = manager.getRepository('PurchaseDetail');
+  for (const detail of receiptDetails) {
+    const accepted = Number(detail.quantityAccepted ?? 0);
+    if (accepted <= 0) continue;
+    if (!detail.batchNumber || !detail.expirationDate) throw new BusinessRuleError('Todo producto aceptado requiere lote y vencimiento antes de la validacion tecnica.');
+    const purchaseDetail = await detailRepo.findOneBy({ id: detail.purchaseDetailId });
+    if (!purchaseDetail) throw new BusinessRuleError('El detalle de orden asociado a la recepcion no existe.');
+    let stock = await inventoryRepo.findOneBy({ medicineId: detail.medicineId, branchId: purchase.branchId });
+    if (!stock) stock = inventoryRepo.create({ medicineId: detail.medicineId, branchId: purchase.branchId, stockAvailable: 0, reserve: 0, stockMin: 0, stockMax: 0 });
+    stock.stockAvailable = Number(stock.stockAvailable ?? 0) + accepted;
+    await inventoryRepo.save(stock);
+    await addLotStock(manager, { branchId: purchase.branchId, medicineId: detail.medicineId, lotNumber: detail.batchNumber, expirationDate: detail.expirationDate, quantity: accepted, userId: payload.technicalReviewerId ?? null });
+    await registerKardex(manager, { branchId: purchase.branchId, medicineId: detail.medicineId, movementType: 'TECHNICAL_PURCHASE_RELEASE', quantityIn: accepted, balanceAfter: Number(stock.stockAvailable ?? 0), unitCost: purchaseDetail.unitPrice, referenceType: 'PURCHASE_RECEIPT', referenceId: receipt.id, reason: payload.technicalReviewNotes ?? 'Validacion tecnica farmaceutica' });
+  }
+
+  await receiptRepo.update(receiptId, { status: 'TECHNICALLY_APPROVED', verifiedBy: payload.technicalReviewerId ?? receipt.verifiedBy ?? null, notes: appendNote(receipt.notes, payload.technicalReviewNotes) });
+  return receiptId;
 });
 
 export const registerSupplierInvoice = async payload => AppDataSource.transaction(async manager => {

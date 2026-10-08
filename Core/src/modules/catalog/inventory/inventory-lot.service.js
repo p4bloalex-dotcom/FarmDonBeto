@@ -22,6 +22,7 @@ export const consumeLotsFefo = async (manager, { branchId, medicineId, quantity,
     .where('lot.branchId = :branchId', { branchId })
     .andWhere('lot.medicineId = :medicineId', { medicineId })
     .andWhere('lot.status = :status', { status: 'E' })
+    .andWhere('lot.sanitaryStatus = :sanitaryStatus', { sanitaryStatus: 'APPROVED' })
     .andWhere('lot.quantityAvailable > 0')
     .andWhere('lot.quantityQuarantine = 0')
     .andWhere('lot.quantityDamaged = 0')

@@ -18,6 +18,8 @@ export const InventoryLotEntity = new EntitySchema({
     quantityQuarantine: { name: 'QUANTITY_QUARANTINE', type: 'decimal', precision: 14, scale: 2, default: 0 },
     quantityDamaged: { name: 'QUANTITY_DAMAGED', type: 'decimal', precision: 14, scale: 2, default: 0 },
     quantityExpired: { name: 'QUANTITY_EXPIRED', type: 'decimal', precision: 14, scale: 2, default: 0 },
+    sanitaryStatus: { name: 'SANITARY_STATUS', type: String, length: 30, default: 'APPROVED' },
+    sanitaryBlockReason: { name: 'SANITARY_BLOCK_REASON', type: String, length: 500, nullable: true },
     purchasePrice: { name: 'PURCHASE_PRICE', type: 'decimal', precision: 14, scale: 2, nullable: true },
     receivedAt: { name: 'RECEIVED_AT', type: 'timestamp', nullable: true },
     status: { name: 'STATUS', type: String, length: 2, default: 'E' },

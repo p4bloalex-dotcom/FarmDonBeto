@@ -26,7 +26,13 @@ const toDto = item => ({
   coverageRadiusKm: Number(item.coverageRadiusKm ?? 8),
   coverage_radius_km: Number(item.coverageRadiusKm ?? 8),
   averageDeliveryMinutes: Number(item.averageDeliveryMinutes ?? 25),
-  average_delivery_minutes: Number(item.averageDeliveryMinutes ?? 25)
+  average_delivery_minutes: Number(item.averageDeliveryMinutes ?? 25),
+  technicalDirectorEmployeeId: item.technicalDirectorEmployeeId ?? null,
+  technical_director_employee_id: item.technicalDirectorEmployeeId ?? null,
+  sanitaryLicenseNumber: item.sanitaryLicenseNumber ?? null,
+  sanitary_license_number: item.sanitaryLicenseNumber ?? null,
+  sanitaryLicenseExpiresAt: item.sanitaryLicenseExpiresAt ?? null,
+  sanitary_license_expires_at: item.sanitaryLicenseExpiresAt ?? null
 });
 
 export const createBranch = async data => {

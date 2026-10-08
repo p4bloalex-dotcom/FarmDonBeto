@@ -18,6 +18,7 @@ import { GeneralApiService } from 'app/core/services/general-api.service';
 import { environment } from 'environments/environment';
 import { debounceTime, distinctUntilChanged, startWith, Subject, takeUntil } from 'rxjs';
 import { InventoryEditDialogComponent } from './inventory-edit-dialog/inventory-edit-dialog.component';
+import { InventoryLotSanitaryDialogComponent } from './inventory-lot-sanitary-dialog/inventory-lot-sanitary-dialog.component';
 import { InventoryReserveDialogComponent } from './inventory-reserve-dialog/inventory-reserve-dialog.component';
 
 @Component({
@@ -155,7 +156,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         this.detailTitle = 'Lotes por vencer en 60 dias';
         this.activeInsight = 'Lotes por vencer';
         this.detailColumns = this.lotColumns();
-        this.detailRows = (resp.data ?? []).map((item: any) => ({ ...item, movementType: this.movementTypeLabel(item.movementType) }));
+        this.detailRows = (resp.data ?? []).map((item: any) => this.decorateLot(item));
       },
       error: () => this.finishLoad('No se pudieron cargar lotes por vencer.')
     });
@@ -178,7 +179,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           { field: 'inTransit', header: 'Transito', width: '100px' },
           { field: 'quarantine', header: 'Cuarentena', width: '110px' }
         ];
-        this.detailRows = resp.data ?? [];
+        this.detailRows = (resp.data ?? []).map((item: any) => this.decorateLot(item));
         if (row) this.selectedRow = { ...this.selectedRow, atpRows: this.detailRows };
       },
       error: () => this.finishLoad('No se pudo cargar disponibilidad.')
@@ -262,6 +263,21 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this._generalApi.addInventoryAdjustment({ branchId: row.branchId, medicineId: row.medicineId, quantityAfter, reason }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
       next: (resp: ApiResponse<any>) => resp.success ? this.onPageChange({ pageIndex: this.pageIndex, pageSize: this.pageSize } as PageEvent) : this._toast.error(resp.error?.detail ?? 'No se pudo ajustar inventario.'),
       error: () => this._toast.error('Error inesperado al ajustar inventario.')
+    });
+  }
+
+  updateLotSanitaryStatus(lot: any): void {
+    const dialogRef = this._matDialog.open(InventoryLotSanitaryDialogComponent, { autoFocus: false, data: { lot }, width: '520px', disableClose: true });
+    dialogRef.afterClosed().pipe(takeUntil(this._unsubscribeAll)).subscribe(payload => {
+      if (!payload) return;
+      this._generalApi.updateInventoryLotSanitaryStatus(lot.id, payload).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+        next: (resp: ApiResponse<any>) => {
+          if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo actualizar el estado sanitario.');
+          this._toast.success('Estado sanitario actualizado.');
+          if (this.selectedRow) this.loadLots(this.selectedRow);
+        },
+        error: () => this._toast.error('Error inesperado al actualizar estado sanitario.')
+      });
     });
   }
 
@@ -369,6 +385,17 @@ export class InventoryComponent implements OnInit, OnDestroy {
     return labels[value] ?? value ?? '-';
   }
 
+  private decorateLot(item: any): any {
+    const status = item.sanitaryStatus ?? 'APPROVED';
+    const labels: Record<string, string> = {
+      APPROVED: 'Apto para venta',
+      IMMOBILIZED: 'Inmovilizado',
+      QUARANTINE: 'Cuarentena',
+      REJECTED: 'No apto'
+    };
+    return { ...item, sanitaryStatusLabel: labels[status] ?? status };
+  }
+
   private lotColumns(): TableColumn[] {
     return [
       { field: 'branchName', header: 'Sucursal', width: '1fr' },
@@ -379,7 +406,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
       { field: 'quantityAvailable', header: 'Disponible', width: '100px' },
       { field: 'quantityReserved', header: 'Reservado', width: '100px' },
       { field: 'availableToPromise', header: 'ATP', width: '90px' },
-      { field: 'quantityQuarantine', header: 'Cuarentena', width: '110px' }
+      { field: 'quantityQuarantine', header: 'Cuarentena', width: '110px' },
+      { field: 'sanitaryStatusLabel', header: 'Estado sanitario', width: '140px' },
+      { field: 'sanitaryBlockReason', header: 'Motivo sanitario', width: '1.4fr' }
     ];
   }
 

@@ -12,6 +12,7 @@ export const actions = {
   order: { key: 'order', name: 'Ordenar' },
   approve: { key: 'approve', name: 'Aprobar' },
   receive: { key: 'receive', name: 'Recibir' },
+  technicalReview: { key: 'technical-review', name: 'Validacion tecnica' },
   invoice: { key: 'invoice', name: 'Facturar' },
   pay: { key: 'pay', name: 'Pagar' },
   return: { key: 'return', name: 'Devolver' },

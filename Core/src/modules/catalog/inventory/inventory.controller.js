@@ -1,7 +1,7 @@
 import { created, notFound, ok } from '../../../utils/api-response.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
 import { badRequest } from '../../../utils/api-response.js';
-import { cancelReservation, createAdjustment, createLot, createReservation, findInventoryById, getAvailability, getReplenishmentSuggestions, inventoryAlerts, listInventory, listKardex, listLots, lowStockAlerts, paginateInventory, toInventoryDto, updateInventory } from './inventory.repository.js';
+import { cancelReservation, createAdjustment, createLot, createReservation, findInventoryById, getAvailability, getReplenishmentSuggestions, inventoryAlerts, listInventory, listKardex, listLots, lowStockAlerts, paginateInventory, toInventoryDto, updateInventory, updateLotSanitaryStatus } from './inventory.repository.js';
 
 export const getInventory = async (_req, res) => ok(res, await listInventory());
 
@@ -32,6 +32,12 @@ export const getKardex = async (req, res) => ok(res, await listKardex(req.query)
 export const getLots = async (req, res) => ok(res, await listLots(req.query));
 
 export const addLot = async (req, res) => created(res, { id: await createLot(req.body, req.user?.id ?? null) }, 'Lote registrado correctamente.');
+
+export const editLotSanitaryStatus = async (req, res) => {
+  const updated = await updateLotSanitaryStatus(req.params.id, req.body, req.user?.id ?? null);
+  if (!updated) return notFound(res);
+  return ok(res, { id: Number(req.params.id) }, 'Estado sanitario del lote actualizado.');
+};
 
 export const getLowStockAlerts = async (_req, res) => ok(res, await lowStockAlerts());
 

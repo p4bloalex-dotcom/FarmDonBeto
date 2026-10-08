@@ -1,0 +1,35 @@
+<form [formGroup]="dataForm" class="flex w-full flex-col">
+    <div class="border-b px-4 py-3">
+        <h2 class="text-xl font-semibold">Estado sanitario del lote</h2>
+        <div class="text-sm text-secondary">{{ data.lot.medicineName }} | Lote {{ data.lot.lotNumber }}</div>
+    </div>
+
+    <div class="space-y-4 p-4">
+        <div class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+            Los lotes no aptos no podran venderse hasta volver a estado apto para venta.
+        </div>
+
+        <mat-form-field class="w-full">
+            <mat-label>Estado sanitario</mat-label>
+            <mat-select formControlName="sanitaryStatus">
+                @for (item of statusOptions; track item.value) {
+                    <mat-option [value]="item.value">{{ item.label }}</mat-option>
+                }
+            </mat-select>
+        </mat-form-field>
+
+        <mat-form-field class="w-full">
+            <mat-label>Motivo sanitario</mat-label>
+            <textarea matInput formControlName="sanitaryBlockReason" rows="4" maxlength="500"></textarea>
+            <mat-hint>Obligatorio cuando el lote queda inmovilizado, en cuarentena o no apto.</mat-hint>
+            @if (dataForm.get('sanitaryBlockReason')?.hasError('required')) {
+                <mat-error>Debe indicar el motivo sanitario.</mat-error>
+            }
+        </mat-form-field>
+    </div>
+
+    <div class="flex flex-col-reverse gap-3 border-t px-4 py-3 sm:flex-row sm:justify-end">
+        <button mat-flat-button type="button" (click)="close()">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" [disabled]="dataForm.invalid" (click)="save()">Guardar</button>
+    </div>
+</form>

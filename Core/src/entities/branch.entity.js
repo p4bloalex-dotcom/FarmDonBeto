@@ -19,6 +19,9 @@ export const BranchEntity = new EntitySchema({
     longitude: { name: 'LONGITUDE', type: 'decimal', precision: 10, scale: 7, nullable: true },
     coverageRadiusKm: { name: 'COVERAGE_RADIUS_KM', type: 'decimal', precision: 8, scale: 2, default: 8 },
     averageDeliveryMinutes: { name: 'AVERAGE_DELIVERY_MINUTES', type: Number, default: 25 },
+    technicalDirectorEmployeeId: { name: 'TECHNICAL_DIRECTOR_EMPLOYEE_ID', type: Number, nullable: true },
+    sanitaryLicenseNumber: { name: 'SANITARY_LICENSE_NUMBER', type: String, length: 80, nullable: true },
+    sanitaryLicenseExpiresAt: { name: 'SANITARY_LICENSE_EXPIRES_AT', type: 'timestamp', nullable: true },
     createdAt: { name: 'CREATED_AT', type: 'timestamp', createDate: true },
     updatedAt: { name: 'UPDATED_AT', type: 'timestamp', updateDate: true, nullable: true },
     createdBy: { name: 'CREATED_BY', type: Number, nullable: true },
@@ -27,6 +30,7 @@ export const BranchEntity = new EntitySchema({
   relations: {
     company: { type: 'many-to-one', target: 'Company', joinColumn: { name: 'COMPANY_ID' }, nullable: true },
     department: { type: 'many-to-one', target: 'Department', joinColumn: { name: 'ID_DEPARTMENT' }, nullable: true },
-    municipality: { type: 'many-to-one', target: 'Municipality', joinColumn: { name: 'ID_MUNICIPALITY' }, nullable: true }
+    municipality: { type: 'many-to-one', target: 'Municipality', joinColumn: { name: 'ID_MUNICIPALITY' }, nullable: true },
+    technicalDirector: { type: 'many-to-one', target: 'Employee', joinColumn: { name: 'TECHNICAL_DIRECTOR_EMPLOYEE_ID' }, nullable: true }
   }
 });

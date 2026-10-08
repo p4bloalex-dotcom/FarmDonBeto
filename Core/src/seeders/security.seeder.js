@@ -133,6 +133,37 @@ export const runSecuritySeeders = async () => {
         .where('menuId IN (:...menuIds)', { menuIds: obsoleteMenuIds })
         .execute();
     }
+
+    let technicalRole = await roleRepository.findOneBy({ name: 'Responsable Tecnico Farmaceutico' });
+    if (!technicalRole) {
+      technicalRole = await roleRepository.save(roleRepository.create({ name: 'Responsable Tecnico Farmaceutico', status: 'E' }));
+    }
+
+    const purchaseMenu = await menuRepository.findOneBy({ path: 'purchase', status: 'E' });
+    if (purchaseMenu) {
+      if (purchaseMenu.idMenuFather) {
+        const parentRoleMenu = await roleMenuRepository.findOneBy({ idRole: technicalRole.id, idMenu: purchaseMenu.idMenuFather });
+        if (!parentRoleMenu) await roleMenuRepository.save(roleMenuRepository.create({ idRole: technicalRole.id, idMenu: purchaseMenu.idMenuFather, status: 'E' }));
+      }
+      const technicalRoleMenu = await roleMenuRepository.findOneBy({ idRole: technicalRole.id, idMenu: purchaseMenu.id });
+      if (!technicalRoleMenu) await roleMenuRepository.save(roleMenuRepository.create({ idRole: technicalRole.id, idMenu: purchaseMenu.id, status: 'E' }));
+    }
+
+    const technicalPermissions = await permissionRepository.createQueryBuilder('permission')
+      .where('permission.name IN (:...names)', { names: ['Purchase.Ver', 'Purchase.Validacion tecnica', 'Inventory.Ver', 'Inventory.Validacion tecnica'] })
+      .getMany();
+    for (const permission of technicalPermissions) {
+      const rolePermission = await rolePermissionRepository.findOneBy({ idRole: technicalRole.id, idPermission: permission.id });
+      if (!rolePermission) {
+        await rolePermissionRepository.save(rolePermissionRepository.create({
+          idRole: technicalRole.id,
+          idPermission: permission.id,
+          status: 'E',
+          isCheck: true,
+          isGlobal: false
+        }));
+      }
+    }
   });
 
   logger.info({ screens: screens.length }, 'Security menus and permissions generated from screen metadata');

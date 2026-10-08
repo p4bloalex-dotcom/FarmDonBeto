@@ -25,6 +25,7 @@ import {
   purchaseDashboard,
   receivePurchase,
   registerSupplierInvoice,
+  reviewReceiptTechnically,
   updatePurchaseWithDetails
 } from './purchase.repository.js';
 
@@ -344,7 +345,20 @@ export const addPurchaseReceipt = async (req, res) => {
   if (!receivableStatuses.includes(purchase.status)) return conflict(res, `La orden no puede recibirse porque esta en estado ${purchase.status}. Debe estar aprobada o parcialmente recibida.`);
   try {
     const id = await receivePurchase(bodyWithUser(req));
-    return created(res, { id }, 'Recepcion registrada. Solo cantidades aceptadas ingresaron al inventario.');
+    return created(res, { id }, 'Recepcion registrada. Los lotes quedan pendientes de validacion tecnica farmaceutica antes de ingresar al inventario.');
+  } catch (error) {
+    if (error instanceof BusinessRuleError) return badRequest(res, error.message);
+    throw error;
+  }
+};
+
+export const reviewPurchaseReceipt = async (req, res) => {
+  try {
+    const id = await reviewReceiptTechnically(Number(req.params.id), {
+      technicalReviewerId: req.user?.id ?? req.user?.userId ?? null,
+      technicalReviewNotes: req.body?.notes ?? null
+    });
+    return ok(res, { id }, 'Validacion tecnica registrada. Los lotes aceptados ingresaron al inventario.');
   } catch (error) {
     if (error instanceof BusinessRuleError) return badRequest(res, error.message);
     throw error;

@@ -1,515 +1,367 @@
 # Analisis de roles, menus y permisos
 
-## Estado actual del sistema
+Fecha de analisis: 2026-10-07
 
-El sistema actualmente tiene una estructura de seguridad basada en:
+Fuente principal: datos activos consultados en Oracle desde `TB_ROLE`, `TB_MENU`, `TB_ROLE_MENU`, `TB_PERMISSION`, `T_ROLE_PERMISSION`, `TB_BRANCH` y `TB_PAYROLL_POSITION`.
 
-- `TB_ROLE`: roles.
-- `TB_MENU`: menus visibles por rol.
-- `TB_ROLE_MENU`: relacion entre roles y menus.
-- `TB_PERMISSION`: permisos por pantalla/accion.
-- `T_ROLE_PERMISSION`: relacion entre roles y permisos, con `IS_CHECK` e `IS_GLOBAL`.
-- `SP_VALIDATE_USER_ACCESS`: valida que el usuario tenga permiso activo y menu activo.
-- RLS por sucursal sobre tablas operativas y tenant.
+## Resumen ejecutivo
 
-El seeder actual solo crea automaticamente el rol `Administrador` y le asigna todos los menus y permisos generados desde las rutas registradas.
+La propuesta de roles cubre varios flujos principales de una cadena de farmacias, pero todavia no esta consistente para operar en produccion. Hay roles bien encaminados, pero existen tres problemas criticos:
 
-Conclusion: si el sistema se usara en produccion con sucursales, matriz, caja, inventario, compras, RRHH, auditoria y reportes, si es necesario crear mas roles. Un solo rol `Administrador` no separa responsabilidades, no reduce riesgo operativo y no aprovecha correctamente `IS_GLOBAL`, RLS y sucursal matriz.
+1. `Gerencia General` tiene 28 menus asignados y 0 permisos efectivos. El usuario vera opciones, pero no podra ejecutar acciones protegidas.
+2. Todos los permisos activos tienen `IS_GLOBAL = 0`. El alcance global depende de que el empleado este asignado a la sucursal matriz (`TB_BRANCH.IS_MAIN = 1`) o no tenga empleado/sucursal asignada. Esto puede funcionar, pero es fragil para puestos corporativos.
+3. Hay puestos operativos propuestos que no tienen rol dedicado o estan mezclados con roles demasiado amplios: `Supervisor de sucursales`, `Motorista/Repartidor`, `Auxiliar de farmacia`, `Director tecnico farmaceutico`, y la separacion entre `Contador general` y `Tesoreria`.
 
-## Consideraciones RLS, IS_GLOBAL y sucursal matriz
+Conclusion: no recomiendo eliminar roles existentes todavia; recomiendo corregir permisos, dividir 2 roles por segregacion de funciones y agregar 5 roles nuevos para cubrir flujos reales sin sobrepermisos.
 
-El sistema aplica RLS en consultas `SELECT` sobre tablas con datos por sucursal, entre ellas inventario, ventas, compras, caja, nomina, empleados, activos fijos, traslados, pedidos y sucursales.
+## Modelo de seguridad observado
 
-Reglas relevantes:
+- `TB_ROLE` define roles de acceso, no puestos de nomina.
+- `TB_USER.ID_ROLE` asigna un unico rol al usuario.
+- `TB_USER.ID_PERSONAL` enlaza al empleado.
+- `TB_EMPLOYEE.BRANCH_ID` define la sucursal del empleado.
+- `TB_BRANCH.IS_MAIN = 1` identifica casa matriz. Actualmente existe `CENTRAL` como sucursal matriz.
+- `T_ROLE_PERMISSION.IS_CHECK = 1` habilita el permiso.
+- `T_ROLE_PERMISSION.IS_GLOBAL = 1` omite filtro por sucursal para ese permiso.
+- Si `IS_GLOBAL = 0`, el RLS limita datos por sucursal del empleado, excepto si el empleado pertenece a una sucursal matriz (`IS_MAIN = 1`).
+- Si el usuario no tiene empleado/sucursal asociada, el contexto RLS queda sin sucursal y en la practica ve global.
 
-- Si `T_ROLE_PERMISSION.IS_GLOBAL = true` para el permiso usado en la ruta, el usuario consulta sin filtro de sucursal.
-- Si el usuario pertenece a una sucursal marcada como matriz (`TB_BRANCH.IS_MAIN = 1`), tambien consulta sin filtro de sucursal.
-- Si no es global y no esta en matriz, consulta datos filtrados por su sucursal.
-- En traslados y solicitudes, RLS permite ver registros donde la sucursal participa como origen, destino, solicitante o abastecedora.
-- Riesgo a revisar: si un usuario no tiene empleado/sucursal asociada y su permiso no es global, el contexto RLS puede quedar sin `branchId`; eso puede abrir visibilidad amplia. Los usuarios operativos deberian tener siempre `idPersonal` asociado a una sucursal.
+## Sucursales activas
 
-Recomendacion general:
+| ID | Sucursal | Matriz |
+| --- | --- | --- |
+| 1 | CENTRAL | Si |
+| 2 | Sucursal Solola | No |
+| 3 | Sucursal Panajachel | No |
+| 4 | Sucursal Tecpan | No |
+| 7 | Sucursal San Andres Semetabaj | No |
 
-- Roles de matriz o gerencia pueden tener permisos `IS_GLOBAL = true` cuando necesiten operar/consultar todas las sucursales.
-- Roles de sucursal normalmente deben tener `IS_GLOBAL = false`.
-- Roles de auditoria/reportes pueden tener `IS_GLOBAL = true` solo en permisos de consulta y reportes.
-- No usar `IS_GLOBAL = true` de forma masiva para roles transaccionales si no necesitan operar toda la red.
+## Roles activos extraidos de base de datos
 
-## Usuarios, departamentos y areas esperadas
+| Rol | Menus activos | Permisos efectivos | Permisos globales | Permisos locales | Diagnostico |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Administrador | 40 | 215 | 0 | 215 | Completo, pero global depende de sucursal/no empleado. |
+| Cajero | 5 | 15 | 0 | 15 | Razonable para venta/caja local, pero mezcla dependiente y cajero. |
+| Encargado de Sucursal | 10 | 62 | 0 | 62 | Cubre administracion local, pero tiene demasiados permisos de reportes sensibles. |
+| Gerencia General | 28 | 0 | 0 | 0 | Invalido actualmente: menus sin permisos. |
+| Inventario / Bodega | 12 | 30 | 0 | 30 | Cubre bodega, pero es muy amplio para auxiliar de bodega. |
+| Compras y Abastecimiento | 13 | 26 | 0 | 26 | Bien encaminado, pero falta definir alcance global/matriz. |
+| Call Center | 6 | 8 | 0 | 8 | Correcto para toma de pedidos, no para reparto. Tiene nombre con espacio final. |
+| Contabilidad / Tesoreria | 10 | 20 | 0 | 20 | Funcional, pero combina contabilidad y tesoreria. |
+| RRHH | 9 | 13 | 0 | 13 | Cubre mantenimiento de personal/nomina, pero menu Reportes no tiene permisos. |
+| Auditor | 3 | 2 | 0 | 2 | Insuficiente para auditoria interna real. |
+| Logistica / Traslados | 8 | 11 | 0 | 11 | Util para traslados, excesivo para motorista/repartidor. |
 
-Posibles usuarios/departamentos que se conectaran al sistema:
+No se encontraron duplicados fisicos en `TB_ROLE_MENU` ni `T_ROLE_PERMISSION`.
 
-- Administracion del sistema / TI.
-- Gerencia general.
-- Gerencia de operaciones o matriz.
-- Encargados o administradores de sucursal.
-- Cajeros.
-- Vendedores o dependientes de farmacia.
-- Inventario / bodega.
-- Compras matriz.
-- Recepcion de compras.
-- Logistica / traslados entre sucursales.
-- Call center / pedidos de clientes.
-- Despacho / entrega a domicilio de Call Center.
-- Contabilidad / tesoreria.
-- Recursos humanos / nomina.
-- Activos fijos.
-- Auditoria / cumplimiento.
-- Catalogos maestros.
+## Modulos y pantallas registradas por backend
 
-## Roles propuestos
-
-| Rol | Tipo | Alcance recomendado | Objetivo |
-| --- | --- | --- | --- |
-| Administrador | Sistema | Global | Configuracion total, seguridad, menus, permisos y mantenimiento. |
-| Gerencia General | Direccion | Global | Consulta ejecutiva, reportes consolidados y supervision general. |
-| Gerente Matriz / Operaciones | Matriz | Global o sucursal matriz | Gestion operativa de compras, inventario, traslados, ventas y sucursales. |
-| Encargado Sucursal | Sucursal | Local | Administrar operaciones de una sucursal sin acceso global. |
-| Cajero | Sucursal | Local | Caja diaria, ventas, movimientos de caja permitidos. |
-| Vendedor / Dependiente | Sucursal | Local | Ventas, consulta de inventario y atencion al cliente. |
-| Inventario / Bodega | Sucursal o matriz | Local o global segun ubicacion | Stock, lotes, ajustes, kardex y alertas. |
-| Compras Matriz | Matriz | Global | Solicitudes, ordenes, aprobaciones y compras a proveedor. |
-| Recepcion Compras | Matriz | Global o matriz | Recepcion de mercaderia, facturas, devoluciones de compra. |
-| Logistica / Traslados | Sucursal o matriz | Local o global segun rol | Solicitudes y movimientos entre sucursales. |
-| Call Center | Central | Global limitado | Pedidos de clientes y disponibilidad por sucursal. |
-| Despacho / Entrega Call Center | Sucursal o zona | Local | Entrega fisica de pedidos generados por Call Center. |
-| Contabilidad / Tesoreria | Matriz | Global | Caja y bancos, pagos, conciliaciones y reportes financieros. |
-| RRHH / Nomina | Matriz | Global | Personal, puestos, conceptos, planilla y pagos. |
-| Activos Fijos | Matriz | Global | Registro, traslado, retiro y seguimiento de activos. |
-| Auditor | Global consulta | Global | Auditoria, trazabilidad, reportes y consulta sin modificar. |
-| Catalogos Maestros | Matriz | Global | Mantenimiento de medicamentos, proveedores y parametros. |
-
-## Descripcion corta de cada rol
-
-| Rol | Descripcion |
+| Area | Pantallas activas registradas |
 | --- | --- |
-| Administrador | Usuario tecnico con control total del sistema, seguridad, menus, roles y permisos. |
-| Gerencia General | Usuario directivo que consulta resultados globales, reportes y auditoria sin operar procesos diarios. |
-| Gerente Matriz / Operaciones | Responsable de supervisar y coordinar la operacion de todas las sucursales desde matriz. |
-| Encargado Sucursal | Responsable operativo de una sucursal, caja, ventas, inventario local y solicitudes de abastecimiento. |
-| Cajero | Usuario que abre/cierra caja, registra ventas y movimientos permitidos de efectivo en su sucursal. |
-| Vendedor / Dependiente | Usuario de atencion al cliente que vende, consulta productos e inventario disponible. |
-| Inventario / Bodega | Usuario que controla stock, lotes, ajustes, kardex, alertas y disponibilidad de productos. |
-| Compras Matriz | Usuario que consolida solicitudes, valida abastecimiento interno y gestiona compras a proveedores. |
-| Recepcion Compras | Usuario que recibe mercaderia, registra recepciones, facturas y devoluciones de compras. |
-| Logistica / Traslados | Usuario que gestiona solicitudes y movimientos de productos entre sucursales. |
-| Call Center | Usuario que toma pedidos, valida disponibilidad por sucursal y coordina despacho. |
-| Despacho / Entrega Call Center | Usuario que prepara, envia o entrega pedidos creados desde Call Center al cliente final. |
-| Contabilidad / Tesoreria | Usuario que controla caja, bancos, pagos, conciliaciones y reportes financieros. |
-| RRHH / Nomina | Usuario que administra personal, puestos, conceptos y procesos de nomina. |
-| Activos Fijos | Usuario que registra, traslada, retira y consulta activos fijos de la empresa. |
-| Auditor | Usuario de solo lectura para revisar trazabilidad, auditoria, reportes y operaciones. |
-| Catalogos Maestros | Usuario que mantiene datos base como medicamentos, proveedores, unidades y parametros. |
+| Seguridad | Menus, Menus por rol, Permisos, Roles, Usuarios |
+| Catalogo / mantenimiento | Empresa, Sucursales, Personal, Medicamentos, Categorias, Laboratorios, Presentaciones, Proveedores, Medicamentos por proveedor, Unidades de medida, Cajas, Tipos de movimiento de caja, Tipos de movimiento de inventario, Puestos de nomina, Conceptos de nomina |
+| Operaciones | Caja del dia, Caja y bancos, Call Center, Compras, Inventario, Traslados entre sucursales, Ventas, Nomina, Activos fijos |
+| Reportes | Reportes consolidados |
 
-## Abastecimiento interno y validacion de disponibilidad
+Observacion: existen permisos activos para `StockTransfer`, `AuditReport` y `PayrollReport`, pero sus menus estan deshabilitados (`STATUS = D`) y esas pantallas ya no aparecen registradas como pantallas activas. Deben depurarse o reactivarse formalmente.
 
-El sistema contempla usuarios que solicitan abastecimiento y usuarios que validan si una necesidad se cubre con inventario interno antes de comprar a proveedor.
+## Organigrama propuesto
 
-Roles involucrados:
+```text
+Gerente general
++-- Supervisor de sucursales
+|   +-- Encargado de farmacia
+|   |   +-- Cajero / Dependiente
+|   |   +-- Auxiliar de farmacia
+|   +-- Motorista / Repartidor
++-- Compras y abastecimiento
+|   +-- Encargado de bodega y logistica
+|       +-- Auxiliar de bodega
++-- Contador general
+|   +-- Encargado de tesoreria
++-- Recursos humanos
++-- Call center
++-- Responsable tecnico farmaceutico
++-- Auditor interno
++-- Administrador de sistemas
+```
 
-- `Encargado Sucursal`: solicita abastecimiento para su propia sucursal.
-- `Inventario / Bodega`: revisa stock y prepara producto si su sucursal abastece.
-- `Compras Matriz`: valida disponibilidad interna de la red antes de crear una compra externa.
-- `Gerente Matriz / Operaciones`: supervisa y autoriza decisiones globales de abastecimiento.
-- `Logistica / Traslados`: ejecuta o coordina el traslado entre sucursales.
+## Mapeo puesto contra rol actual
 
-Regla recomendada para `IS_GLOBAL`:
+| Puesto propuesto | Rol actual sugerido | Validacion |
+| --- | --- | --- |
+| Gerente general | Gerencia General | No valido hasta asignar permisos. Debe ser global y principalmente lectura/aprobacion. |
+| Supervisor de sucursales | No existe rol especifico | Falta rol. No conviene usar Gerencia General ni Encargado de Sucursal. |
+| Encargado de compras | Compras y Abastecimiento | Valido, con alcance matriz/global. |
+| Encargado de bodega y logistica | Inventario / Bodega o Logistica / Traslados | Parcial. Conviene definir si administra catalogo/inventario o solo traslados. |
+| Auxiliar de bodega | Inventario / Bodega | No ideal: rol actual permite crear/editar catalogos. Requiere rol mas limitado. |
+| Contador general | Contabilidad / Tesoreria | Parcial. Debe separarse de tesoreria si se busca control interno. |
+| Encargado de tesoreria | Contabilidad / Tesoreria | Parcial. Debe tener bancos, pagos, conciliaciones; no necesariamente contabilidad completa. |
+| Encargado de recursos humanos | RRHH | Valido, pero faltan reportes de planilla si se usan. |
+| Agente de call center | Call Center | Valido para pedido, disponibilidad y seguimiento. |
+| Administrador de sistemas | Administrador | Valido. Debe ser global independientemente de sucursal. |
+| Encargado de farmacia | Encargado de Sucursal | Valido como rol local. Revisar reportes sensibles. |
+| Cajero / Dependiente | Cajero | Valido si el puesto vende y cobra. Si solo atiende, falta rol Dependiente. |
+| Auxiliar de farmacia | Cajero o Encargado de Sucursal | No ideal. Falta rol auxiliar con venta/consulta/recepcion limitada. |
+| Motorista / Repartidor | Logistica / Traslados | No ideal. El rol actual puede crear/cancelar/rechazar traslados. Falta rol repartidor. |
+| Director tecnico farmaceutico | No existe rol especifico | Falta rol sanitario/tecnico. |
+| Auditor interno | Auditor | No valido: permisos actuales son insuficientes. |
 
-- `Purchase.Solicitar`: normalmente `IS_GLOBAL = false` para sucursales, porque la solicitud nace desde la sucursal del usuario.
-- `Purchase.Ver`: `IS_GLOBAL = true` para matriz/compras si se usa para revisar solicitudes de todas las sucursales o disponibilidad de red.
-- `Inventory.Ver`: `IS_GLOBAL = true` para quien valida abastecimiento interno entre sucursales, porque necesita ver stock de la red completa.
-- `DeliveryRequest.Ver`: `IS_GLOBAL = true` para coordinadores de matriz/logistica que supervisan todos los traslados.
-- `DeliveryRequest.Crear`: puede ser `IS_GLOBAL = true` para matriz/logistica si crean solicitudes entre cualquier par de sucursales; debe ser `false` para usuarios locales.
-- `DeliveryRequest.Aceptar`, `DeliveryRequest.Enviar`, `DeliveryRequest.Entregar`: `IS_GLOBAL = false` para sucursales que solo actuan cuando participan como abastecedora o solicitante; `true` solo para coordinador global.
-
-Respuesta puntual: si el usuario valida abastecimiento interno viendo inventario de varias sucursales, si, el permiso de consulta usado para esa validacion debe tener `IS_GLOBAL = true`, principalmente `Inventory.Ver` y, segun la pantalla usada, tambien `Purchase.Ver` o `DeliveryRequest.Ver`. Si ese usuario pertenece a sucursal matriz, el RLS ya le da visibilidad amplia, pero aun asi es mas claro marcar global los permisos de matriz que operan red completa.
-
-## Menus actuales generados por el sistema
-
-### Seguridad
-
-- `user`: Usuarios.
-- `role`: Roles.
-- `menurol`: Menus por rol.
-- `roleaction`: Permisos.
-- `menu`: Menus.
-
-### Catalogo
-
-- `company`: Empresa.
-- `personal`: Personal.
-- `branch`: Sucursales.
-- `medicinecategory`: Categorias de medicina.
-- `medicinelaboratory`: Laboratorios.
-- `medicinepresentation`: Presentaciones.
-- `unitmeasurement`: Unidades de medida.
-- `supplier`: Proveedores.
-- `medicine`: Medicamentos.
-- `suppliermedicine`: Medicamentos por proveedor.
-- `cashmovementtype`: Tipos de movimiento de caja.
-- `movementtype`: Tipos de movimiento de inventario.
-- `cashregister`: Cajas.
-- `payrollposition`: Puestos de nomina.
-- `payrollconcept`: Conceptos de nomina.
-
-### Operaciones
-
-- `cashsession`: Caja del dia.
-- `purchase`: Compras.
-- `delivery-request`: Traslados entre sucursales.
-- `inventory`: Inventario.
-- `fixed-asset`: Activos fijos.
-- `customer-order`: Call Center.
-- `sale`: Ventas.
-- `payroll`: Nomina.
-- `treasury`: Caja y bancos.
-
-### Reportes
-
-- `consolidated-report`: Reportes.
-
-### Auditoria
-
-- `audit`: Auditoria.
-
-## Posibles relaciones menus-rol
-
-| Rol | Menus sugeridos |
-| --- | --- |
-| Administrador | Todos los menus de Seguridad, Catalogo, Operaciones, Reportes y Auditoria. |
-| Gerencia General | `company`, `branch`, `inventory`, `purchase`, `delivery-request`, `sale`, `cashsession`, `treasury`, `payroll`, `fixed-asset`, `customer-order`, `consolidated-report`, `audit`. |
-| Gerente Matriz / Operaciones | `branch`, `personal`, `medicine`, `supplier`, `suppliermedicine`, `inventory`, `purchase`, `delivery-request`, `sale`, `cashsession`, `cashregister`, `customer-order`, `fixed-asset`, `consolidated-report`. |
-| Encargado Sucursal | `inventory`, `purchase`, `delivery-request`, `sale`, `cashsession`, `cashregister`, `customer-order`, `medicine`, `consolidated-report`. |
-| Cajero | `sale`, `cashsession`, `customer-order`, `inventory`. |
-| Vendedor / Dependiente | `sale`, `inventory`, `customer-order`, `medicine`. |
-| Inventario / Bodega | `inventory`, `delivery-request`, `purchase`, `medicine`, `movementtype`, `suppliermedicine`, `consolidated-report`. |
-| Compras Matriz | `purchase`, `supplier`, `suppliermedicine`, `medicine`, `inventory`, `delivery-request`, `consolidated-report`. |
-| Recepcion Compras | `purchase`, `inventory`, `delivery-request`, `supplier`, `medicine`. |
-| Logistica / Traslados | `delivery-request`, `inventory`, `branch`, `consolidated-report`. |
-| Call Center | `customer-order`, `inventory`, `sale`, `branch`. |
-| Despacho / Entrega Call Center | `customer-order`, `inventory`, `branch`. |
-| Contabilidad / Tesoreria | `treasury`, `cashsession`, `cashmovementtype`, `purchase`, `sale`, `consolidated-report`. |
-| RRHH / Nomina | `personal`, `payroll`, `payrollposition`, `payrollconcept`, `branch`, `consolidated-report`. |
-| Activos Fijos | `fixed-asset`, `branch`, `personal`, `consolidated-report`. |
-| Auditor | `audit`, `consolidated-report`, `inventory`, `purchase`, `delivery-request`, `sale`, `cashsession`, `treasury`, `payroll`, `fixed-asset`. |
-| Catalogos Maestros | `company`, `branch`, `medicinecategory`, `medicinelaboratory`, `medicinepresentation`, `unitmeasurement`, `supplier`, `medicine`, `suppliermedicine`, `cashmovementtype`, `movementtype`, `cashregister`, `payrollposition`, `payrollconcept`. |
-
-## Acciones/permisos actuales
-
-Los permisos se generan con el patron `Controlador.Accion`. Ejemplos:
-
-- `User.Ver`, `User.Crear`, `User.Editar`, `User.Eliminar`.
-- `Role.Ver`, `Role.Crear`, `Role.Editar`, `Role.Eliminar`.
-- `MenuRol.Ver`, `MenuRol.Crear`, `MenuRol.Editar`, `MenuRol.Eliminar`.
-- `Permission.Ver`, `Permission.Editar`.
-- `Menu.Ver`, `Menu.Crear`, `Menu.Editar`.
-- `Medicine.Ver`, `Medicine.Crear`, `Medicine.Editar`, `Medicine.Eliminar`.
-- `Inventory.Ver`, `Inventory.Crear`, `Inventory.Editar`, `Inventory.Eliminar`.
-- `Sale.Ver`, `Sale.Crear`, `Sale.Editar`, `Sale.Eliminar`.
-- `Purchase.Ver`, `Purchase.Crear`, `Purchase.Editar`, `Purchase.Eliminar`, `Purchase.Solicitar`, `Purchase.Ordenar`, `Purchase.Aprobar`, `Purchase.Recibir`, `Purchase.Facturar`, `Purchase.Pagar`, `Purchase.Devolver`.
-- `DeliveryRequest.Ver`, `DeliveryRequest.Crear`, `DeliveryRequest.Editar`, `DeliveryRequest.Eliminar`, `DeliveryRequest.Aceptar`, `DeliveryRequest.Enviar`, `DeliveryRequest.Entregar`, `DeliveryRequest.Rechazar`, `DeliveryRequest.Cancelar`.
-- `CashSession.Ver`, `CashSession.Crear`, `CashSession.Editar`, `CashSession.Eliminar`, `CashSession.Cerrar`, `CashSession.Movimiento`, `CashSession.Autorizar`, `CashSession.Reportes`, `CashSession.Auditoria`, `CashSession.Conciliar`.
-- `CustomerOrder.Ver`, `CustomerOrder.Crear`, `CustomerOrder.Editar`, `CustomerOrder.Eliminar`, `CustomerOrder.Enviar`, `CustomerOrder.Entregar`, `CustomerOrder.Cancelar`.
-- `Payroll.Ver`, `Payroll.Crear`, `Payroll.Editar`, `Payroll.Eliminar`.
-- `Treasury.Ver`, `Treasury.Crear`, `Treasury.Editar`, `Treasury.Eliminar`.
-- `ConsolidatedReport.<nombre del reporte>`.
-- `Audit.Ver`.
-
-## Cobertura real de modulos, menus y permisos personalizados
-
-Esta seccion diferencia entre pantallas que generan menu/permiso propio y rutas tecnicas que reutilizan permisos existentes o no generan menu.
-
-| Modulo/ruta backend | Menu generado | Permisos usados | Observacion |
-| --- | --- | --- | --- |
-| `security/users` | `user` | `User.Ver`, `User.Crear`, `User.Editar`, `User.Eliminar` | `reset-password` usa `User.Editar`. |
-| `security/roles` | `role` | `Role.Ver`, `Role.Crear`, `Role.Editar`, `Role.Eliminar` | Incluye consulta de permisos del rol. |
-| `security/role-menus` | `menurol` | `MenuRol.Ver`, `MenuRol.Crear`, `MenuRol.Editar`, `MenuRol.Eliminar` | Asignacion de menus por rol. |
-| `security/permissions` | `roleaction` | `Permission.Ver`, `Permission.Editar` | Asignacion de permisos por rol. |
-| `security/menus` | `menu` | `Menu.Ver`, `Menu.Crear`, `Menu.Editar` | No tiene `Eliminar`; usa cambio de estado con `Editar`. |
-| `security/audit` | `audit` | `Audit.Ver` | Solo lectura. |
-| `catalog/companies` | `company` | `Company.Ver`, `Company.Crear` | `findByUser` no exige permiso especifico, solo autenticacion. |
-| `catalog/personals` | `personal` | `Personal.Ver`, `Personal.Crear`, `Personal.Editar`, `Personal.Eliminar` | Cambio de estado usa `Personal.Editar`. |
-| `catalog/branches` | `branch` | `Branch.Ver`, `Branch.Crear`, `Branch.Editar`, `Branch.Eliminar` | Cambio de estado usa `Branch.Editar`. |
-| `catalog/medicine-categories` | `medicinecategory` | `MedicineCategory.Ver`, `MedicineCategory.Crear`, `MedicineCategory.Editar`, `MedicineCategory.Eliminar` | Catalogo maestro. |
-| `catalog/medicine-laboratories` | `medicinelaboratory` | `MedicineLaboratory.Ver`, `MedicineLaboratory.Crear`, `MedicineLaboratory.Editar`, `MedicineLaboratory.Eliminar` | Catalogo maestro. |
-| `catalog/medicine-presentations` | `medicinepresentation` | `MedicinePresentation.Ver`, `MedicinePresentation.Crear`, `MedicinePresentation.Editar`, `MedicinePresentation.Eliminar` | Catalogo maestro. |
-| `catalog/unit-measurements` | `unitmeasurement` | `UnitMeasurement.Ver`, `UnitMeasurement.Crear`, `UnitMeasurement.Editar`, `UnitMeasurement.Eliminar` | Catalogo maestro. |
-| `catalog/suppliers` | `supplier` | `Supplier.Ver`, `Supplier.Crear`, `Supplier.Editar`, `Supplier.Eliminar` | Catalogo maestro. |
-| `catalog/medicines` | `medicine` | `Medicine.Ver`, `Medicine.Crear`, `Medicine.Editar`, `Medicine.Eliminar` | Catalogo maestro. |
-| `catalog/supplier-medicines` | `suppliermedicine` | `SupplierMedicine.Ver`, `SupplierMedicine.Crear`, `SupplierMedicine.Editar`, `SupplierMedicine.Eliminar` | Relacion proveedor-medicamento. |
-| `catalog/cash-movement-types` | `cashmovementtype` | `CashMovementType.Ver`, `CashMovementType.Crear`, `CashMovementType.Editar`, `CashMovementType.Eliminar` | Catalogo financiero. |
-| `catalog/movement-types` | `movementtype` | `MovementType.Ver`, `MovementType.Crear`, `MovementType.Editar`, `MovementType.Eliminar` | Catalogo inventario. |
-| `catalog/cash-registers` | `cashregister` | `CashRegister.Ver`, `CashRegister.Crear`, `CashRegister.Editar`, `CashRegister.Eliminar` | Cambio de estado usa `CashRegister.Editar`. |
-| `catalog/payroll` subrutas `positions` | `payrollposition` | `PayrollPosition.Ver`, `PayrollPosition.Crear`, `PayrollPosition.Editar`, `PayrollPosition.Eliminar` | Menu de puestos de nomina. |
-| `catalog/payroll` subrutas `concepts` | `payrollconcept` | `PayrollConcept.Ver`, `PayrollConcept.Crear`, `PayrollConcept.Editar`, `PayrollConcept.Eliminar` | Menu de conceptos de nomina. |
-| `catalog/cash-sessions` | `cashsession` | `CashSession.Ver`, `CashSession.Crear`, `CashSession.Editar`, `CashSession.Eliminar`, `CashSession.Cerrar`, `CashSession.Movimiento`, `CashSession.Autorizar`, `CashSession.Reportes`, `CashSession.Auditoria`, `CashSession.Conciliar` | Incluye permisos personalizados de caja. |
-| `catalog/cash-movements` | No genera menu propio | `CashSession.Movimiento` | Reutiliza permiso de `cashsession`. |
-| `catalog/cash-advanced` | No genera menu propio | `CashSession.Reportes`, `CashSession.Ver`, `CashSession.Autorizar`, `CashSession.Conciliar`, `CashSession.Crear` | Reutiliza permisos de `cashsession`. |
-| `catalog/purchases` | `purchase` | `Purchase.Ver`, `Purchase.Crear`, `Purchase.Editar`, `Purchase.Eliminar`, `Purchase.Solicitar`, `Purchase.Ordenar`, `Purchase.Aprobar`, `Purchase.Recibir`, `Purchase.Facturar`, `Purchase.Pagar`, `Purchase.Devolver` | Incluye abastecimiento, ordenes, aprobacion, recepcion, factura, pago y devolucion. |
-| `catalog/delivery-requests` | `delivery-request` | `DeliveryRequest.Ver`, `DeliveryRequest.Crear`, `DeliveryRequest.Editar`, `DeliveryRequest.Eliminar`, `DeliveryRequest.Aceptar`, `DeliveryRequest.Enviar`, `DeliveryRequest.Entregar`, `DeliveryRequest.Rechazar`, `DeliveryRequest.Cancelar` | Estados usan permisos personalizados segun accion. |
-| `catalog/stock-transfers` | No genera menu propio | Permisos de `DeliveryRequest` | Reutiliza `delivery-request`. |
-| `catalog/inventory` | `inventory` | `Inventory.Ver`, `Inventory.Crear`, `Inventory.Editar`, `Inventory.Eliminar` | Kardex, lotes, disponibilidad, alertas y reposicion usan `Inventory.Ver`; lotes/reservas/ajustes usan `Crear`; eliminar reserva usa `Eliminar`. |
-| `catalog/fixed-assets` | `fixed-asset` | `FixedAsset.Ver`, `FixedAsset.Crear`, `FixedAsset.Editar`, `FixedAsset.Eliminar` | Historial usa `Ver`; traslado/retiro/cambio estado usan `Editar`. |
-| `catalog/customer-orders` | `customer-order` | `CustomerOrder.Ver`, `CustomerOrder.Crear`, `CustomerOrder.Editar`, `CustomerOrder.Eliminar`, `CustomerOrder.Enviar`, `CustomerOrder.Entregar`, `CustomerOrder.Cancelar` | Disponibilidad, busqueda e historial usan `Ver`; estado usa permiso personalizado. |
-| `catalog/sales` | `sale` | `Sale.Ver`, `Sale.Crear`, `Sale.Editar`, `Sale.Eliminar` | La ruta actual usa principalmente `Ver` y `Crear`. |
-| `catalog/payroll` | `payroll` | `Payroll.Ver`, `Payroll.Crear`, `Payroll.Editar`, `Payroll.Eliminar` | Periodos, salarios, pagos, ajustes y generacion usan permisos CRUD de `Payroll`. |
-| `catalog/treasury` | `treasury` | `Treasury.Ver`, `Treasury.Crear`, `Treasury.Editar`, `Treasury.Eliminar` | Conciliar/reversar movimientos usan `Treasury.Editar`; no hay permisos personalizados `Conciliar` o `Reversar` en este menu. |
-| `reports/consolidated` | `consolidated-report` | `ConsolidatedReport.<reporte>` | Cada reporte es un permiso independiente. |
-| `dashboard` | No genera menu propio | Solo autenticacion | No pasa por `permissionRequired`. Si se quiere controlar por rol, deberia agregarse como pantalla/permisos. |
-| `geolocation` | No genera menu propio | Solo autenticacion | No pasa por `permissionRequired`; usado como servicio auxiliar. |
-| `departments` | No genera menu propio | Solo autenticacion | Catalogo auxiliar sin pantalla/permiso registrado. |
-| `municipalities` | No genera menu propio | Solo autenticacion | Catalogo auxiliar sin pantalla/permiso registrado. |
-| `auth` | No genera menu propio | Publico/autenticacion | Login y flujo de sesion, fuera del esquema rol-menu. |
-
-### Permisos personalizados de reportes
-
-El menu `consolidated-report` no usa CRUD. Cada reporte genera un permiso propio:
-
-- `ConsolidatedReport.Ventas por periodo`.
-- `ConsolidatedReport.Ventas por sucursal`.
-- `ConsolidatedReport.Detalle de venta`.
-- `ConsolidatedReport.Ventas por medicamento`.
-- `ConsolidatedReport.Productos mas vendidos`.
-- `ConsolidatedReport.Productos con baja rotacion`.
-- `ConsolidatedReport.Inventario por sucursal`.
-- `ConsolidatedReport.Inventario consolidado`.
-- `ConsolidatedReport.Medicamentos proximos a vencer`.
-- `ConsolidatedReport.Medicamentos vencidos`.
-- `ConsolidatedReport.Stock minimo`.
-- `ConsolidatedReport.Kardex de inventario`.
-- `ConsolidatedReport.Traslados entre sucursales`.
-- `ConsolidatedReport.Flujo de efectivo`.
-- `ConsolidatedReport.Cierre y diferencias de caja`.
-- `ConsolidatedReport.Movimientos detallados por caja`.
-- `ConsolidatedReport.Conciliaciones de caja`.
-- `ConsolidatedReport.Historial de ingresos y egresos por sesion`.
-- `ConsolidatedReport.Compras por proveedor`.
-- `ConsolidatedReport.Rentabilidad por sucursal`.
-- `ConsolidatedReport.Activos fijos`.
-- `ConsolidatedReport.Detalle de activos fijos`.
-- `ConsolidatedReport.Planilla`.
-- `ConsolidatedReport.Auditoria`.
-
-## Posibles relaciones permisos-rol
+## Evaluacion por rol
 
 ### Administrador
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| Todos los permisos `*.Ver`, `*.Crear`, `*.Editar`, `*.Eliminar` y acciones especiales. | `true` recomendado. |
-
-Debe tener todos los menus y permisos. Es el unico rol que deberia administrar `User`, `Role`, `MenuRol`, `Permission` y `Menu` completos.
+Tiene todos los menus relevantes de seguridad, catalogo, operaciones y reportes. Es correcto para `Administrador de sistemas`, pero no deberia depender de estar en sucursal matriz para tener alcance global. Recomendacion: marcar `IS_GLOBAL = 1` en sus permisos o asegurar que nunca tenga empleado/sucursal local asociada.
 
 ### Gerencia General
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `*.Ver` para operaciones principales. | `true` |
-| `ConsolidatedReport.*`. | `true` |
-| `Audit.Ver`. | `true` |
+Inconsistente: tiene menus de catalogo, operaciones y reportes, pero 0 permisos efectivos. Debe corregirse antes de usarlo.
 
-No deberia crear, editar ni eliminar registros operativos salvo que el negocio lo requiera.
+Recomendacion minima: asignar permisos `Ver` y permisos de reportes ejecutivos con `IS_GLOBAL = 1`. Evitar permisos de crear/editar/eliminar salvo aprobaciones gerenciales puntuales.
 
-### Gerente Matriz / Operaciones
+### Supervisor de sucursales
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `Inventory.Ver`, `Inventory.Editar`. | `true` o por sucursal matriz |
-| `Purchase.Ver`, `Purchase.Ordenar`, `Purchase.Aprobar`, `Purchase.Recibir`, `Purchase.Facturar`, `Purchase.Devolver`. | `true` |
-| `DeliveryRequest.Ver`, `DeliveryRequest.Crear`, `DeliveryRequest.Aceptar`, `DeliveryRequest.Enviar`, `DeliveryRequest.Entregar`, `DeliveryRequest.Rechazar`, `DeliveryRequest.Cancelar`. | `true` |
-| `Sale.Ver`, `CashSession.Ver`, `CustomerOrder.Ver`. | `true` |
-| Reportes operativos. | `true` |
+No existe. Es distinto de Gerente General y de Encargado de Sucursal. Debe ver multiples sucursales, monitorear ventas, inventario, caja y cumplimiento, pero no administrar seguridad ni mantenimiento maestro.
 
-Debe tener capacidad de supervision y ejecucion operativa en toda la red.
+Recomendacion: crear rol `Supervisor de Sucursales` con permisos globales de lectura/reportes y acciones operativas limitadas como autorizar/revisar caja, inventario y traslados.
 
-### Encargado Sucursal
+### Encargado de Sucursal
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `Inventory.Ver`, `Inventory.Crear`, `Inventory.Editar`. | `false` |
-| `Sale.Ver`, `Sale.Crear`. | `false` |
-| `CashSession.Ver`, `CashSession.Crear`, `CashSession.Cerrar`, `CashSession.Movimiento`. | `false` |
-| `Purchase.Ver`, `Purchase.Solicitar`. | `false` |
-| `DeliveryRequest.Ver`, `DeliveryRequest.Crear`, `DeliveryRequest.Aceptar`, `DeliveryRequest.Enviar`, `DeliveryRequest.Entregar`, `DeliveryRequest.Rechazar`, `DeliveryRequest.Cancelar`. | `false` |
-| `CustomerOrder.Ver`, `CustomerOrder.Entregar`. | `false` |
+Es el rol local mas completo. Logicamente cubre encargado de farmacia si se asigna a sucursal local. Tiene ventas, caja, inventario, traslados, solicitudes de compra y reportes.
 
-No deberia tener permisos globales. Si esta asignado a una sucursal matriz, heredara visibilidad amplia por RLS.
+Riesgo: tiene 24 permisos de reportes, incluyendo auditoria, planilla, rentabilidad y activos fijos. Para sucursal puede ser demasiado sensible.
+
+Recomendacion: mantener local (`IS_GLOBAL = 0`), quitar reportes de planilla/auditoria/rentabilidad si no son necesarios, y dejar ventas, inventario, caja, traslados y stock local.
 
 ### Cajero
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `Sale.Ver`, `Sale.Crear`. | `false` |
-| `CashSession.Ver`, `CashSession.Crear`, `CashSession.Cerrar`, `CashSession.Movimiento`. | `false` |
-| `Inventory.Ver`. | `false` |
-| `CustomerOrder.Ver`, `CustomerOrder.Entregar`. | `false` |
+Tiene caja del dia, ventas, inventario en lectura, entrega de pedidos y algunos permisos de consulta. Es coherente para cajero/dependiente.
 
-No deberia eliminar ventas, sesiones de caja ni movimientos. La anulacion/devolucion deberia quedar para encargado o autorizador.
+Riesgo: tiene permiso `Purchase.Ver` sin menu activo de compras; puede ser permiso tecnico innecesario o inconsistente.
 
-### Vendedor / Dependiente
+Recomendacion: conservar venta/caja local; quitar `Purchase.Ver` si no se usa para validar disponibilidad o recepcion.
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `Sale.Ver`, `Sale.Crear`. | `false` |
-| `Inventory.Ver`. | `false` |
-| `Medicine.Ver`. | `false` |
-| `CustomerOrder.Ver`, `CustomerOrder.Crear`. | `false` |
+### Auxiliar de farmacia
 
-Debe operar solo en su sucursal.
+No existe rol. Usar `Cajero` le da caja y venta; usar `Encargado de Sucursal` le da demasiada administracion.
 
-### Inventario / Bodega
-
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `Inventory.Ver`, `Inventory.Crear`, `Inventory.Editar`. | `false` en sucursal, `true` en matriz |
-| `DeliveryRequest.Ver`, `DeliveryRequest.Crear`, `DeliveryRequest.Aceptar`, `DeliveryRequest.Enviar`, `DeliveryRequest.Entregar`. | segun alcance |
-| `Purchase.Ver`, `Purchase.Recibir`. | `true` solo si recepciona en matriz |
-| `Medicine.Ver`, `SupplierMedicine.Ver`, `MovementType.Ver`. | `false` o `true` segun necesidad |
-
-Los ajustes de inventario deberian restringirse a personal autorizado.
-
-### Compras Matriz
-
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `Purchase.Ver`, `Purchase.Crear`, `Purchase.Editar`, `Purchase.Solicitar`, `Purchase.Ordenar`, `Purchase.Aprobar`. | `true` |
-| `Supplier.Ver`, `Supplier.Crear`, `Supplier.Editar`. | `true` |
-| `SupplierMedicine.Ver`, `SupplierMedicine.Crear`, `SupplierMedicine.Editar`. | `true` |
-| `Inventory.Ver`. | `true` |
-| `DeliveryRequest.Ver`. | `true` |
-
-`Purchase.Pagar` deberia quedar en Tesoreria, no en Compras, salvo autorizacion especial.
-
-### Recepcion Compras
-
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `Purchase.Ver`, `Purchase.Recibir`, `Purchase.Facturar`, `Purchase.Devolver`. | `true` o matriz |
-| `Inventory.Ver`, `Inventory.Crear`, `Inventory.Editar`. | `true` o matriz |
-| `Supplier.Ver`, `Medicine.Ver`. | `true` o matriz |
-
-No deberia aprobar ni pagar compras.
-
-### Logistica / Traslados
-
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `DeliveryRequest.Ver`, `DeliveryRequest.Crear`, `DeliveryRequest.Aceptar`, `DeliveryRequest.Enviar`, `DeliveryRequest.Entregar`, `DeliveryRequest.Rechazar`, `DeliveryRequest.Cancelar`. | `false` sucursal, `true` coordinador matriz |
-| `Inventory.Ver`. | segun alcance |
-| `Branch.Ver`. | `true` si coordina red |
-
-El rol local solo debe ver solicitudes donde participe su sucursal.
+Recomendacion: crear rol `Auxiliar de Farmacia` con `Medicine.Ver`, `Inventory.Ver`, `CustomerOrder.Ver`, `CustomerOrder.Entregar` si prepara pedidos, y opcionalmente `Sale.Crear` solo si tambien vende.
 
 ### Call Center
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `CustomerOrder.Ver`, `CustomerOrder.Crear`, `CustomerOrder.Editar`, `CustomerOrder.Enviar`, `CustomerOrder.Cancelar`. | `true` recomendado |
-| `Inventory.Ver`. | `true` para disponibilidad de red |
-| `Branch.Ver`. | `true` |
-| `Sale.Ver` opcional. | `false` o `true` segun operacion |
+Tiene permisos adecuados para crear, editar, enviar, cancelar y ver pedidos, consultar medicamentos, inventario y sucursales. Es correcto para agente de call center.
 
-Debe poder consultar disponibilidad en varias sucursales, pero no modificar inventario ni marcar entregas fisicas si existe un equipo separado de despacho.
+Riesgo: el nombre del rol tiene espacio final (`Call Center `), lo cual puede causar duplicados visuales o errores de comparacion.
 
-### Despacho / Entrega Call Center
+Recomendacion: normalizar el nombre a `Call Center`.
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `CustomerOrder.Ver`. | `false` si entrega solo pedidos de su sucursal/zona, `true` si coordina entregas de toda la red |
-| `CustomerOrder.Enviar`. | `false` para despacho local, `true` para coordinador central |
-| `CustomerOrder.Entregar`. | `false` para repartidor/despacho local, `true` solo para coordinador global |
-| `CustomerOrder.Cancelar` opcional. | `false`; preferible dejarlo en Call Center o encargado |
-| `Inventory.Ver`. | `false` para confirmar disponibilidad local, `true` solo si coordina varias sucursales |
-| `Branch.Ver`. | `false` local, `true` coordinador |
+### Motorista / Repartidor
 
-Este rol cubre a quien entrega el producto a la ubicacion del cliente en el flujo de Call Center. No deberia crear pedidos ni modificar catalogos; su funcion es ver pedidos asignados, marcar envio y confirmar entrega.
+No existe rol especifico. `Logistica / Traslados` no debe usarse para motorista porque permite crear/cancelar/rechazar traslados entre sucursales.
+
+Recomendacion: crear rol `Repartidor` con permisos minimos sobre pedidos a domicilio: ver pedidos asignados, marcar entregado/fallido, registrar cobro si aplica. Actualmente el modulo visible mas cercano es `CustomerOrder.Entregar`, pero faltaria modelar estados de entrega si el flujo lo requiere.
+
+### Compras y Abastecimiento
+
+Permisos coherentes: proveedores, medicamentos/proveedor, compras con solicitar, ordenar, aprobar, recibir, facturar y devolver. Falta `Pagar`, que correctamente esta en tesoreria.
+
+Riesgo: tiene `Aprobar` y `Ordenar` en el mismo rol; en empresas pequenas puede aceptarse, pero para control interno conviene separar solicitante/comprador/aprobador.
+
+Recomendacion: mantener para encargado de compras; si habra flujo formal, separar `Compras` y `Aprobador de Compras`.
+
+### Inventario / Bodega
+
+Cubre catalogos de medicamento, movimientos y traslados. Es adecuado para encargado de bodega, no para auxiliar.
+
+Riesgo: permite crear/editar catalogos maestros. Un auxiliar de bodega no deberia crear categorias, laboratorios, unidades ni medicamentos salvo autorizacion.
+
+Recomendacion: mantener como encargado de bodega/logistica; crear rol `Auxiliar de Bodega` solo con recepcion, preparacion, inventario/traslados en lectura y estados necesarios.
+
+### Logistica / Traslados
+
+Cubre traslados entre sucursales con crear, aceptar, enviar, entregar, cancelar y rechazar. Es util para coordinacion logistica, no para motorista.
+
+Recomendacion: mantener para encargado/coordinador de logistica. No usarlo para repartidores.
 
 ### Contabilidad / Tesoreria
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `Treasury.Ver`, `Treasury.Crear`, `Treasury.Editar`. | `true` |
-| `CashSession.Ver`, `CashSession.Reportes`, `CashSession.Conciliar`, `CashSession.Auditoria`. | `true` |
-| `Purchase.Ver`, `Purchase.Pagar`. | `true` |
-| `Sale.Ver`. | `true` |
-| Reportes financieros. | `true` |
+Cubre cajas, tipos de movimientos, sesiones de caja, compras en pago, ventas en lectura, bancos/tesoreria y reportes financieros. Funcionalmente tiene logica.
 
-No deberia tener permisos de seguridad ni mantenimiento general de catalogos salvo tipos financieros.
+Riesgo: une dos puestos sensibles. La persona que paga proveedores y concilia bancos no siempre debe administrar contabilidad completa o tipos de caja.
 
-### RRHH / Nomina
+Recomendacion: dividir en `Contabilidad` y `Tesoreria` si habra control interno. Si el negocio es pequeno, puede mantenerse combinado temporalmente.
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `Personal.Ver`, `Personal.Crear`, `Personal.Editar`. | `true` |
-| `Payroll.Ver`, `Payroll.Crear`, `Payroll.Editar`. | `true` |
-| `PayrollPosition.Ver`, `PayrollPosition.Crear`, `PayrollPosition.Editar`, `PayrollPosition.Eliminar`. | `true` |
-| `PayrollConcept.Ver`, `PayrollConcept.Crear`, `PayrollConcept.Editar`, `PayrollConcept.Eliminar`. | `true` |
-| `Branch.Ver`. | `true` |
+### RRHH
 
-Eliminar personal o pagos deberia ser excepcional.
+Cubre personal, puestos/conceptos de nomina y nomina. Es coherente para recursos humanos.
 
-### Activos Fijos
+Inconsistencia: tiene menu `Reportes`, pero no tiene permisos efectivos de `ConsolidatedReport`; por tanto el menu queda inutil.
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `FixedAsset.Ver`, `FixedAsset.Crear`, `FixedAsset.Editar`. | `true` |
-| `Branch.Ver`, `Personal.Ver`. | `true` |
-| Reportes de activos fijos. | `true` |
-
-No requiere permisos de caja, ventas, compras ni seguridad.
+Recomendacion: agregar permiso de reporte `Planilla` si RRHH debe consultar reportes, o quitar el menu de reportes.
 
 ### Auditor
 
-| Permisos | IS_GLOBAL |
+Actualmente solo tiene `Branch.Ver` y `ConsolidatedReport.Auditoria`. Es insuficiente para auditor interno, porque el puesto propuesto debe revisar inventarios, caja, compras, traslados y cumplimiento.
+
+Recomendacion: ampliar como rol de solo lectura global sobre reportes de ventas, caja, inventario, compras, traslados, activos y auditoria. No debe crear/editar/eliminar.
+
+## Hallazgos de consistencia
+
+| Hallazgo | Impacto | Recomendacion |
+| --- | --- | --- |
+| `Gerencia General` tiene menus sin permisos | Alto | Asignar permisos o desactivar el rol. |
+| Todos los `IS_GLOBAL` estan en 0 | Alto | Definir matriz/global por rol. No depender solo de sucursal matriz para roles corporativos criticos. |
+| `RRHH` tiene menu de Reportes sin permisos | Medio | Agregar reporte de planilla o quitar menu. |
+| `Cajero` tiene `Purchase.Ver` sin menu de compras | Bajo/Medio | Quitar si no hay dependencia funcional. |
+| `Encargado de Sucursal` tiene reportes sensibles | Medio | Reducir reportes a alcance operativo local. |
+| `Auditor` es demasiado limitado | Alto | Ampliar lectura/reportes globales. |
+| `Call Center ` tiene espacio final | Bajo | Renombrar a `Call Center`. |
+| Permisos activos de menus deshabilitados | Medio | Depurar `StockTransfer`, `AuditReport`, `PayrollReport` o reactivarlos formalmente. |
+| `Contabilidad / Tesoreria` combina funciones | Medio | Separar si se requiere segregacion. |
+
+## Recomendacion de roles finales
+
+### Mantener
+
+- `Administrador`
+- `Cajero`
+- `Encargado de Sucursal`
+- `Compras y Abastecimiento`
+- `Call Center` despues de normalizar nombre
+- `RRHH` despues de corregir reportes
+- `Inventario / Bodega` como encargado, no como auxiliar
+- `Logistica / Traslados` como coordinador, no como motorista
+
+### Corregir
+
+- `Gerencia General`: agregar permisos efectivos globales de lectura/reporte/aprobacion.
+- `Auditor`: convertir a auditoria interna de solo lectura global.
+- `Contabilidad / Tesoreria`: dividir si se requiere control interno.
+
+### Agregar
+
+- `Supervisor de Sucursales`
+- `Auxiliar de Farmacia`
+- `Auxiliar de Bodega`
+- `Repartidor`
+- `Responsable Tecnico Farmaceutico`
+
+### Evaluar dividir
+
+- `Contabilidad`
+- `Tesoreria`
+- `Aprobador de Compras`, solo si se quiere flujo de aprobacion separado del comprador.
+
+## Matriz de alcance recomendada
+
+| Rol | Alcance recomendado | IS_GLOBAL recomendado |
+| --- | --- | --- |
+| Administrador | Sistema completo | Si |
+| Gerencia General | Toda la cadena | Si |
+| Supervisor de Sucursales | Toda la cadena operativa | Si |
+| Compras y Abastecimiento | Matriz / bodega central | Si en compras e inventario central |
+| Inventario / Bodega | Matriz o bodega asignada | Si solo si opera bodega central; local si opera sucursal |
+| Logistica / Traslados | Matriz o rutas asignadas | Parcial, segun flujo |
+| Contabilidad | Toda la cadena financiera | Si |
+| Tesoreria | Toda la cadena financiera | Si |
+| RRHH | Toda la cadena de personal | Si |
+| Call Center | Toda la cadena para disponibilidad/pedidos | Si para consulta de sucursales/inventario; local si se asigna por sucursal |
+| Encargado de Sucursal | Sucursal asignada | No |
+| Cajero | Sucursal asignada | No |
+| Auxiliar de Farmacia | Sucursal asignada | No |
+| Repartidor | Pedidos/ruta asignada | No o alcance especial por asignacion |
+| Auditor | Toda la cadena, solo lectura | Si |
+| Responsable Tecnico Farmaceutico | Establecimientos bajo responsabilidad | Parcial; idealmente alcance por asignacion, no global total |
+
+## Decision sobre puestos vs roles
+
+Los puestos propuestos tienen logica organizacional. El problema no esta en el organigrama, sino en que algunos puestos no deben compartir el mismo rol porque sus permisos son distintos.
+
+Roles y puestos no deben mapearse 1:1 siempre. Un rol puede servir para varios puestos si sus permisos coinciden, pero en estos casos no coinciden: auxiliar vs encargado, repartidor vs logistica, contador vs tesoreria, auditor real vs auditor actual.
+
+## Unificacion recomendada de puestos y roles
+
+No todos los puestos necesitan un rol propio. Conviene crear roles solo cuando la operacion, el alcance o el riesgo de permisos cambia de forma real. Bajo ese criterio, esta es la propuesta mas practica.
+
+### Puestos que pueden compartir rol
+
+| Puestos | Rol recomendado | Justificacion |
+| --- | --- | --- |
+| Gerente general | Gerencia General | Es un rol ejecutivo de lectura, reportes y aprobaciones globales. |
+| Encargado de compras | Compras y Abastecimiento | La operacion principal es proveedores, compras, ordenes y recepcion documental. |
+| Encargado de bodega y logistica | Inventario / Bodega | Si administra inventario central, recepciones, lotes y abastecimiento. |
+| Contador general y Encargado de tesoreria | Contabilidad / Tesoreria | Se pueden unificar si la empresa es pequena y una misma persona controla contabilidad, bancos, pagos y conciliacion. |
+| Agente de call center | Call Center | Rol directo y suficiente para pedidos, disponibilidad y seguimiento. |
+| Administrador de sistemas | Administrador | Rol directo para seguridad, configuracion y mantenimiento tecnico. |
+| Encargado de farmacia | Encargado de Sucursal | Rol directo para administrar la sucursal local. |
+| Cajero / Dependiente | Cajero | Puede unificarse si el dependiente vende, cobra y atiende clientes. |
+| Auditor interno | Auditor | Puede mantenerse el rol, pero debe ampliarse; no hace falta crear otro nombre. |
+
+### Puestos que no deberian compartir rol actual
+
+| Puesto | Por que no conviene usar rol existente | Rol requerido |
+| --- | --- | --- |
+| Supervisor de sucursales | No es gerente general ni encargado local; necesita ver varias sucursales sin administrar seguridad. | Supervisor de Sucursales |
+| Auxiliar de bodega | `Inventario / Bodega` permite crear/editar catalogos maestros. | Auxiliar de Bodega |
+| Auxiliar de farmacia | `Cajero` da caja/venta y `Encargado de Sucursal` da demasiada administracion. | Auxiliar de Farmacia |
+| Motorista / Repartidor | `Logistica / Traslados` permite crear, cancelar y rechazar traslados; es demasiado amplio. | Repartidor |
+| Director o responsable tecnico farmaceutico | No existe rol sanitario/tecnico para supervision regulatoria. | Responsable Tecnico Farmaceutico |
+
+### Roles que recomiendo dejar unificados inicialmente
+
+- `Contabilidad / Tesoreria`: mantener unificado si el volumen operativo es bajo o si el negocio aun no requiere segregacion formal entre pago, conciliacion y contabilidad.
+- `Cajero`: puede cubrir tambien dependiente si el dependiente realiza venta y cobro.
+- `Inventario / Bodega`: puede cubrir encargado de bodega y encargado de logistica central si la misma persona gestiona recepcion, inventario y despacho.
+- `Auditor`: no crear otro rol; corregir el existente para que sea realmente auditoria interna.
+
+### Roles que si recomiendo crear
+
+| Rol nuevo | Motivo operativo | Alcance sugerido |
+| --- | --- | --- |
+| Supervisor de Sucursales | Supervisa ventas, inventario, caja y cumplimiento en varias sucursales. | Global o por grupo de sucursales. |
+| Auxiliar de Bodega | Recibe, organiza y despacha, pero no debe administrar catalogos maestros. | Bodega central o sucursal asignada. |
+| Auxiliar de Farmacia | Apoya atencion, preparacion de pedidos e inventario local sin control administrativo completo. | Sucursal local. |
+| Repartidor | Entrega pedidos y actualiza estados, sin permisos de traslados ni catalogos. | Pedidos/ruta asignada. |
+| Responsable Tecnico Farmaceutico | Requiere supervision sanitaria y tecnica distinta de operaciones comerciales. | Establecimientos asignados. |
+
+### Ajuste recomendado a la lista de roles finales
+
+Con un criterio pragmatico, la matriz final podria quedar asi:
+
+| Rol final | Puestos que cubre |
 | --- | --- |
-| `Audit.Ver`. | `true` |
-| `ConsolidatedReport.*`. | `true` |
-| `*.Ver` en operaciones principales. | `true` |
+| Administrador | Administrador de sistemas |
+| Gerencia General | Gerente general |
+| Supervisor de Sucursales | Supervisor de sucursales |
+| Compras y Abastecimiento | Encargado de compras |
+| Inventario / Bodega | Encargado de bodega y logistica |
+| Auxiliar de Bodega | Auxiliar de bodega |
+| Contabilidad / Tesoreria | Contador general, encargado de tesoreria |
+| RRHH | Encargado de recursos humanos |
+| Call Center | Agente de call center |
+| Encargado de Sucursal | Encargado de farmacia |
+| Cajero | Cajero / Dependiente |
+| Auxiliar de Farmacia | Auxiliar de farmacia |
+| Repartidor | Motorista / Repartidor |
+| Responsable Tecnico Farmaceutico | Director o responsable tecnico farmaceutico |
+| Auditor | Auditor interno |
 
-Debe ser solo lectura. No asignar `Crear`, `Editar`, `Eliminar`, `Aprobar`, `Pagar`, `Autorizar`, `Conciliar` ni acciones transaccionales.
+Esta propuesta reduce duplicidad, pero crea roles donde la operacion y el riesgo de permisos si son distintos.
 
-### Catalogos Maestros
+## Acciones recomendadas en orden
 
-| Permisos | IS_GLOBAL |
-| --- | --- |
-| `MedicineCategory.*`, `MedicineLaboratory.*`, `MedicinePresentation.*`, `UnitMeasurement.*`. | `true` |
-| `Medicine.*`, `Supplier.*`, `SupplierMedicine.*`. | `true` |
-| `CashMovementType.*`, `MovementType.*`, `CashRegister.*`. | `true` |
-| `Company.Ver`, `Branch.Ver`, `Branch.Crear`, `Branch.Editar`. | `true` |
+1. Corregir `Gerencia General` asignando permisos efectivos o quitar sus menus hasta configurarlo.
+2. Definir politica de `IS_GLOBAL`: matriz por sucursal principal o permisos globales explicitos. Recomiendo explicitos para roles corporativos.
+3. Crear roles faltantes: `Supervisor de Sucursales`, `Auxiliar de Farmacia`, `Auxiliar de Bodega`, `Repartidor`, `Responsable Tecnico Farmaceutico`.
+4. Ampliar `Auditor` como solo lectura global sobre reportes clave.
+5. Corregir `RRHH`: agregar reporte de planilla o quitar menu `Reportes`.
+6. Normalizar nombre `Call Center ` a `Call Center`.
+7. Depurar permisos activos de menus deshabilitados (`StockTransfer`, `AuditReport`, `PayrollReport`) para evitar deuda de seguridad.
+8. Revisar reportes de `Encargado de Sucursal` y retirar planilla/auditoria/rentabilidad si no corresponden.
+9. Separar `Contabilidad / Tesoreria` si el negocio requiere aprobacion, pago y conciliacion por personas distintas.
 
-Este rol mantiene datos maestros, pero no deberia tener permisos transaccionales de ventas, compras, pagos o seguridad.
+## Veredicto final
 
-## Reportes por rol
+La estructura propuesta es una buena base, pero no esta cerrada. Actualmente cubre ventas, caja, compras, inventario, traslados, nomina, tesoreria, call center y seguridad, pero no cubre correctamente supervision multi-sucursal, auditoria interna, reparto, auxiliares y responsable tecnico. Tampoco esta consistente el alcance matriz/local porque todos los permisos estan locales y se confia en la sucursal matriz para elevar alcance.
 
-| Rol | Reportes sugeridos |
-| --- | --- |
-| Gerencia General | Todos los reportes consolidados. |
-| Gerente Matriz / Operaciones | Ventas, inventario, traslados, compras, rentabilidad, stock minimo, productos vencidos/proximos a vencer. |
-| Encargado Sucursal | Ventas por periodo/sucursal, inventario por sucursal, stock minimo, cierre de caja de su sucursal. |
-| Cajero | Cierre de caja, movimientos detallados por caja, historial de sesion propio. |
-| Inventario / Bodega | Inventario por sucursal, consolidado, kardex, stock minimo, vencimientos, baja rotacion, traslados. |
-| Compras Matriz | Compras por proveedor, inventario consolidado, stock minimo, baja rotacion, vencimientos. |
-| Contabilidad / Tesoreria | Flujo de efectivo, cierre de caja, conciliaciones, compras por proveedor, rentabilidad. |
-| RRHH / Nomina | Planilla. |
-| Activos Fijos | Activos fijos y detalle de activos fijos. |
-| Auditor | Todos los reportes, auditoria y detalle de auditoria. |
-
-## Recomendacion final
-
-Se recomienda mantener `Administrador` como rol tecnico total y crear roles funcionales por area. La separacion minima sugerida para produccion seria:
-
-- `Administrador`.
-- `Gerencia General`.
-- `Gerente Matriz / Operaciones`.
-- `Encargado Sucursal`.
-- `Cajero`.
-- `Vendedor / Dependiente`.
-- `Inventario / Bodega`.
-- `Compras Matriz`.
-- `Contabilidad / Tesoreria`.
-- `RRHH / Nomina`.
-- `Auditor`.
-
-Roles adicionales como `Recepcion Compras`, `Logistica / Traslados`, `Call Center`, `Activos Fijos` y `Catalogos Maestros` pueden crearse si esas funciones las realizan personas distintas.
-
-La regla practica es: primero asignar menus, luego asignar permisos por accion y finalmente definir `IS_GLOBAL` solo cuando el usuario realmente deba ver u operar datos de todas las sucursales. Para usuarios de sucursal, dejar `IS_GLOBAL = false` y asegurar que tengan empleado/sucursal asociada.
+Antes de operar con usuarios reales, deben corregirse como minimo `Gerencia General`, `Auditor`, `RRHH`, `IS_GLOBAL` para roles corporativos y los roles faltantes de auxiliares/reparto/supervision.

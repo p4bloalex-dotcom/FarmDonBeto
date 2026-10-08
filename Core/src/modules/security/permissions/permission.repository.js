@@ -1,4 +1,5 @@
 import { AppDataSource } from '../../../config/data-source.js';
+import { clearBranchRlsCache } from '../../../subscribers/branch-rls.subscriber.js';
 
 const rolePermissions = () => AppDataSource.getRepository('RolePermission');
 
@@ -26,5 +27,6 @@ export const updateRolePermission = async ({ roleId, permissionId, isCheck, isGl
   rolePermission.isGlobal = isGlobal;
 
   await repo.save(rolePermission);
+  await clearBranchRlsCache();
   return true;
 };

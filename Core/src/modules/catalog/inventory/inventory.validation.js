@@ -73,3 +73,16 @@ export const inventoryReservationSchema = Joi.object({
   if (!branchId || !medicineId || (expiresAtValue && isNaN(expiresAt.getTime()))) return helpers.error('any.required');
   return { branchId, medicineId, customerOrderId, quantity: Number(value.quantity), expiresAt };
 });
+
+export const inventoryLotSanitaryStatusSchema = Joi.object({
+  sanitaryStatus: Joi.string().valid('APPROVED', 'IMMOBILIZED', 'QUARANTINE', 'REJECTED'),
+  sanitary_status: Joi.string().valid('APPROVED', 'IMMOBILIZED', 'QUARANTINE', 'REJECTED'),
+  sanitaryBlockReason: Joi.string().trim().max(500).allow(null, ''),
+  sanitary_block_reason: Joi.string().trim().max(500).allow(null, '')
+}).custom((value, helpers) => {
+  const sanitaryStatus = value.sanitaryStatus ?? value.sanitary_status;
+  const sanitaryBlockReason = (value.sanitaryBlockReason ?? value.sanitary_block_reason) || null;
+  if (!sanitaryStatus) return helpers.error('any.required');
+  if (sanitaryStatus !== 'APPROVED' && !sanitaryBlockReason) return helpers.error('any.custom', { message: 'Debe indicar el motivo sanitario para bloquear el lote.' });
+  return { sanitaryStatus, sanitaryBlockReason: sanitaryStatus === 'APPROVED' ? null : sanitaryBlockReason };
+});

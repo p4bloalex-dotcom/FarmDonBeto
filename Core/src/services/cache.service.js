@@ -99,5 +99,20 @@ export const cacheService = {
       redisReady = false;
       logger.warn({ error, prefix }, 'Redis cache prefix delete failed');
     }
+  },
+
+  async clearAll() {
+    memoryCache.clear();
+
+    if (!redisReady) return;
+
+    try {
+      for await (const key of client.scanIterator({ MATCH: '*', COUNT: 100 })) {
+        await client.del(key);
+      }
+    } catch (error) {
+      redisReady = false;
+      logger.warn({ error }, 'Redis cache clear failed');
+    }
   }
 };

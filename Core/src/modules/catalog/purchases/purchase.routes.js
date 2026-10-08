@@ -21,6 +21,7 @@ import {
   getPurchaseRequests,
   getPurchases,
   payInvoice,
+  reviewPurchaseReceipt,
   removePurchase
 } from './purchase.controller.js';
 import { purchaseSchema, supplierInvoicePaymentSchema } from './purchase.validation.js';
@@ -32,7 +33,7 @@ export const permissions = registerScreen({
   routePath: 'purchase',
   title: 'Compras',
   icon: 'heroicons_solid:shopping-cart',
-  actions: [...crudActions(), actions.request, actions.order, actions.approve, actions.receive, actions.invoice, actions.pay, actions.return]
+  actions: [...crudActions(), actions.request, actions.order, actions.approve, actions.receive, actions.technicalReview, actions.invoice, actions.pay, actions.return]
 });
 
 purchaseRoutes.use(authenticate);
@@ -43,6 +44,7 @@ purchaseRoutes.get('/requests', permissionRequired(permissions.view), asyncHandl
 purchaseRoutes.post('/orders', permissionRequired(permissions.order), asyncHandler(addPurchaseOrder));
 purchaseRoutes.post('/orders/:id/approve', permissionRequired(permissions.approve), asyncHandler(approvePurchaseOrder));
 purchaseRoutes.post('/receipts', permissionRequired(permissions.receive), asyncHandler(addPurchaseReceipt));
+purchaseRoutes.post('/receipts/:id/technical-review', permissionRequired(permissions.technicalReview), asyncHandler(reviewPurchaseReceipt));
 purchaseRoutes.post('/invoices', permissionRequired(permissions.invoice), asyncHandler(addSupplierInvoice));
 purchaseRoutes.post('/invoices/:id/pay', permissionRequired(permissions.pay), validate(supplierInvoicePaymentSchema), asyncHandler(payInvoice));
 purchaseRoutes.post('/returns', permissionRequired(permissions.return), asyncHandler(addPurchaseReturn));

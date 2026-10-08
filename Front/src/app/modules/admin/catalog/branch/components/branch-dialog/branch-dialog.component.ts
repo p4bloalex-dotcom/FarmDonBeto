@@ -23,6 +23,7 @@ export class BranchDialogComponent {
   dataForm: UntypedFormGroup;
   departments: any[] = [];
   municipalities: any[] = [];
+  employees: any[] = [];
   geocodeMatches: any[] = [];
   service = 'Branch';
   branchTypes = [
@@ -47,17 +48,40 @@ export class BranchDialogComponent {
       latitude: [null],
       longitude: [null],
       coverageRadiusKm: [8],
-      averageDeliveryMinutes: [25]
+      averageDeliveryMinutes: [25],
+      technicalDirectorEmployeeId: [null],
+      sanitaryLicenseNumber: [''],
+      sanitaryLicenseExpiresAt: [null]
     });
     this.loadDepartments();
+    this.loadEmployees();
 
     if (this._data.action !== 1) {
       this.dataForm.patchValue(this._data.row);
+      this.dataForm.get('sanitaryLicenseExpiresAt').patchValue(this.toDateInput(this._data.row?.sanitaryLicenseExpiresAt ?? this._data.row?.sanitary_license_expires_at));
       this.dataForm.get('is_main').patchValue(Number(this._data.row?.isMain ?? this._data.row?.is_main) === 1);
       const departmentId = this._data.row?.id_department ?? this._data.row?.idDepartment;
       if (departmentId) this.onDepartmentSelected(departmentId);
     }
     if (this._data.action === 4) this.dataForm.disable();
+  }
+
+  loadEmployees(): void {
+    this._generalApi.getList('Personal').subscribe({
+      next: (resp: ApiResponse<any>) => this.employees = resp.success ? resp.data : [],
+      error: () => this._toast.error('Error inesperado al cargar empleados.')
+    });
+  }
+
+  employeeName(item: any): string {
+    return [item.firstName ?? item.first_name, item.lastName ?? item.last_name].filter(Boolean).join(' ') || item.name || `Empleado ${item.idPersonal ?? item.id}`;
+  }
+
+  private toDateInput(value: any): string | null {
+    if (!value) return null;
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString().slice(0, 10);
   }
 
   loadDepartments(): void {

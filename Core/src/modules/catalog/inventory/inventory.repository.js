@@ -104,6 +104,8 @@ export const listLots = async ({ branchId = null, medicineId = null, expiringDay
     quantityQuarantine: Number(item.quantityQuarantine ?? 0),
     quantityDamaged: Number(item.quantityDamaged ?? 0),
     quantityExpired: Number(item.quantityExpired ?? 0),
+    sanitaryStatus: item.sanitaryStatus ?? 'APPROVED',
+    sanitaryBlockReason: item.sanitaryBlockReason ?? null,
     availableToPromise: Number(item.quantityAvailable ?? item.quantity ?? 0) - Number(item.quantityReserved ?? 0),
     status: item.status
   }));
@@ -114,6 +116,18 @@ export const createLot = async (data, userId = null) => {
   const quantity = Number(data.quantity ?? data.quantityAvailable ?? 0);
   const saved = await repo.save(repo.create({ ...data, quantity, quantityAvailable: Number(data.quantityAvailable ?? quantity), status: 'E', createdBy: userId }));
   return saved.id;
+};
+
+export const updateLotSanitaryStatus = async (id, data, userId = null) => {
+  const repo = AppDataSource.getRepository('InventoryLot');
+  const lot = await repo.findOneBy({ id: Number(id), status: 'E' });
+  if (!lot) return false;
+  lot.sanitaryStatus = data.sanitaryStatus;
+  lot.sanitaryBlockReason = data.sanitaryBlockReason ?? null;
+  lot.quantityQuarantine = data.sanitaryStatus === 'APPROVED' ? 0 : Number(lot.quantityAvailable ?? 0);
+  lot.updatedBy = userId;
+  await repo.save(lot);
+  return true;
 };
 
 export const lowStockAlerts = async () => (await queryBase()

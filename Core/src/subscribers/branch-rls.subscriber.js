@@ -2,7 +2,8 @@ import { getRequestContext } from '../utils/request-context.js';
 import { cacheService } from '../services/cache.service.js';
 import { TENANT_TABLES } from '../tenant/tenant-tables.js';
 
-const CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain); END;';
+const CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain, :isGlobal); END;';
+const LEGACY_CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain); END;';
 
 const CACHE_TTL_SECONDS = 60;
 const CACHE_PREFIX = 'branch-rls:';
@@ -47,9 +48,19 @@ const resolveBranchScope = dataSource => async () => {
   store.__rlsResolved = true;
   store.__rlsScope = {
     branchId: isGlobal ? null : (user.branchId ?? null),
-    isMain: isGlobal || user.branchIsMain ? 1 : 0
+    isMain: user.branchIsMain ? 1 : 0,
+    isGlobal: isGlobal ? 1 : 0
   };
   return store.__rlsScope;
+};
+
+const applyBranchContext = async (runner, scope) => {
+  try {
+    await runner.query(CONTEXT_CALL, [scope?.branchId ?? null, scope?.isMain ?? 0, scope?.isGlobal ?? 0]);
+  } catch (error) {
+    if (error?.errorNum !== 6550 && error?.driverError?.errorNum !== 6550) throw error;
+    await runner.query(LEGACY_CONTEXT_CALL, [scope?.branchId ?? null, scope?.isGlobal || scope?.isMain ? 1 : 0]);
+  }
 };
 
 export const clearBranchRlsCache = async () => {
@@ -78,7 +89,7 @@ export const installBranchRls = dataSource => {
     if (this.isTransactionActive) {
       return (async () => {
         const scope = await branchScope();
-        await this.query(CONTEXT_CALL, [scope?.branchId ?? null, scope?.isMain ?? 0]);
+        await applyBranchContext(this, scope);
         return originalQuery.call(this, query, parameters, useStructuredResult);
       })();
     }
@@ -88,7 +99,7 @@ export const installBranchRls = dataSource => {
       fresh.__branchRlsApplied = true;
       try {
         const scope = await branchScope();
-        await fresh.query(CONTEXT_CALL, [scope?.branchId ?? null, scope?.isMain ?? 0]);
+        await applyBranchContext(fresh, scope);
         return await fresh.query(query, parameters, useStructuredResult);
       } finally {
         await fresh.release();

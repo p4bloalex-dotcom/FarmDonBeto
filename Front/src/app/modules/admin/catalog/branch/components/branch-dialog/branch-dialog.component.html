@@ -59,6 +59,20 @@
       </mat-form-field>
     </div>
     <mat-checkbox class="mt-4" formControlName="is_main" [class.!pointer-events-none]="actionDialog == 2 && _data.row?.isMain === 1">Es la sucursal matriz</mat-checkbox>
+    <div class="mt-4 rounded-xl border bg-slate-50 p-4 dark:bg-slate-900/30">
+      <div class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Responsabilidad sanitaria</div>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <mat-form-field class="w-full">
+          <mat-label>Director tecnico farmaceutico</mat-label>
+          <mat-select formControlName="technicalDirectorEmployeeId">
+            <mat-option [value]="null">Sin asignar</mat-option>
+            @for (item of employees; track trackByFn($index, item)) { <mat-option [value]="item.idPersonal ?? item.id">{{ employeeName(item) }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field class="w-full"><mat-label>Licencia sanitaria</mat-label><input matInput formControlName="sanitaryLicenseNumber" /></mat-form-field>
+        <mat-form-field class="w-full"><mat-label>Vence licencia</mat-label><input matInput type="date" formControlName="sanitaryLicenseExpiresAt" /></mat-form-field>
+      </div>
+    </div>
     <div class="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button mat-flat-button type="button" matDialogClose (click)="close()">Cancelar</button><button mat-flat-button color="primary" type="button" [disabled]="dataForm.invalid" (click)="save()">@if (actionDialog == 4) {Eliminar} @else {Guardar}</button></div>
   </div>
 </form>

@@ -101,6 +101,10 @@ getList(endpoint: string) {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/lots`, { params });
   }
 
+  updateInventoryLotSanitaryStatus(id: any, data: any) {
+    return this._httpClient.patch<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/lots/${id}/sanitary-status`, data);
+  }
+
   getLowStockAlerts() {
     return this._httpClient.get<ApiResponse<any>>(`${environment.apiUrl}/catalog/inventory/alerts/low-stock`);
   }
@@ -273,7 +277,8 @@ getList(endpoint: string) {
         .map((item: any) => this._httpClient.put<ApiResponse<any>>(`${environment.apiUrl}/${this.endpointPath(endpoint)}`, {
           roleId: item.roleId,
           permissionId: item.permissionId,
-          isCheck: item.isCheck
+          isCheck: item.isCheck,
+          isGlobal: item.isGlobal ?? false
         }));
 
       if (calls.length === 0) {
@@ -600,7 +605,8 @@ Supplier: 'catalog/suppliers',
             idRolePermission: `${roleId}-${persisted?.id ?? permission.permissionName}`,
             namePermission: permission.action,
             permissionName: permission.permissionName,
-            isCheck: persisted?.isCheck ?? false
+            isCheck: persisted?.isCheck ?? false,
+            isGlobal: persisted?.isGlobal ?? false
           };
         })
       });

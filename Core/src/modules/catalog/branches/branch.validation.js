@@ -21,7 +21,13 @@ export const branchSchema = Joi.object({
   coverageRadiusKm: Joi.number().precision(2).min(0).max(500).allow(null),
   coverage_radius_km: Joi.number().precision(2).min(0).max(500).allow(null),
   averageDeliveryMinutes: Joi.number().integer().min(5).max(480).allow(null),
-  average_delivery_minutes: Joi.number().integer().min(5).max(480).allow(null)
+  average_delivery_minutes: Joi.number().integer().min(5).max(480).allow(null),
+  technicalDirectorEmployeeId: Joi.number().integer().allow(null),
+  technical_director_employee_id: Joi.number().integer().allow(null),
+  sanitaryLicenseNumber: Joi.string().max(80).allow(null, ''),
+  sanitary_license_number: Joi.string().max(80).allow(null, ''),
+  sanitaryLicenseExpiresAt: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, ''),
+  sanitary_license_expires_at: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, '')
 }).custom(value => ({
   name: value.name,
   phone: value.phone || null,
@@ -36,7 +42,10 @@ export const branchSchema = Joi.object({
   latitude: value.latitude ?? null,
   longitude: value.longitude ?? null,
   coverageRadiusKm: value.coverageRadiusKm ?? value.coverage_radius_km ?? 8,
-  averageDeliveryMinutes: value.averageDeliveryMinutes ?? value.average_delivery_minutes ?? 25
+  averageDeliveryMinutes: value.averageDeliveryMinutes ?? value.average_delivery_minutes ?? 25,
+  technicalDirectorEmployeeId: value.technicalDirectorEmployeeId ?? value.technical_director_employee_id ?? null,
+  sanitaryLicenseNumber: (value.sanitaryLicenseNumber ?? value.sanitary_license_number) || null,
+  sanitaryLicenseExpiresAt: (value.sanitaryLicenseExpiresAt ?? value.sanitary_license_expires_at) ? new Date(value.sanitaryLicenseExpiresAt ?? value.sanitary_license_expires_at) : null
 }));
 
 export const branchStatusSchema = Joi.object({ status: Joi.string().valid('E', 'D', 'I').required() }).unknown(true);
