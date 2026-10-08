@@ -25,6 +25,8 @@ import { CashOpenDialogComponent } from './cash-open-dialog/cash-open-dialog.com
   styleUrl: './cash-flow.component.scss'
 })
 export class CashFlowComponent implements OnInit, OnDestroy {
+  branches: any[] = [];
+  selectedBranchId: number | null = null;
   registers: any[] = [];
   selectedRegisterId: number | null = null;
   sessions: any[] = [];
@@ -60,6 +62,7 @@ export class CashFlowComponent implements OnInit, OnDestroy {
   ];
 
   private _unsubscribeAll = new Subject<void>();
+  private _hasLoadedSessions = false;
 
   constructor(
     private _generalApi: GeneralApiService,
@@ -78,21 +81,32 @@ export class CashFlowComponent implements OnInit, OnDestroy {
 
   loadData(): void {
     this.isLoading = true;
-    this._generalApi.getList('CashRegister').pipe(takeUntil(this._unsubscribeAll)).subscribe({
-      next: (resp: ApiResponse<any>) => {
-        if (!resp.success) {
-          this._toast.error(resp.error?.detail ?? 'Error al cargar las cajas.');
-          this.isLoading = false;
-          return;
-        }
-        this.registers = resp.data ?? [];
-        if (this.registers.length && this.selectedRegisterId === null) {
-          this.selectedRegisterId = this.registers[0].id;
+    this._generalApi.comboList(['Branch', 'CashRegister']).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: ([branches, registers]: any[]) => {
+        this.branches = branches ?? [];
+        this.registers = registers ?? [];
+        if (this.branches.length && this.selectedBranchId === null) {
+          this.selectedBranchId = Number(this.getBranchId(this.branches[0]));
         }
         this.loadMovementTypes();
       },
-      error: () => this.finishLoad('Error inesperado al cargar las cajas.')
+      error: () => this.finishLoad('Error inesperado al cargar sucursales y cajas.')
     });
+  }
+
+  get filteredRegisters(): any[] {
+    if (this.selectedBranchId === null) return this.registers;
+    return this.registers.filter(register => Number(this.getBranchId(register)) === Number(this.selectedBranchId));
+  }
+
+  get selectedBranchName(): string {
+    const branch = this.branches.find(item => Number(this.getBranchId(item)) === Number(this.selectedBranchId));
+    return branch?.name ?? 'Sin sucursal';
+  }
+
+  get selectedRegisterName(): string {
+    const register = this.registers.find(item => Number(this.getRegisterId(item)) === Number(this.selectedRegisterId));
+    return register?.name ?? 'Sin caja';
   }
 
   loadMovementTypes(): void {
@@ -115,10 +129,12 @@ export class CashFlowComponent implements OnInit, OnDestroy {
           return;
         }
         this.sessions = resp.data ?? [];
-        const openAny = this.sessions.find(session => session.status === 'A');
-        if (this.selectedRegisterId === null && openAny) {
-          this.selectedRegisterId = openAny.cashRegisterId;
+        if (!this._hasLoadedSessions) {
+          const openAny = this.sessions.find(session => session.status === 'A');
+          if (openAny) this.selectedBranchId = openAny.branchId;
         }
+        if (!this._hasLoadedSessions || this.selectedRegisterId === null) this.selectOpenRegisterForContext();
+        this._hasLoadedSessions = true;
         this.applyRegisterContext();
       },
       error: () => this.finishLoad('Error inesperado al cargar las sesiones.')
@@ -136,13 +152,49 @@ export class CashFlowComponent implements OnInit, OnDestroy {
 
   applyRegisterContext(): void {
     const registerId = this.selectedRegisterId;
-    this.openSession = this.sessions.find(session => session.status === 'A' && session.cashRegisterId === registerId) ?? null;
-    this.closedSessions = this.sessions.filter(session => session.status !== 'A');
+    this.openSession = this.sessions.find(session => session.status === 'A' && Number(session.cashRegisterId) === Number(registerId)) ?? null;
+    this.closedSessions = this.sessions.filter(session => session.status !== 'A' && Number(session.cashRegisterId) === Number(registerId));
     this.refreshSessionDetails();
+  }
+
+  onBranchChange(): void {
+    this.selectedRegisterId = null;
+    this.ensureSelectedRegister();
+    this.applyRegisterContext();
   }
 
   onRegisterChange(): void {
     this.applyRegisterContext();
+  }
+
+  private ensureSelectedRegister(): void {
+    const registers = this.filteredRegisters;
+    const currentExists = registers.some(register => Number(this.getRegisterId(register)) === Number(this.selectedRegisterId));
+    if (!currentExists) {
+      this.selectedRegisterId = registers[0] ? Number(this.getRegisterId(registers[0])) : null;
+    }
+  }
+
+  private selectOpenRegisterForContext(): void {
+    const registers = this.filteredRegisters;
+    const openInBranch = this.sessions.find(session =>
+      session.status === 'A' && registers.some(register => Number(this.getRegisterId(register)) === Number(session.cashRegisterId))
+    );
+
+    if (openInBranch) {
+      this.selectedRegisterId = openInBranch.cashRegisterId;
+      return;
+    }
+
+    this.ensureSelectedRegister();
+  }
+
+  getBranchId(item: any): any {
+    return item?.branchId ?? item?.branch_id ?? item?.idBranch ?? item?.id_branch ?? item?.id;
+  }
+
+  getRegisterId(item: any): any {
+    return item?.id ?? item?.cashRegisterId ?? item?.cash_register_id ?? item?.idCashRegister ?? item?.id_cash_register;
   }
 
   refreshSessionDetails(): void {
@@ -183,7 +235,7 @@ export class CashFlowComponent implements OnInit, OnDestroy {
   openCashDialog(): void {
     const dialogRef = this._matDialog.open(CashOpenDialogComponent, {
       autoFocus: false,
-      data: { registers: this.registers, selectedRegisterId: this.selectedRegisterId },
+      data: { registers: this.filteredRegisters, selectedRegisterId: this.selectedRegisterId },
       width: '92vw',
       maxWidth: '520px',
       disableClose: true

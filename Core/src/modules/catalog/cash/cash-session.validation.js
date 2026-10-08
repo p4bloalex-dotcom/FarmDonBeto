@@ -41,7 +41,8 @@ export const closeSessionSchema = Joi.object({
     q20: Joi.number().integer().min(0),
     q10: Joi.number().integer().min(0),
     q5: Joi.number().integer().min(0),
-    q1: Joi.number().integer().min(0)
+    q1: Joi.number().integer().min(0),
+    cents: Joi.number().integer().min(0).max(99)
   }).unknown(true),
   counted_breakdown: Joi.object({
     q100: Joi.number().integer().min(0),
@@ -49,7 +50,8 @@ export const closeSessionSchema = Joi.object({
     q20: Joi.number().integer().min(0),
     q10: Joi.number().integer().min(0),
     q5: Joi.number().integer().min(0),
-    q1: Joi.number().integer().min(0)
+    q1: Joi.number().integer().min(0),
+    cents: Joi.number().integer().min(0).max(99)
   }).unknown(true),
   differenceExplanation: Joi.string().trim().max(500).allow(null, ''),
   difference_explanation: Joi.string().trim().max(500).allow(null, ''),

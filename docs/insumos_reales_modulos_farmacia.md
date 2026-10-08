@@ -1,11 +1,12 @@
 # Insumos reales para justificar los módulos del sistema de farmacia
 
 Fecha de consulta: 8 de octubre de 2026.
-Documento comparado: modulos-sistema-acciones(3).md, fechado el 7 de octubre de 2026.
+Documento base: modulos-sistema-acciones(3).md, fechado el 7 de octubre de 2026.
+Actualización: ajustes funcionales comunicados por Alex el 8 de octubre de 2026. No se recibió una nueva versión del documento de módulos; esta matriz incorpora esos ajustes como alcance declarado.
 
 ## 1. Alcance y criterio
 
-El proyecto puede conservar una empresa ficticia y utilizar fuentes reales de distintas organizaciones. Este documento relaciona las 31 pantallas o áreas funcionales concretas del archivo con insumos públicos y propone ajustes. No verifica código ni certifica cumplimiento legal.
+El proyecto puede conservar una empresa ficticia y utilizar fuentes reales de distintas organizaciones. Este documento relaciona las 31 pantallas o áreas funcionales concretas del archivo con insumos públicos e incorpora los ajustes declarados por el autor. No verifica código ni certifica cumplimiento legal.
 
 La relación fuente → módulo es un análisis de esta investigación. Una coincidencia funcional no demuestra que la empresa citada use los mismos estados, permisos, pantallas o automatizaciones.
 
@@ -20,42 +21,56 @@ Para cada fuente se indica su identificación, enlace y parte útil en el catál
 
 ## 2. Matriz por pantalla o módulo
 
+### Seguridad
 
-###personal
+| Pantalla | Insumo | Relación con el módulo | Criterio del proyecto |
+| --- | --- | --- | --- |
+| Usuarios | I14 e I15: accesos Odoo y autorización OWASP | Cuentas y derechos de acceso. | Mantener. La obligación de crear primero al empleado es una decisión propia. |
+| Roles | I14: Access rights, apartado Manage roles/groups | Agrupación de derechos para usuarios. | Mantener roles separados de puestos laborales. |
+| Menús | I14: gestión de permisos y grupos | Respaldo general de acceso a aplicaciones/contenido. | Mantener como configuración de navegación; crear iconos/rutas no es un proceso farmacéutico documentado. |
+| Menús por rol | I14 e I15 | Relación entre perfil y acceso. | Mantener. Ocultar una pantalla no sustituye autorización. |
+| Permisos | I15: Least privileges, Validate permissions, controles por objeto | Restricción de operaciones y recursos. | Mantener rol + acción + sucursal; el atributo Matriz no debe conceder alcance global automáticamente. Esta combinación es tu adaptación. |
 
+### Empresa, sucursales y personal
 
+| Módulo | Insumo | Relación con el módulo | Criterio del proyecto |
+| --- | --- | --- | --- |
+| Empresa | I09: encabezado patronal de planilla | Identifica patrono, nombre comercial y NIT. | Mantener como datos maestros; no requiere un flujo diario independiente. |
+| Sucursales | I06 e I07: formularios y modificaciones de licencia | Administración del establecimiento y cambios de dirección/director técnico. | Mantener ubicación y datos sanitarios. Cobertura y tiempo de entrega son parámetros propios. |
 | Personal | I09: registros de empleados; I20: Employees | Identificación laboral y asociación con centro de trabajo. | Mantener. Incorporar referencias de afiliación/NIT/altas y bajas si la nómina las utiliza. |
+
+La existencia del campo director técnico no confirma que un mismo profesional pueda atender cualquier número de sucursales. No presentar esa posibilidad como regla legal validada.
 
 ### Catálogos farmacéuticos
 
-| Pantalla | Insumo | Relación con el módulo | Decisión recomendada |
+| Pantalla | Insumo | Relación con el módulo | Criterio del proyecto |
 | --- | --- | --- | --- |
 | Medicamentos | I08: consulta MSPAS | Identificación del producto, registro, principio activo, presentación y estado. | Mantener y distinguir producto, lote y registro sanitario. |
 | Categorías de medicina | I08: clase terapéutica | Clasificación de productos. | Mantener; categorías comerciales propias pueden coexistir con clasificación terapéutica. |
 | Laboratorios | I24: búsqueda de Galeno por laboratorio | Consulta comercial por laboratorio. | Mantener. Titular, fabricante y distribuidor son conceptos distintos. |
 | Presentaciones | I08: forma farmacéutica, presentación y envase | Describe cómo se identifica y comercializa un producto. | Separar forma farmacéutica —tableta/jarabe— de presentación comercial —caja/frasco— cuando sea necesario. |
-| Unidades de medida | I17: Units of measure | Conversión entre cantidades de compra y venta/inventario. | Mantener. Si compras cajas y vendes unidades, definir factor de conversión. El catálogo de unidades solo no basta. |
+| Unidades de medida | I17: Units of measure | Conversión entre cantidades de compra y venta/inventario. | Venta fraccionada con conversión caja/blíster/unidad cuando corresponda; su disponibilidad no supone autorización para fraccionar cualquier medicamento. |
 
 La consulta sanitaria examinada contiene registros de distintos estados y fechas. Sirve como insumo de estructura; no se afirma la autorización vigente de un medicamento concreto a partir de una fila aislada.
 
 ### Proveedores, inventario, compras y traslados
 
-| Módulo/pantalla | Insumo | Relación con el módulo | Decisión recomendada |
+| Módulo/pantalla | Insumo | Relación con el módulo | Criterio del proyecto |
 | --- | --- | --- | --- |
 | Proveedores | I18: lista de proveedores/precios; I02: relaciones comerciales | Maestro comercial utilizado para abastecimiento. | Mantener; el procedimiento de alta y desactivación es propio. |
 | Medicamentos por proveedor | I18: vendor pricelists | Asociación proveedor-producto. | Mantener; precio y plazo pueden ser mejoras, no requisitos para justificar la relación actual. |
-| Inventario | I05: §§12–13 y 17; I01: proceso logístico | Lotes, rotación FEFO, estados, movimientos y conciliación. | Mantener. Documentar conteo físico, diferencia, autorización y ajuste. |
-| Compras | I01: recepción; I04: conciliación; I11: facturas de proveedor | Contraste mercadería/documentación y relación recepción-factura. | Mantener. Separar revisión sanitaria, discrepancia comercial y autorización de pago. |
-| Traslados entre sucursales | I01: requerimientos y despacho; I05: distribución/transporte | Abastecimiento desde almacén y conservación de trazabilidad. | Mantener origen/destino. Detallar producto en tránsito y recepción parcial. Traslados directos entre sucursales son una extensión propia. |
+| Inventario | I05: §§12–13 y 17; I01: proceso logístico | Lotes, rotación FEFO, estados, movimientos y conciliación. | Se distinguen existencia física, disponible, reservada, bloqueada/cuarentena y tránsito. El lote no apto se bloquea y registra motivo/propuesta de disposición. Conteos y conciliación siguen como precisión pendiente si no están documentados. |
+| Compras | I01: recepción; I04: conciliación; I11: facturas de proveedor | Contraste mercadería/documentación y relación recepción-factura. | Se separan conciliación comercial, validación sanitaria y pago. Según política interna, una factura conciliada no se paga con validación sanitaria pendiente. Las devoluciones requieren cierre financiero. |
+| Traslados entre sucursales | I01: requerimientos y despacho; I05: distribución/transporte | Abastecimiento desde almacén y conservación de trazabilidad. | Salida del origen → saldo en tránsito → entrada al destino. El traslado directo entre sucursales es una adaptación propia; falta precisar diferencias y recepción parcial si aún no están documentadas. |
 
 En Batres se describen solicitudes de farmacia, carga al sistema, preparación y despacho, además del retorno de vencidos. Ese circuito respalda tu logística general, pero no confirma tus estados exactos.
 
 ### Ventas, pedidos y efectivo
 
-| Módulo/pantalla | Insumo | Relación con el módulo | Decisión recomendada |
+| Módulo/pantalla | Insumo | Relación con el módulo | Criterio del proyecto |
 | --- | --- | --- | --- |
-| Ventas | I03: mostrador/cobros; I10: POS; I23: FEL | Registro de ventas, pagos y documentación. | Mantener. El recibo interno no equivale a una factura electrónica certificada. |
-| Call Center | I03: atención y reparto; I24: orden y seguimiento | Pedidos remotos y entrega. | Mantener. Definir pedido → venta → cobro → entrega, reserva y cancelación. |
+| Ventas | I03: mostrador/cobros; I10: POS; I23: FEL | Registro de ventas, pagos y documentación. | El comprobante actual es interno y no constituye integración FEL. Las operaciones con efectos se anulan mediante reversión e historial; se eliminan únicamente registros sin efectos. |
+| Call Center | I03: atención y reparto; I24: orden y seguimiento | Pedidos remotos y entrega. | Pedido, venta, pagos y movimientos se vinculan para evitar duplicaciones. La cantidad reservada se libera al cancelar o se consume al completar la operación. |
 | Caja del día | I10: Workflow | Sesión, apertura, movimientos, conteo/cierre y diferencias. | Mantener. Distinguir efectivo de tarjetas/transferencias en el cierre. |
 | Cajas | I10: creación/configuración de POS | Punto de cobro configurable. | Mantener caja física separada de sus sesiones. |
 | Tipos de movimiento de caja | I10: cash-in/cash-out con motivo | Clasificación de entradas y retiros fuera de ventas. | Mantener como catálogo propio; la fuente no impone tus nombres. |
@@ -63,9 +78,9 @@ En Batres se describen solicitudes de farmacia, carga al sistema, preparación y
 
 ### Nómina y activos
 
-| Módulo/pantalla | Insumo | Relación con el módulo | Decisión recomendada |
+| Módulo/pantalla | Insumo | Relación con el módulo | Criterio del proyecto |
 | --- | --- | --- | --- |
-| Nómina | I09: liquidaciones y empleados; I19: salary rules | Períodos, sueldo, deducciones y cálculo. | Mantener. Especificar aprobación, pago y cuenta financiera de salida. |
+| Nómina | I09: liquidaciones y empleados; I19: salary rules | Períodos, sueldo, deducciones y cálculo. | El pago salarial se vincula con una cuenta financiera y su salida; la aprobación de la planilla debe detallarse si todavía no forma parte del flujo. |
 | Puestos de nómina | I09: código de ocupación; I20: expediente de personal | Identificación del trabajo del empleado. | Mantener; un puesto interno no equivale automáticamente a un código IGSS. |
 | Conceptos de nómina | I19: reglas/categorías salariales | Rubros que intervienen en el cálculo. | Mantener conceptos configurables; validar aparte fórmulas y obligaciones de Guatemala. |
 | Activos fijos | I13: Register fixed assets y lifecycle | Ficha, ubicación, adquisición y baja. | Mantener control físico y responsable. Depreciación es una ampliación si se promete gestión contable. |
@@ -74,17 +89,18 @@ El manual IGSS respalda estructura de información de planilla; no demuestra que
 
 ### Supervisión
 
-| Módulo | Insumo | Relación con el módulo | Decisión recomendada |
+| Módulo | Insumo | Relación con el módulo | Criterio del proyecto |
 | --- | --- | --- | --- |
-| Reportes | I02: indicadores/rentabilidad; I21: Reporting | Análisis de resultados operativos y ventas. | Mantener; definir fórmula, período y datos de cada indicador. |
+| Reportes | I02: indicadores/rentabilidad; I21: Reporting | Análisis de resultados operativos y ventas. | Se informa margen estimado según ventas y costos disponibles, sin atribuir utilidad/rentabilidad neta. Precisar fórmula, período y tratamiento de devoluciones. |
 | Auditoría | I16: Logging, Event attributes | Trazabilidad de acciones y cambios. | Mantener; registrar usuario, momento, acción, objeto y resultado. Restringir consulta. |
-| Dashboard | I22: dashboards; I02: gestión por indicadores | Visualización resumida de información operacional. | Mantener; especificar los indicadores concretos por perfil. |
+| Dashboard | I22: dashboards; I02: gestión por indicadores | Visualización resumida de información operacional. | Indicadores por perfil; cuando se muestre margen, mantener el mismo alcance y fórmula de Reportes. |
 
-Seguridad, Empresa y Catálogos farmacéuticos son agrupadores de las pantallas detalladas; no requieren una evidencia adicional para cada encabezado. Cache, geolocalización, kardex y alcance local/global siguen dentro de los módulos, como ya los documentaste.
+Seguridad, Empresa y Catálogos farmacéuticos son agrupadores de las pantallas detalladas; no requieren una evidencia adicional para cada encabezado. Caché, geolocalización, kardex y alcance local/global siguen dentro de los módulos, como ya los documentaste.
 
 ## 3. Insumos farmacéuticos que respaldan controles existentes
 
 I05, OMS TRS 1025, anexo 7, aporta respaldo para:
+
 - FEFO (§12.30).
 - Recepción e identificación por lote (§§12.10–12.17).
 - Separación de rechazados y liberación autorizada (§§12.17–12.18).
@@ -94,27 +110,47 @@ I05, OMS TRS 1025, anexo 7, aporta respaldo para:
 
 Estos apartados permiten fundamentar tu control sanitario. No establecen por sí solos que cada recepción en cualquier farmacia guatemalteca deba seguir tu mismo circuito ni que una factura deba bloquearse hasta la liberación sanitaria.
 
-## 4. Ajustes recomendados sin rediseñar el sistema
+## 4. Ajustes incorporados y su relación con los insumos
 
-Son propuestas de esta revisión, no transcripciones de procedimientos de una empresa.
+Estado: incorporados a esta matriz a partir de la descripción del autor. No se verificó su implementación en código.
 
-| Prioridad | Ajuste | Por qué conviene |
-| --- | --- | --- |
-| Alta | Lote no apto genera incidencia y propuesta de disposición, antes que devolución automática definitiva. | El destino puede ser devolución, investigación o destrucción según el caso. |
-| Alta | Separar cantidad física, bloqueada, reservada y disponible. | Recibir mercadería no significa que toda ella esté disponible para vender. |
-| Alta | Explicar cuarentena y liberación como política del proyecto. | Evita atribuir una regla universal a la legislación o a Galeno. |
-| Alta | Conciliar orden, recepción, factura y devolución; justificar aparte el bloqueo sanitario del pago. | La concordancia comercial no equivale a una aprobación sanitaria. |
-| Alta | Completar conversión caja/blíster/unidad, si se vende fraccionado. | Evita descuadres de cantidades y costos. No validar con esto la autorización de fraccionamiento de cualquier medicamento. |
-| Alta | Vincular pedido remoto con una única venta y sus cobros. | Evita doble descuento de stock, doble movimiento de caja y reservas pendientes. |
-| Alta | Aclarar qué significa anular frente a eliminar. | Operaciones con efectos deben conservar su trazabilidad y reversión. |
-| Media | Precisar saldo en tránsito y diferencias en traslados. | Descontar origen al enviar e incorporar destino al recibir requiere tratamiento del intervalo. |
-| Media | Mostrar pago salarial desde cuenta financiera en el flujo de nómina. | Actualmente esa dependencia no aparece en tu documento. |
-| Media | Añadir nota de crédito al cierre de devolución de proveedor. | Devolver producto no cierra por sí solo el efecto financiero. |
-| Media | Establecer alcance de facturación electrónica. | Un recibo de prueba puede servir para la simulación, pero no debe llamarse integración FEL. |
-| Media | Explicar rentabilidad y flujo de efectivo según datos disponibles. | Sin costos/gastos suficientes no se calcula rentabilidad neta; no todo cobro es utilidad. |
-| Opcional | Depreciación y mantenimiento de activos; exportación IGSS; seguimiento del motorista. | Son ampliaciones; no hacen falta para justificar un alcance operativo limitado. |
+| N.º | Ajuste declarado | Módulos | Respaldo y límite |
+| --- | --- | --- | --- |
+| 1 | Un lote no apto no genera automáticamente una devolución definitiva. | Inventario y Compras | I05 respalda segregación; la automatización de disposición es diseño propio. |
+| 2 | El lote no apto queda bloqueado, con motivo y propuesta de disposición. | Inventario y Auditoría | I05 e I16; bloqueo, motivo y trazabilidad se adaptan a las pantallas existentes. |
+| 3 | La disposición admite devolución, investigación, destrucción u otra medida autorizada. | Inventario y Compras | I05; investigación no devuelve el lote a estado vendible. Una eventual liberación requiere decisión documentada. |
+| 4 | Se distinguen cantidades físicas, disponibles, reservadas, bloqueadas, en cuarentena y en tránsito. | Inventario, Ventas, Call Center y Traslados | Diseño de saldos y disponibilidad del proyecto, apoyado en control de existencias. |
+| 5 | Cuarentena y liberación son políticas internas del proyecto. | Compras e Inventario | I05 es fundamento técnico; no se afirma una regla legal universal ni su adopción exacta por Galeno. |
+| 6 | Una factura comercialmente conciliada no se paga si falta validación sanitaria. | Compras y Caja y bancos | I04/I11 respaldan conciliación comercial. Condicionar el pago a validación sanitaria es política interna adicional. |
+| 7 | Una devolución física requiere cierre financiero mediante nota de crédito, reembolso o ajuste documentado. | Compras y Caja y bancos | I02/I04 respaldan seguimiento de devoluciones; resolver su efecto financiero es parte del flujo adaptado. |
+| 8 | Un pedido remoto no debe duplicar venta, cobro ni descuento de inventario. | Call Center, Ventas, Caja e Inventario | I03/I24 respaldan pedidos; prevención de duplicación y vínculo entre operaciones son controles propios. |
+| 9 | Se diferencia eliminar de anular operaciones con efectos. | Módulos operativos y Auditoría | I16 respalda trazabilidad; eliminación limitada a registros sin efectos y reversión auditable son reglas del proyecto. |
+| 10 | El traslado registra salida, saldo en tránsito y recepción en destino. | Traslados e Inventario | I01 respalda el movimiento logístico; momentos de afectación y saldo en tránsito son especificación propia. |
+| 11 | El pago salarial se relaciona con una cuenta financiera. | Nómina y Caja y bancos | I09/I19 respaldan planilla/cálculo; la cuenta de salida es una decisión de integración del proyecto. |
+| 12 | El recibo actual se identifica como comprobante interno. | Ventas y Caja | I10/I23; no se declara certificación ni integración FEL. |
+| 13 | Los reportes muestran margen estimado, no utilidad o rentabilidad neta. | Reportes y Dashboard | Adaptación del alcance del indicador a los costos disponibles; no implica calcular todos los gastos. |
+| 14 | La venta fraccionada utiliza factores de conversión cuando proceda. | Unidades, Medicamentos, Inventario y Ventas | I17 respalda conversión; no autoriza fraccionamiento de cualquier medicamento. |
 
-No se recomienda agregar módulos solo porque una fuente los menciona. El diseño debe conservar el alcance académico elegido.
+### 4.1. Criterio para cantidades de inventario
+
+La existencia física es la cantidad realmente presente en una ubicación. Incluye cantidades que no están disponibles para venta. La cuarentena es un motivo/estado de bloqueo: no debe restarse otra vez si ya forma parte de la cantidad bloqueada.
+
+La disponibilidad se determina sobre stock apto y no reservado. Si una reserva pasa a bloqueo, debe resolverse o reclasificarse para evitar descontarla dos veces. El tránsito se registra como una ubicación o saldo logístico separado: no permanece como stock físico del origen ni entra como stock físico/disponible del destino hasta la recepción.
+
+No presentar física, reservada, bloqueada y cuarentena como cantidades independientes que se suman entre sí sin definir sus relaciones. Este criterio precisa el diseño de la matriz; debe mantenerse coherente con la implementación.
+
+### 4.2. Políticas internas que siguen siendo propias
+
+Son políticas del proyecto: quién autoriza cada operación, los nombres de estados, el circuito exacto de liberación, el bloqueo de pago por validación sanitaria, la prevención de duplicaciones y la forma de calcular disponibilidad. El insumo fundamenta el proceso general; no demuestra esa misma implementación en una empresa real.
+
+### 4.3. Precisiones todavía pendientes o ampliaciones opcionales
+
+Los ajustes declarados no permiten dar por terminados los siguientes puntos:
+
+- **Precisar si corresponde:** conteos físicos y conciliación de diferencias; recepción parcial y faltantes/sobrantes de traslado; aprobación de nómina; conciliación bancaria; fórmula exacta del margen estimado.
+- **Ampliaciones opcionales:** depreciación y mantenimiento de activos, exportación IGSS y seguimiento del motorista.
+
+No incorporar módulos adicionales solo porque aparecen en una fuente. Tampoco afirmar que estos puntos están implementados sin verificarlos.
 
 ## 5. Catálogo de fuentes y ubicación de evidencia
 
@@ -152,6 +188,7 @@ Fuente complementaria: [IGSS — Planilla Electrónica](https://www.igssgt.org/s
 ## 6. Cómo utilizarlos en el trabajo académico
 
 Para cada proceso conserva una ficha con:
+
 1. Identificador del insumo y enlace.
 2. Autor, título, fecha/versión y fecha de consulta.
 3. Sección o página que respalda el proceso.
@@ -169,5 +206,5 @@ No afirmar que se entrevistó a trabajadores ni que se accedió a documentos int
 
 Se encontró respaldo documental directo o de referencia para las 31 áreas funcionales concretas. La fuerza del respaldo varía: logística y controles de almacenamiento tienen fuentes farmacéuticas; caja, activos y algunos catálogos tienen referencias de software empresarial; menús y estados son adaptaciones de diseño. Esto justifica investigar y conservar los módulos, no valida automáticamente cada regla o implementación.
 
-No hace falta reemplazar la farmacia ficticia por Galeno o Batres. Conviene mantener los módulos y precisar los flujos señalados, apoyando cada requisito en su insumo correspondiente.
+No hace falta reemplazar la farmacia ficticia por Galeno o Batres. Los ajustes declarados quedan incorporados a la relación fuente–módulo y se distinguen de las precisiones pendientes. Se conservan las 31 áreas y el catálogo de 24 fuentes. La correspondencia es documental, no una certificación de implementación.
 

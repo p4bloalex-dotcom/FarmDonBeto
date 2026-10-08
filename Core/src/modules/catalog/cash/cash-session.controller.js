@@ -19,18 +19,24 @@ const buildBalance = async session => {
   return { income, expense, expectedAmount };
 };
 
+const toCents = value => Math.round((Number(value) || 0) * 100);
+
 const breakdownTotal = breakdown => {
   if (!breakdown) return null;
   const denominations = { q100: 100, q50: 50, q20: 20, q10: 10, q5: 5, q1: 1 };
-  return Object.entries(denominations).reduce((total, [key, value]) => total + (Number(breakdown[key]) || 0) * value, 0);
+  const billsAndCoins = Object.entries(denominations).reduce((total, [key, value]) => total + (Number(breakdown[key]) || 0) * value, 0);
+  return billsAndCoins + (Number(breakdown.cents) || 0) / 100;
 };
 
 const hasInvalidBreakdown = breakdown => {
   if (!breakdown) return false;
-  return ['q100', 'q50', 'q20', 'q10', 'q5', 'q1'].some(key => {
+  const hasInvalidDenomination = ['q100', 'q50', 'q20', 'q10', 'q5', 'q1'].some(key => {
     const value = Number(breakdown[key] ?? 0);
     return !Number.isInteger(value) || value < 0;
   });
+
+  const cents = Number(breakdown.cents ?? 0);
+  return hasInvalidDenomination || !Number.isInteger(cents) || cents < 0 || cents > 99;
 };
 
 export const addSession = async (req, res) => {
@@ -111,7 +117,7 @@ export const closeSession = async (req, res) => {
   }
 
   const countedTotal = breakdownTotal(countedBreakdown);
-  if (countedTotal !== null && Math.abs(countedTotal - Number(closingAmount)) > 0.009) {
+  if (countedTotal !== null && toCents(countedTotal) !== toCents(closingAmount)) {
     return badRequest(res, 'El desglose de efectivo debe coincidir con el monto contado.');
   }
 

@@ -17,6 +17,7 @@ import { ApiResponse } from '@fuse/services/config/config.ApiResponse';
 import { GeneralApiService } from 'app/core/services/general-api.service';
 import { debounceTime, distinctUntilChanged, startWith, Subject, takeUntil } from 'rxjs';
 import { FixedAssetFormDialogComponent } from './fixed-asset-form-dialog/fixed-asset-form-dialog.component';
+import { FixedAssetHistoryDialogComponent } from './fixed-asset-history-dialog/fixed-asset-history-dialog.component';
 import { FixedAssetRetireDialogComponent } from './fixed-asset-retire-dialog/fixed-asset-retire-dialog.component';
 
 @Component({
@@ -43,6 +44,7 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
 
   actions: TableAction[] = [
     { action: 'view', label: 'Ver detalle', icon: 'feather:eye' },
+    { action: 'history', label: 'Historial', icon: 'heroicons_outline:clock' },
     { action: 'edit', label: 'Editar', icon: 'feather:edit' },
     { action: 'transfer', label: 'Trasladar', icon: 'heroicons_outline:arrow-right-circle' },
     { action: 'disable', label: 'Dar de baja', icon: 'heroicons_outline:archive-box-x-mark' }
@@ -123,9 +125,14 @@ export class FixedAssetComponent implements OnInit, OnDestroy {
 
   handleRowAction(event: { action: string; row: any }): void {
     if (event.action === 'view') { this.openDialog(event.row, 7); return; }
+    if (event.action === 'history') { this.openHistoryDialog(event.row); return; }
     if (event.action === 'edit') this.openDialog(event.row, 2);
     if (event.action === 'transfer') this.openDialog(event.row, 8);
     if (event.action === 'disable') this.retireAsset(event.row);
+  }
+
+  openHistoryDialog(row: any): void {
+    this._matDialog.open(FixedAssetHistoryDialogComponent, { autoFocus: false, data: { asset: row }, width: '94vw', maxWidth: '980px' });
   }
 
   selectAsset(row: any, loadHistory = true): void {

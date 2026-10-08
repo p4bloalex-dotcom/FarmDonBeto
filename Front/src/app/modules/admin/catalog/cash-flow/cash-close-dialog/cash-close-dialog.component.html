@@ -20,6 +20,7 @@
             <mat-form-field><mat-label>Q10</mat-label><input matInput type="number" min="0" formControlName="q10" /></mat-form-field>
             <mat-form-field><mat-label>Q5</mat-label><input matInput type="number" min="0" formControlName="q5" /></mat-form-field>
             <mat-form-field><mat-label>Q1</mat-label><input matInput type="number" min="0" formControlName="q1" /></mat-form-field>
+            <mat-form-field><mat-label>Centavos</mat-label><input matInput type="number" min="0" max="99" step="1" formControlName="cents" /></mat-form-field>
         </div>
         <div class="mb-4 rounded-xl border bg-card p-4 text-sm">
             <div class="flex items-center justify-between text-secondary">
@@ -27,10 +28,8 @@
                 <span class="font-semibold text-foreground">Q {{ breakdownTotal | number: '1.2-2' }}</span>
             </div>
             @if (dataForm.hasError('breakdownMismatch')) {
-                <div class="mt-2 text-red-600">El desglose debe sumar el mismo monto contado.</div>
             }
             @if (dataForm.hasError('differenceExplanationRequired')) {
-                <div class="mt-2 text-red-600">Explique la diferencia antes de cerrar la caja.</div>
             }
         </div>
         <div class="rounded-xl border bg-card p-4" [class.border-t]="false">

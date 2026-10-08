@@ -33,18 +33,19 @@ export class CashCloseDialogComponent {
       q20: [0, [Validators.min(0)]],
       q10: [0, [Validators.min(0)]],
       q5: [0, [Validators.min(0)]],
-      q1: [0, [Validators.min(0)]]
+      q1: [0, [Validators.min(0)]],
+      cents: [0, [Validators.min(0), Validators.max(99)]]
     }, { validators: [this.breakdownMatchesClosingAmount.bind(this), this.differenceExplanationRequired.bind(this)] });
   }
 
   save(): void {
     if (this.dataForm.invalid) return;
-    const { closingAmount, differenceExplanation, q100, q50, q20, q10, q5, q1 } = this.dataForm.getRawValue();
+    const { closingAmount, differenceExplanation, q100, q50, q20, q10, q5, q1, cents } = this.dataForm.getRawValue();
     this._matDialogRef.close({
       idAction: 3,
       closingAmount: Math.max(Number(closingAmount) || 0, 0),
       differenceExplanation,
-      countedBreakdown: { q100, q50, q20, q10, q5, q1 }
+      countedBreakdown: { q100, q50, q20, q10, q5, q1, cents }
     });
   }
 
@@ -56,16 +57,16 @@ export class CashCloseDialogComponent {
 
   get breakdownTotal(): number {
     if (!this.dataForm) return 0;
-    const { q100, q50, q20, q10, q5, q1 } = this.dataForm.getRawValue();
-    return (Number(q100) || 0) * 100 + (Number(q50) || 0) * 50 + (Number(q20) || 0) * 20 + (Number(q10) || 0) * 10 + (Number(q5) || 0) * 5 + (Number(q1) || 0);
+    const { q100, q50, q20, q10, q5, q1, cents } = this.dataForm.getRawValue();
+    return (Number(q100) || 0) * 100 + (Number(q50) || 0) * 50 + (Number(q20) || 0) * 20 + (Number(q10) || 0) * 10 + (Number(q5) || 0) * 5 + (Number(q1) || 0) + ((Number(cents) || 0) / 100);
   }
 
   private breakdownMatchesClosingAmount(form: UntypedFormGroup): { breakdownMismatch: true } | null {
     const closingAmount = Number(form.get('closingAmount')?.value);
     if (isNaN(closingAmount)) return null;
-    const { q100, q50, q20, q10, q5, q1 } = form.getRawValue();
-    const total = (Number(q100) || 0) * 100 + (Number(q50) || 0) * 50 + (Number(q20) || 0) * 20 + (Number(q10) || 0) * 10 + (Number(q5) || 0) * 5 + (Number(q1) || 0);
-    return Math.abs(total - closingAmount) > 0.009 ? { breakdownMismatch: true } : null;
+    const { q100, q50, q20, q10, q5, q1, cents } = form.getRawValue();
+    const total = (Number(q100) || 0) * 100 + (Number(q50) || 0) * 50 + (Number(q20) || 0) * 20 + (Number(q10) || 0) * 10 + (Number(q5) || 0) * 5 + (Number(q1) || 0) + ((Number(cents) || 0) / 100);
+    return Math.round(total * 100) !== Math.round(closingAmount * 100) ? { breakdownMismatch: true } : null;
   }
 
   private differenceExplanationRequired(form: UntypedFormGroup): { differenceExplanationRequired: true } | null {

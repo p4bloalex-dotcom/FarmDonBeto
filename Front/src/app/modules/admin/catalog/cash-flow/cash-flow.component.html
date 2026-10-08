@@ -5,18 +5,31 @@
     <div class="relative flex flex-0 flex-col border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
         <div class="text-3xl font-extrabold tracking-tight">Caja del dia</div>
         <div class="mt-6 flex shrink-0 items-center gap-4 sm:ml-4 sm:mt-0">
-            @if (registers.length > 1) {
+            @if (branches.length > 1) {
                 <mat-form-field class="fuse-mat-dense fuse-mat-rounded min-w-48" [subscriptSizing]="'dynamic'">
-                    <mat-label>Caja</mat-label>
-                    <mat-select [(ngModel)]="selectedRegisterId" (selectionChange)="onRegisterChange()">
-                        @for (register of registers; track register.id) {
-                            <mat-option [value]="register.id">{{ register.name }}</mat-option>
+                    <mat-label>Sucursal</mat-label>
+                    <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="onBranchChange()">
+                        @for (branch of branches; track getBranchId(branch)) {
+                            <mat-option [value]="getBranchId(branch)">{{ branch.name }}</mat-option>
                         }
                     </mat-select>
                 </mat-form-field>
             }
-            @else if (registers.length === 1) {
-                <div class="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary">{{ registers[0].name }}</div>
+            @else if (branches.length === 1) {
+                <div class="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-100">{{ selectedBranchName }}</div>
+            }
+            @if (filteredRegisters.length > 1) {
+                <mat-form-field class="fuse-mat-dense fuse-mat-rounded min-w-48" [subscriptSizing]="'dynamic'">
+                    <mat-label>Caja</mat-label>
+                    <mat-select [(ngModel)]="selectedRegisterId" (selectionChange)="onRegisterChange()">
+                        @for (register of filteredRegisters; track getRegisterId(register)) {
+                            <mat-option [value]="getRegisterId(register)">{{ register.name }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            }
+            @else if (filteredRegisters.length === 1) {
+                <div class="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary">{{ filteredRegisters[0].name }}</div>
             }
         </div>
     </div>
@@ -89,8 +102,9 @@
                 <div class="flex flex-col items-start gap-4 rounded-2xl border bg-card p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <div class="text-2xl font-bold">Sin caja abierta</div>
+                        <div class="mt-1 text-sm text-secondary">Sucursal: {{ selectedBranchName }} · Caja: {{ selectedRegisterName }}</div>
                     </div>
-                    <button mat-flat-button color="primary" (click)="openCashDialog()">
+                    <button mat-flat-button color="primary" [disabled]="!filteredRegisters.length" (click)="openCashDialog()">
                         <mat-icon [svgIcon]="'heroicons_outline:lock-open'"></mat-icon>
                         <span class="ml-2">Abrir caja</span>
                     </button>
