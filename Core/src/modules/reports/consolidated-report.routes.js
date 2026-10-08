@@ -27,7 +27,7 @@ const reportCatalog = {
   'cash-reconciliation': 'Conciliaciones de caja',
   'cash-session-history': 'Historial de ingresos y egresos por sesion',
   'purchases-supplier': 'Compras por proveedor',
-  'profitability-branch': 'Rentabilidad por sucursal',
+  'profitability-branch': 'Margen por sucursal',
   'fixed-assets': 'Activos fijos',
   'fixed-assets-detail': 'Detalle de activos fijos',
   payroll: 'Planilla',

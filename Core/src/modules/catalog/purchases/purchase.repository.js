@@ -19,7 +19,7 @@ const appendNote = (notes, addition) => [notes, addition].filter(Boolean).join('
 const tryRegisterKardex = async (manager, payload) => {
   try {
     await registerKardex(manager, payload);
-  } catch (error) {
+  } catch {
     // El kardex es trazabilidad; no debe impedir cerrar una validacion sanitaria ya aplicada.
   }
 };
@@ -140,7 +140,7 @@ const summarizeTechnicalReview = payload => {
   const decision = payload.sanitaryDecision ?? 'APPROVED';
   if (decision === 'APPROVED' && failed.length) throw new BusinessRuleError(`No puede aprobar la validacion tecnica. Fallan: ${failed.join(', ')}.`);
   if (decision !== 'APPROVED' && !payload.technicalReviewNotes) throw new BusinessRuleError('Debe indicar observaciones/motivo cuando la validacion tecnica no aprueba el lote.');
-  return [`Decision sanitaria: ${decision}`, `Checklist conforme: ${failed.length ? `No (${failed.join(', ')})` : 'Si'}`, payload.technicalReviewNotes].filter(Boolean).join(' | ');
+  return [`Decision sanitaria: ${decision}`, `Checklist conforme: ${failed.length ? `No (${failed.join(', ')})` : 'Si'}`, payload.technicalReviewNotes, payload.dispositionProposal ? `Propuesta de disposicion: ${payload.dispositionProposal}` : null].filter(Boolean).join(' | ');
 };
 
 const queryBase = () => purchases().createQueryBuilder('item')
@@ -740,9 +740,6 @@ export const reviewReceiptTechnically = async (receiptId, payload = {}) => AppDa
     if (!purchaseDetail) throw new BusinessRuleError('El detalle de orden asociado a la recepcion no existe.');
     if (decision !== 'APPROVED') {
       await addLotStock(manager, { branchId: purchase.branchId, medicineId: detail.medicineId, lotNumber: detail.batchNumber, expirationDate: detail.expirationDate, quantity: 0, sanitaryStatus: decision, sanitaryBlockReason: reviewNote, userId: payload.technicalReviewerId ?? null });
-      if (decision === 'REJECTED') {
-        await manager.getRepository('PurchaseReturn').save({ supplierId: purchase.supplierId, branchId: purchase.branchId, purchaseId: purchase.id, receiptId: receipt.id, medicineId: detail.medicineId, batchNumber: detail.batchNumber, quantity: accepted, reason: `Rechazo sanitario en validacion tecnica: ${reviewNote}`, status: 'REGISTERED', createdBy: payload.technicalReviewerId ?? null });
-      }
       continue;
     }
     let stock = await inventoryRepo.findOneBy({ medicineId: detail.medicineId, branchId: purchase.branchId });

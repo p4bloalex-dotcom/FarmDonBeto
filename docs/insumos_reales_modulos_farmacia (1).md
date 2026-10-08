@@ -20,25 +20,11 @@ Para cada fuente se indica su identificación, enlace y parte útil en el catál
 
 ## 2. Matriz por pantalla o módulo
 
-### Seguridad
 
-| Pantalla | Insumo | Relación con el módulo | Decisión recomendada |
-| --- | --- | --- | --- |
-| Usuarios | I14 e I15: accesos Odoo y autorización OWASP | Cuentas y derechos de acceso. | Mantener. La obligación de crear primero al empleado es una decisión propia. |
-| Roles | I14: Access rights, apartado Manage roles/groups | Agrupación de derechos para usuarios. | Mantener roles separados de puestos laborales. |
-| Menús | I14: gestión de permisos y grupos | Respaldo general de acceso a aplicaciones/contenido. | Mantener como configuración de navegación; crear iconos/rutas no es un proceso farmacéutico documentado. |
-| Menús por rol | I14 e I15 | Relación entre perfil y acceso. | Mantener. Ocultar una pantalla no sustituye autorización. |
-| Permisos | I15: Least privileges, Validate permissions, controles por objeto | Restricción de operaciones y recursos. | Mantener rol + acción + sucursal; el atributo Matriz no debe conceder alcance global automáticamente. Esta combinación es tu adaptación. |
+###personal
 
-### Empresa, sucursales y personal
 
-| Módulo | Insumo | Relación con el módulo | Decisión recomendada |
-| --- | --- | --- | --- |
-| Empresa | I09: encabezado patronal de planilla | Identifica patrono, nombre comercial y NIT. | Mantener como datos maestros; no requiere un flujo diario independiente. |
-| Sucursales | I06 e I07: formularios y modificaciones de licencia | Administración del establecimiento y cambios de dirección/director técnico. | Mantener ubicación y datos sanitarios. Cobertura y tiempo de entrega son parámetros propios. |
 | Personal | I09: registros de empleados; I20: Employees | Identificación laboral y asociación con centro de trabajo. | Mantener. Incorporar referencias de afiliación/NIT/altas y bajas si la nómina las utiliza. |
-
-La existencia del campo director técnico no confirma que un mismo profesional pueda atender cualquier número de sucursales. No presentar esa posibilidad como regla legal validada.
 
 ### Catálogos farmacéuticos
 

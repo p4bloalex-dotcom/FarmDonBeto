@@ -257,14 +257,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   adjustStock(row: any): void {
-    const rawQuantity = window.prompt(`Nuevo stock disponible para ${row.medicineName}`, row.stockAvailable);
+    const rawQuantity = window.prompt(`Stock contado para ${row.medicineName}`, row.stockAvailable);
     if (rawQuantity === null) return;
     const quantityAfter = Number(rawQuantity);
     if (!Number.isFinite(quantityAfter) || quantityAfter < 0) {
       this._toast.error('El stock debe ser un numero mayor o igual a cero.');
       return;
     }
-    const reason = window.prompt('Motivo del ajuste');
+    const reason = window.prompt('Motivo / autorizacion');
     if (!reason) {
       this._toast.error('El motivo es obligatorio.');
       return;

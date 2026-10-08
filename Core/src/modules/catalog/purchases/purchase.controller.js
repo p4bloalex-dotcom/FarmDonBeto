@@ -362,6 +362,7 @@ export const reviewPurchaseReceipt = async (req, res) => {
     const id = await reviewReceiptTechnically(Number(req.params.id), {
       technicalReviewerId: req.user?.id ?? req.user?.userId ?? null,
       technicalReviewNotes: req.body?.notes ?? null,
+      dispositionProposal: req.body?.dispositionProposal ?? req.body?.disposition_proposal ?? null,
       sanitaryDecision: req.body?.sanitaryDecision ?? req.body?.sanitaryStatus ?? 'APPROVED',
       qualityChecks: req.body?.qualityChecks ?? {}
     });

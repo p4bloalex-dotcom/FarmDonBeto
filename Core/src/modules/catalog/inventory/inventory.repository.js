@@ -158,42 +158,18 @@ export const updateLotSanitaryStatus = async (id, data, userId = null) => {
     }
 
     if (data.sanitaryStatus === 'REJECTED') {
-      const claimQuantity = available + quarantine;
-      if (claimQuantity > 0) await createSanitarySupplierReturn(manager, current, claimQuantity, data.sanitaryBlockReason, userId);
+      const sources = await manager.getRepository('PurchaseReceiptDetail').createQueryBuilder('detail')
+        .innerJoin('PurchaseReceipt', 'receipt', 'receipt.id = detail.receiptId')
+        .select('receipt.purchaseId', 'purchaseId')
+        .where('detail.branchId = :branchId', { branchId: current.branchId })
+        .andWhere('detail.medicineId = :medicineId', { medicineId: current.medicineId })
+        .andWhere('detail.batchNumber = :batchNumber', { batchNumber: current.lotNumber })
+        .getRawMany();
+      const purchaseIds = [...new Set(sources.map(source => Number(source.purchaseId ?? source.PURCHASEID)).filter(Boolean))];
+      for (const purchaseId of purchaseIds) await manager.getRepository('Purchase').update(purchaseId, { status: 'DISCREPANCY' });
     }
   });
   return true;
-};
-
-const createSanitarySupplierReturn = async (manager, lot, quantity, reason, userId = null) => {
-  const existing = await manager.getRepository('PurchaseReturn').findOneBy({ branchId: lot.branchId, medicineId: lot.medicineId, batchNumber: lot.lotNumber, status: 'REGISTERED' });
-  if (existing) return existing.id;
-  const source = await manager.getRepository('PurchaseReceiptDetail').createQueryBuilder('detail')
-    .innerJoin('PurchaseReceipt', 'receipt', 'receipt.id = detail.receiptId')
-    .innerJoin('Purchase', 'purchase', 'purchase.id = receipt.purchaseId')
-    .select('purchase.id', 'purchaseId')
-    .addSelect('purchase.supplierId', 'supplierId')
-    .addSelect('receipt.id', 'receiptId')
-    .where('detail.branchId = :branchId', { branchId: lot.branchId })
-    .andWhere('detail.medicineId = :medicineId', { medicineId: lot.medicineId })
-    .andWhere('detail.batchNumber = :batchNumber', { batchNumber: lot.lotNumber })
-    .orderBy('receipt.createdAt', 'DESC')
-    .getRawOne();
-  if (!source?.purchaseId || !source?.supplierId) return null;
-  const saved = await manager.getRepository('PurchaseReturn').save({
-    supplierId: Number(source.supplierId),
-    branchId: lot.branchId,
-    purchaseId: Number(source.purchaseId),
-    receiptId: source.receiptId ? Number(source.receiptId) : null,
-    medicineId: lot.medicineId,
-    batchNumber: lot.lotNumber,
-    quantity,
-    reason: `Rechazo sanitario: ${reason ?? 'Lote no apto para venta'}`,
-    status: 'REGISTERED',
-    createdBy: userId
-  });
-  await manager.getRepository('Purchase').update(Number(source.purchaseId), { status: 'DISCREPANCY' });
-  return saved.id;
 };
 
 export const lowStockAlerts = async () => (await queryBase()

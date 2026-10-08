@@ -67,7 +67,7 @@
 | Compras | Ver, Aprobar | G |
 | Inventario, Ventas, Traslados entre sucursales, Caja y bancos, Activos fijos | Ver | G |
 | Caja del dia | Ver, Reportes | G |
-| Reportes | Ventas por periodo, Ventas por sucursal, Inventario consolidado, Compras por proveedor, Flujo de efectivo, Rentabilidad por sucursal, Activos fijos, Cierre y diferencias de caja | G |
+| Reportes | Ventas por periodo, Ventas por sucursal, Inventario consolidado, Compras por proveedor, Flujo de efectivo, Margen por sucursal, Activos fijos, Cierre y diferencias de caja | G |
 
 ### 3.3 Supervisor de Sucursales — supervisión operativa
 
@@ -114,7 +114,7 @@
 | Compras | Ver, Pagar | G para Ver; pagos aprobados |
 | Caja del dia | Ver, Reportes | G |
 | Activos fijos | Ver, Crear, Editar, Eliminar | G |
-| Reportes | Flujo de efectivo, Cierre y diferencias de caja, Movimientos detallados por caja, Conciliaciones de caja, Historial de ingresos y egresos por sesion, Compras por proveedor, Rentabilidad por sucursal, Activos fijos, Detalle de activos fijos | G |
+| Reportes | Flujo de efectivo, Cierre y diferencias de caja, Movimientos detallados por caja, Conciliaciones de caja, Historial de ingresos y egresos por sesion, Compras por proveedor, Margen por sucursal, Activos fijos, Detalle de activos fijos | G |
 
 ### 3.8 RRHH — personal y planillas
 

@@ -227,6 +227,7 @@ export const updateOrderStatus = async (order, status, userId = null, reason = n
   if (status === 'C' && !['P', 'S'].includes(order.status)) throw new BusinessRuleError('Solo se pueden cancelar ordenes pendientes o en ruta.');
   if (status === 'C') await releaseReserve(manager, order.branchId, rows);
   if (status === 'D') {
+    if (order.saleId) throw new BusinessRuleError('La orden ya tiene una venta asociada. No se puede generar otra venta ni duplicar cobros o descuento de stock.');
     const inventoryRepo = manager.getRepository('Inventory');
     for (const item of rows) {
       const stock = await inventoryRepo.findOneBy({ branchId: order.branchId, medicineId: item.medicineId });
