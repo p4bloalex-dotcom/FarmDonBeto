@@ -149,6 +149,10 @@ getList(endpoint: string) {
     return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/${path}`, data);
   }
 
+  reviewPurchaseReceipt(id: number, data: any) {
+    return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/receipts/${id}/technical-review`, data);
+  }
+
   approvePurchaseOrder(id: number, comments = '') {
     return this._httpClient.post<ApiResponse<any>>(`${environment.apiUrl}/catalog/purchases/orders/${id}/approve`, { comments });
   }
@@ -597,16 +601,16 @@ Supplier: 'catalog/suppliers',
       category.menus.push({
         nameMenu: screen.title,
         Permissions: screen.permissions.map((permission: any) => {
-          const persisted = rolePermissions.find((item: any) => item.name === permission.permissionName);
+          const persisted = rolePermissions.find((item: any) => item.name === permission.permissionName || item.NAME === permission.permissionName);
 
           return {
             idRole: roleId,
-            permissionId: permission.id ?? persisted?.idPermission ?? persisted?.id,
-            idRolePermission: `${roleId}-${persisted?.id ?? permission.permissionName}`,
+            permissionId: permission.id ?? persisted?.idPermission ?? persisted?.id_permission ?? persisted?.ID_PERMISSION ?? persisted?.id,
+            idRolePermission: `${roleId}-${persisted?.id ?? persisted?.ID ?? permission.permissionName}`,
             namePermission: permission.action,
             permissionName: permission.permissionName,
-            isCheck: persisted?.isCheck ?? false,
-            isGlobal: persisted?.isGlobal ?? false
+            isCheck: Boolean(persisted?.isCheck ?? persisted?.is_check ?? persisted?.IS_CHECK ?? false),
+            isGlobal: Boolean(persisted?.isGlobal ?? persisted?.is_global ?? persisted?.IS_GLOBAL ?? false)
           };
         })
       });

@@ -2,16 +2,43 @@ export class LotConsumptionError extends Error {
   constructor(message) { super(message); this.name = 'LotConsumptionError'; }
 }
 
-export const addLotStock = async (manager, { branchId, medicineId, lotNumber, expirationDate, quantity, userId = null }) => {
+export const addLotStock = async (manager, { branchId, medicineId, lotNumber, expirationDate, quantity, sanitaryStatus = 'APPROVED', sanitaryBlockReason = null, userId = null }) => {
   if (!lotNumber || !expirationDate) return;
   const repo = manager.getRepository('InventoryLot');
+  const incoming = Number(quantity ?? 0);
   let lot = await repo.findOneBy({ branchId, medicineId, lotNumber, status: 'E' });
   if (!lot) {
-    lot = repo.create({ branchId, medicineId, lotNumber, expirationDate, quantity: 0, quantityAvailable: 0, status: 'E', createdBy: userId });
+    lot = repo.create({
+      branchId,
+      medicineId,
+      lotNumber,
+      expirationDate,
+      quantity: incoming,
+      quantityAvailable: sanitaryStatus === 'APPROVED' ? incoming : 0,
+      quantityQuarantine: sanitaryStatus === 'APPROVED' ? 0 : incoming,
+      sanitaryStatus,
+      sanitaryBlockReason,
+      status: 'E',
+      createdBy: userId
+    });
+  } else if (sanitaryStatus === 'APPROVED' && Number(lot.quantityQuarantine ?? 0) > 0) {
+    const release = Math.min(Number(lot.quantityQuarantine ?? 0), incoming);
+    lot.quantityAvailable = Number(lot.quantityAvailable ?? 0) + release;
+    lot.quantityQuarantine = Number(lot.quantityQuarantine ?? 0) - release;
+    lot.sanitaryStatus = Number(lot.quantityQuarantine ?? 0) > 0 ? 'QUARANTINE' : 'APPROVED';
+    lot.sanitaryBlockReason = Number(lot.quantityQuarantine ?? 0) > 0 ? lot.sanitaryBlockReason : null;
+  } else if (sanitaryStatus === 'APPROVED') {
+    lot.quantity = Number(lot.quantity ?? 0) + incoming;
+    lot.quantityAvailable = Number(lot.quantityAvailable ?? lot.quantity ?? 0) + incoming;
+    lot.sanitaryStatus = 'APPROVED';
+    lot.sanitaryBlockReason = null;
+  } else {
+    lot.quantity = Number(lot.quantity ?? 0) + incoming;
+    lot.quantityQuarantine = Number(lot.quantityQuarantine ?? 0) + incoming;
+    lot.sanitaryStatus = sanitaryStatus;
+    lot.sanitaryBlockReason = sanitaryBlockReason;
   }
   lot.expirationDate = expirationDate;
-  lot.quantity = Number(lot.quantity ?? 0) + Number(quantity ?? 0);
-  lot.quantityAvailable = Number(lot.quantityAvailable ?? lot.quantity ?? 0) + Number(quantity ?? 0);
   lot.updatedBy = userId;
   await repo.save(lot);
 };

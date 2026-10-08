@@ -324,6 +324,7 @@ Logica de negocio:
 - Kardex registra entradas, salidas y saldo.
 - Las reservas apartan producto para pedidos o compromisos.
 - Los ajustes corrigen diferencias con motivo obligatorio.
+- La liberacion o bloqueo sanitario exige revision tecnica con checklist minimo y queda auditada por usuario.
 
 Estados y controles de lote:
 
@@ -339,9 +340,21 @@ Flujo de control sanitario de lote:
 1. El usuario abre Inventario.
 2. Consulta los lotes de un medicamento.
 3. Selecciona cambiar estado sanitario.
-4. Si el estado bloquea el lote, registra motivo.
-5. El sistema impide que ese lote sea vendido.
-6. Si se vuelve a marcar como apto, el lote puede volver a entrar al flujo de venta si cumple las demas condiciones.
+4. Completa checklist sanitario si va a aprobar el lote.
+5. Si el estado bloquea el lote, registra motivo obligatorio.
+6. El sistema impide que ese lote sea vendido o reservado.
+7. Si se vuelve a marcar como apto, el lote puede volver a entrar al flujo de venta si cumple las demas condiciones.
+8. Si se marca como no apto y el sistema identifica compra/recepcion origen, genera reclamo/devolucion a proveedor.
+
+Checklist sanitario minimo para aprobar:
+
+| Criterio | Proposito |
+| --- | --- |
+| Registro sanitario/documentacion verificados | Confirmar que el producto cuenta con soporte regulatorio y documental. |
+| Lote coincide con factura/guia | Evitar liberar un lote distinto al documentado por proveedor. |
+| Vencimiento valido | Confirmar que el lote tiene vida util suficiente para venta. |
+| Empaque y sello integros | Detectar dano, manipulacion o deterioro fisico. |
+| Almacenamiento/cadena de frio conforme | Validar condiciones de conservacion, especialmente productos sensibles. |
 
 Flujo de ajuste de inventario:
 
@@ -360,7 +373,7 @@ Acciones:
 | Eliminar | Cancelar o retirar registros permitidos. |
 | Ajustar | Corregir stock con motivo. |
 | Reservar | Apartar cantidad disponible. |
-| Validacion tecnica | Cambiar estado sanitario de lote. |
+| Validacion tecnica | Cambiar estado sanitario de lote con checklist, motivo y trazabilidad. |
 
 Depende de: Medicamentos, Sucursales, Compras, Traslados.
 
@@ -377,7 +390,11 @@ Logica de negocio:
 - Las ordenes a proveedor se manejan centralizadamente segun la regla actual de matriz.
 - Que una sucursal sea matriz no significa que el usuario tenga acceso global; eso depende de permisos.
 - La recepcion fisica no convierte automaticamente el lote en vendible.
-- La validacion tecnica libera lotes aceptados al inventario.
+- La recepcion fisica crea lotes en cuarentena.
+- La validacion tecnica la debe ejecutar un rol sanitario, por ejemplo Responsable Tecnico Farmaceutico o Director Tecnico.
+- La validacion tecnica libera lotes aceptados al inventario o mantiene/rechaza lotes no conformes.
+- Una factura puede capturarse mientras existe validacion tecnica pendiente, pero no queda aprobada ni pagable hasta resolverla.
+- Un rechazo sanitario genera discrepancia y reclamo/devolucion a proveedor cuando se puede rastrear la compra origen.
 
 Estados comunes:
 
@@ -388,6 +405,7 @@ Estados comunes:
 | Aprobada | Orden autorizada para recepcion. |
 | Parcialmente recibida | Solo parte del pedido llego o fue aceptado. |
 | Recibida | La recepcion fisica se completo. |
+| Validada tecnicamente | Responsable sanitario aprobo o bloqueo la recepcion. |
 | Con discrepancia | Hay diferencia entre orden, recepcion o factura. |
 | Facturada | Existe factura registrada. |
 | Pagada | La factura fue pagada. |
@@ -400,10 +418,30 @@ Flujo completo:
 4. Si se requiere proveedor, se crea orden de compra.
 5. La orden se aprueba.
 6. Se recibe producto fisicamente con lote, vencimiento, cantidades aceptadas y rechazadas.
-7. Responsable tecnico valida lotes aceptados.
-8. Se registra factura.
-9. Se paga la factura.
-10. Si hay producto no aceptado o error, se registra devolucion.
+7. Los lotes aceptados fisicamente quedan en cuarentena.
+8. Responsable tecnico valida checklist sanitario y decide aprobar, mantener en cuarentena, inmovilizar o rechazar.
+9. Si aprueba, el lote pasa a inventario disponible; si rechaza, se genera reclamo/devolucion al proveedor cuando aplica.
+10. Se registra factura y se concilia contra lo realmente aceptado y no devuelto.
+11. Se paga la factura solo si quedo aprobada/conciliada.
+12. Si hay producto no aceptado, rechazado o error, se registra devolucion o reclamo.
+
+Validacion tecnica sanitaria:
+
+| Decision | Efecto |
+| --- | --- |
+| Aprobar y liberar | El lote pasa de cuarentena a apto para venta y aumenta stock disponible. |
+| Mantener en cuarentena | El lote queda bloqueado hasta completar investigacion o documentos. |
+| Inmovilizar | El lote queda bloqueado por decision sanitaria o administrativa. |
+| Rechazar | El lote queda no apto y se genera reclamo/devolucion a proveedor si se identifica origen. |
+
+Separacion de responsabilidades:
+
+| Rol operativo | Accion esperada |
+| --- | --- |
+| Bodega/recepcion | Recibir mercaderia, registrar lote, vencimiento y cantidades fisicas. |
+| Responsable tecnico farmaceutico | Ejecutar validacion tecnica sanitaria y liberar o bloquear lotes. |
+| Compras/administracion | Gestionar ordenes, proveedores y reclamos/devoluciones. |
+| Contabilidad/tesoreria | Registrar factura y pagar solo documentos aprobados/conciliados. |
 
 Acciones:
 
@@ -417,7 +455,7 @@ Acciones:
 | Ordenar | Crear orden al proveedor. |
 | Aprobar | Autorizar orden. |
 | Recibir | Registrar recepcion fisica, lote y vencimiento. |
-| Validacion tecnica | Liberar sanitariamente lotes aceptados. |
+| Validacion tecnica | Revisar checklist sanitario y liberar, inmovilizar, mantener en cuarentena o rechazar lotes. |
 | Facturar | Registrar factura de proveedor. |
 | Pagar | Registrar pago. |
 | Devolver | Registrar devolucion al proveedor. |

@@ -122,12 +122,78 @@ export const updateLotSanitaryStatus = async (id, data, userId = null) => {
   const repo = AppDataSource.getRepository('InventoryLot');
   const lot = await repo.findOneBy({ id: Number(id), status: 'E' });
   if (!lot) return false;
-  lot.sanitaryStatus = data.sanitaryStatus;
-  lot.sanitaryBlockReason = data.sanitaryBlockReason ?? null;
-  lot.quantityQuarantine = data.sanitaryStatus === 'APPROVED' ? 0 : Number(lot.quantityAvailable ?? 0);
-  lot.updatedBy = userId;
-  await repo.save(lot);
+  await AppDataSource.transaction(async manager => {
+    const lotRepo = manager.getRepository('InventoryLot');
+    const stockRepo = manager.getRepository('Inventory');
+    const current = await lotRepo.findOneBy({ id: Number(id), status: 'E' });
+    if (!current) return false;
+    const available = Number(current.quantityAvailable ?? 0);
+    const quarantine = Number(current.quantityQuarantine ?? 0);
+    const reserved = Number(current.quantityReserved ?? 0);
+    let stockDelta = 0;
+
+    current.sanitaryStatus = data.sanitaryStatus;
+    current.sanitaryBlockReason = data.sanitaryBlockReason ?? null;
+    if (data.sanitaryStatus === 'APPROVED') {
+      current.quantityAvailable = available + quarantine;
+      current.quantityQuarantine = 0;
+      stockDelta = quarantine;
+    } else {
+      if (reserved > 0 && available > 0) throw new Error('No se puede bloquear sanitariamente un lote con reservas activas. Libere las reservas primero.');
+      current.quantityQuarantine = quarantine + available;
+      current.quantityAvailable = 0;
+      stockDelta = -available;
+    }
+    current.updatedBy = userId;
+    await lotRepo.save(current);
+
+    if (stockDelta !== 0) {
+      const stock = await stockRepo.findOneBy({ branchId: current.branchId, medicineId: current.medicineId });
+      if (!stock) throw new Error('No existe inventario agregado para reflejar el cambio sanitario del lote.');
+      const nextStock = Number(stock.stockAvailable ?? 0) + stockDelta;
+      if (nextStock < 0) throw new Error('El bloqueo sanitario supera el stock disponible agregado. Revise reservas o movimientos previos.');
+      stock.stockAvailable = nextStock;
+      await stockRepo.save(stock);
+      await registerKardex(manager, { branchId: current.branchId, medicineId: current.medicineId, movementType: data.sanitaryStatus === 'APPROVED' ? 'SANITARY_RELEASE' : 'SANITARY_BLOCK', quantityIn: stockDelta > 0 ? stockDelta : 0, quantityOut: stockDelta < 0 ? Math.abs(stockDelta) : 0, balanceAfter: nextStock, referenceType: 'INVENTORY_LOT', referenceId: current.id, reason: data.sanitaryBlockReason ?? 'Cambio de estado sanitario', userId });
+    }
+
+    if (data.sanitaryStatus === 'REJECTED') {
+      const claimQuantity = available + quarantine;
+      if (claimQuantity > 0) await createSanitarySupplierReturn(manager, current, claimQuantity, data.sanitaryBlockReason, userId);
+    }
+  });
   return true;
+};
+
+const createSanitarySupplierReturn = async (manager, lot, quantity, reason, userId = null) => {
+  const existing = await manager.getRepository('PurchaseReturn').findOneBy({ branchId: lot.branchId, medicineId: lot.medicineId, batchNumber: lot.lotNumber, status: 'REGISTERED' });
+  if (existing) return existing.id;
+  const source = await manager.getRepository('PurchaseReceiptDetail').createQueryBuilder('detail')
+    .innerJoin('PurchaseReceipt', 'receipt', 'receipt.id = detail.receiptId')
+    .innerJoin('Purchase', 'purchase', 'purchase.id = receipt.purchaseId')
+    .select('purchase.id', 'purchaseId')
+    .addSelect('purchase.supplierId', 'supplierId')
+    .addSelect('receipt.id', 'receiptId')
+    .where('detail.branchId = :branchId', { branchId: lot.branchId })
+    .andWhere('detail.medicineId = :medicineId', { medicineId: lot.medicineId })
+    .andWhere('detail.batchNumber = :batchNumber', { batchNumber: lot.lotNumber })
+    .orderBy('receipt.createdAt', 'DESC')
+    .getRawOne();
+  if (!source?.purchaseId || !source?.supplierId) return null;
+  const saved = await manager.getRepository('PurchaseReturn').save({
+    supplierId: Number(source.supplierId),
+    branchId: lot.branchId,
+    purchaseId: Number(source.purchaseId),
+    receiptId: source.receiptId ? Number(source.receiptId) : null,
+    medicineId: lot.medicineId,
+    batchNumber: lot.lotNumber,
+    quantity,
+    reason: `Rechazo sanitario: ${reason ?? 'Lote no apto para venta'}`,
+    status: 'REGISTERED',
+    createdBy: userId
+  });
+  await manager.getRepository('Purchase').update(Number(source.purchaseId), { status: 'DISCREPANCY' });
+  return saved.id;
 };
 
 export const lowStockAlerts = async () => (await queryBase()
@@ -249,6 +315,7 @@ export const createReservation = async (data, userId = null) => AppDataSource.tr
     .where('lot.branchId = :branchId', { branchId: data.branchId })
     .andWhere('lot.medicineId = :medicineId', { medicineId: data.medicineId })
     .andWhere('lot.status = :status', { status: 'E' })
+    .andWhere('lot.sanitaryStatus = :sanitaryStatus', { sanitaryStatus: 'APPROVED' })
     .andWhere('lot.quantityAvailable - lot.quantityReserved > 0')
     .andWhere('lot.quantityQuarantine = 0')
     .andWhere('lot.quantityDamaged = 0')

@@ -6,7 +6,21 @@
 
     <div class="space-y-4 p-4">
         <div class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-            Los lotes no aptos no podran venderse hasta volver a estado apto para venta.
+            Para aprobar un lote debe dejar evidencia minima de revision tecnica. Los lotes no aptos no podran venderse hasta volver a estado apto para venta.
+        </div>
+
+        <div class="rounded-xl border bg-slate-50 p-3 text-sm dark:bg-slate-900/30">
+            <div class="mb-2 font-semibold">Checklist sanitario</div>
+            <div class="grid gap-2 sm:grid-cols-2">
+                <mat-checkbox formControlName="sanitaryRegistrationVerified">Registro sanitario/documentos verificados</mat-checkbox>
+                <mat-checkbox formControlName="lotMatchesDocument">Lote coincide con factura/guia</mat-checkbox>
+                <mat-checkbox formControlName="expirationValid">Vencimiento valido para venta</mat-checkbox>
+                <mat-checkbox formControlName="packageIntegrityOk">Empaque y sello integros</mat-checkbox>
+                <mat-checkbox formControlName="storageConditionOk">Almacenamiento/cadena de frio conforme</mat-checkbox>
+            </div>
+            @if (dataForm.hasError('checklist')) {
+                <div class="mt-2 text-sm font-semibold text-red-600">Debe completar todo el checklist para aprobar el lote.</div>
+            }
         </div>
 
         <mat-form-field class="w-full">

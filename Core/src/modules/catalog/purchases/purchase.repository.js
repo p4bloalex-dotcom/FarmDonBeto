@@ -2,7 +2,7 @@ import { AppDataSource } from '../../../config/data-source.js';
 import { registerKardex } from '../inventory/inventory-kardex.service.js';
 import { addLotStock } from '../inventory/inventory-lot.service.js';
 import { createFinancialMovement } from '../treasury/treasury.repository.js';
-import { calculateReceiptLine, determineInvoiceMatching } from './purchase-flow.js';
+import { applySupplierReturnsToDetails, calculateReceiptLine, determineInvoiceMatching } from './purchase-flow.js';
 
 const purchases = () => AppDataSource.getRepository('Purchase');
 const details = () => AppDataSource.getRepository('PurchaseDetail');
@@ -16,6 +16,13 @@ const orderedDetailIdsFromNotes = notes => [
 const purchaseDetailIdsFromNotes = (notes, purchaseId) => [...String(notes ?? '').matchAll(new RegExp(`\\[PURCHASE_ORDER_DETAIL:${purchaseId}:(\\d+)\\]`, 'g'))].map(match => Number(match[1])).filter(Boolean);
 
 const appendNote = (notes, addition) => [notes, addition].filter(Boolean).join(' | ').slice(0, 1000);
+const tryRegisterKardex = async (manager, payload) => {
+  try {
+    await registerKardex(manager, payload);
+  } catch (error) {
+    // El kardex es trazabilidad; no debe impedir cerrar una validacion sanitaria ya aplicada.
+  }
+};
 
 const setGlobalRlsContext = async runner => {
   try {
@@ -89,6 +96,51 @@ export const listPurchaseDetails = async purchaseId => {
     .orderBy('item.id', 'ASC')
     .getMany();
   return rows.map(toDetailDto);
+};
+
+export const listPurchaseReceipts = async purchaseId => {
+  const receiptRepo = AppDataSource.getRepository('PurchaseReceipt');
+  const detailRepo = AppDataSource.getRepository('PurchaseReceiptDetail');
+  const receipts = await receiptRepo.find({ where: { purchaseId }, order: { createdAt: 'DESC', id: 'DESC' } });
+  return Promise.all(receipts.map(async receipt => ({
+    id: receipt.id,
+    receiptNumber: receipt.receiptNumber,
+    purchaseId: receipt.purchaseId,
+    branchId: receipt.branchId,
+    receivedAt: receipt.receivedAt,
+    receivedBy: receipt.receivedBy,
+    verifiedBy: receipt.verifiedBy,
+    status: receipt.status,
+    notes: receipt.notes,
+    details: (await detailRepo.findBy({ receiptId: receipt.id })).map(detail => ({
+      id: detail.id,
+      purchaseDetailId: detail.purchaseDetailId,
+      medicineId: detail.medicineId,
+      quantityReceived: Number(detail.quantityReceived ?? 0),
+      quantityAccepted: Number(detail.quantityAccepted ?? 0),
+      quantityRejected: Number(detail.quantityRejected ?? 0),
+      batchNumber: detail.batchNumber,
+      expirationDate: detail.expirationDate,
+      qualityStatus: detail.qualityStatus,
+      rejectionReason: detail.rejectionReason
+    }))
+  })));
+};
+
+const summarizeTechnicalReview = payload => {
+  const checks = payload.qualityChecks ?? {};
+  const labels = {
+    sanitaryRegistrationVerified: 'registro sanitario/documentacion',
+    lotMatchesDocument: 'lote coincide con documento',
+    expirationValid: 'vencimiento valido',
+    packageIntegrityOk: 'empaque integro',
+    storageConditionOk: 'condicion de almacenamiento/cadena de frio'
+  };
+  const failed = Object.entries(labels).filter(([key]) => checks[key] !== true).map(([, label]) => label);
+  const decision = payload.sanitaryDecision ?? 'APPROVED';
+  if (decision === 'APPROVED' && failed.length) throw new BusinessRuleError(`No puede aprobar la validacion tecnica. Fallan: ${failed.join(', ')}.`);
+  if (decision !== 'APPROVED' && !payload.technicalReviewNotes) throw new BusinessRuleError('Debe indicar observaciones/motivo cuando la validacion tecnica no aprueba el lote.');
+  return [`Decision sanitaria: ${decision}`, `Checklist conforme: ${failed.length ? `No (${failed.join(', ')})` : 'Si'}`, payload.technicalReviewNotes].filter(Boolean).join(' | ');
 };
 
 const queryBase = () => purchases().createQueryBuilder('item')
@@ -651,6 +703,9 @@ export const receivePurchase = async payload => AppDataSource.transaction(async 
     await detailRepo.save(purchaseDetail);
     if (accepted > 0 && !detail.batchNumber) throw new BusinessRuleError('Debe ingresar lote para los productos aceptados.');
     if (accepted > 0 && !detail.expirationDate) throw new BusinessRuleError('Debe ingresar vencimiento para los productos aceptados.');
+    if (accepted > 0) {
+      await addLotStock(manager, { branchId: purchase.branchId, medicineId: purchaseDetail.medicineId, lotNumber: detail.batchNumber, expirationDate: detail.expirationDate, quantity: accepted, sanitaryStatus: 'QUARANTINE', sanitaryBlockReason: 'Pendiente de validacion tecnica farmaceutica', userId: payload.receivedBy ?? payload.userId ?? null });
+    }
   }
   const allDetails = await detailRepo.findBy({ purchaseId: payload.purchaseId });
   const pending = allDetails.reduce((sum, item) => sum + Number(item.quantityPending ?? Math.max(0, Number(item.quantity ?? 0) - Number(item.quantityReceived ?? 0))), 0);
@@ -664,13 +719,16 @@ export const reviewReceiptTechnically = async (receiptId, payload = {}) => AppDa
   const receiptRepo = manager.getRepository('PurchaseReceipt');
   const receipt = await receiptRepo.findOneBy({ id: receiptId });
   if (!receipt) throw new BusinessRuleError('La recepcion indicada no existe.');
-  if (receipt.status === 'TECHNICALLY_APPROVED') throw new BusinessRuleError('La recepcion ya fue validada tecnicamente.');
+  if (String(receipt.status ?? '').startsWith('TECHNICALLY_')) throw new BusinessRuleError('La recepcion ya fue validada tecnicamente.');
 
   const purchase = await manager.getRepository('Purchase').findOneBy({ id: receipt.purchaseId });
   if (!purchase) throw new BusinessRuleError('La compra asociada a la recepcion no existe.');
 
   const receiptDetails = await manager.getRepository('PurchaseReceiptDetail').findBy({ receiptId });
   if (!receiptDetails.length) throw new BusinessRuleError('La recepcion no tiene detalle para validar.');
+  const decision = payload.sanitaryDecision ?? 'APPROVED';
+  if (!['APPROVED', 'QUARANTINE', 'IMMOBILIZED', 'REJECTED'].includes(decision)) throw new BusinessRuleError('La decision sanitaria indicada no es valida.');
+  const reviewNote = summarizeTechnicalReview(payload);
 
   const inventoryRepo = manager.getRepository('Inventory');
   const detailRepo = manager.getRepository('PurchaseDetail');
@@ -680,15 +738,23 @@ export const reviewReceiptTechnically = async (receiptId, payload = {}) => AppDa
     if (!detail.batchNumber || !detail.expirationDate) throw new BusinessRuleError('Todo producto aceptado requiere lote y vencimiento antes de la validacion tecnica.');
     const purchaseDetail = await detailRepo.findOneBy({ id: detail.purchaseDetailId });
     if (!purchaseDetail) throw new BusinessRuleError('El detalle de orden asociado a la recepcion no existe.');
+    if (decision !== 'APPROVED') {
+      await addLotStock(manager, { branchId: purchase.branchId, medicineId: detail.medicineId, lotNumber: detail.batchNumber, expirationDate: detail.expirationDate, quantity: 0, sanitaryStatus: decision, sanitaryBlockReason: reviewNote, userId: payload.technicalReviewerId ?? null });
+      if (decision === 'REJECTED') {
+        await manager.getRepository('PurchaseReturn').save({ supplierId: purchase.supplierId, branchId: purchase.branchId, purchaseId: purchase.id, receiptId: receipt.id, medicineId: detail.medicineId, batchNumber: detail.batchNumber, quantity: accepted, reason: `Rechazo sanitario en validacion tecnica: ${reviewNote}`, status: 'REGISTERED', createdBy: payload.technicalReviewerId ?? null });
+      }
+      continue;
+    }
     let stock = await inventoryRepo.findOneBy({ medicineId: detail.medicineId, branchId: purchase.branchId });
     if (!stock) stock = inventoryRepo.create({ medicineId: detail.medicineId, branchId: purchase.branchId, stockAvailable: 0, reserve: 0, stockMin: 0, stockMax: 0 });
     stock.stockAvailable = Number(stock.stockAvailable ?? 0) + accepted;
     await inventoryRepo.save(stock);
-    await addLotStock(manager, { branchId: purchase.branchId, medicineId: detail.medicineId, lotNumber: detail.batchNumber, expirationDate: detail.expirationDate, quantity: accepted, userId: payload.technicalReviewerId ?? null });
-    await registerKardex(manager, { branchId: purchase.branchId, medicineId: detail.medicineId, movementType: 'TECHNICAL_PURCHASE_RELEASE', quantityIn: accepted, balanceAfter: Number(stock.stockAvailable ?? 0), unitCost: purchaseDetail.unitPrice, referenceType: 'PURCHASE_RECEIPT', referenceId: receipt.id, reason: payload.technicalReviewNotes ?? 'Validacion tecnica farmaceutica' });
+    await addLotStock(manager, { branchId: purchase.branchId, medicineId: detail.medicineId, lotNumber: detail.batchNumber, expirationDate: detail.expirationDate, quantity: accepted, sanitaryStatus: 'APPROVED', userId: payload.technicalReviewerId ?? null });
+    await tryRegisterKardex(manager, { branchId: purchase.branchId, medicineId: detail.medicineId, movementType: 'TECHNICAL_RELEASE', quantityIn: accepted, balanceAfter: Number(stock.stockAvailable ?? 0), unitCost: purchaseDetail.unitPrice, referenceType: 'PURCHASE_RECEIPT', referenceId: receipt.id, reason: reviewNote });
   }
 
-  await receiptRepo.update(receiptId, { status: 'TECHNICALLY_APPROVED', verifiedBy: payload.technicalReviewerId ?? receipt.verifiedBy ?? null, notes: appendNote(receipt.notes, payload.technicalReviewNotes) });
+  await receiptRepo.update(receiptId, { status: decision === 'APPROVED' ? 'TECHNICALLY_APPROVED' : `TECHNICALLY_${decision}`, verifiedBy: payload.technicalReviewerId ?? receipt.verifiedBy ?? null, notes: appendNote(receipt.notes, reviewNote) });
+  if (decision === 'REJECTED') await manager.getRepository('Purchase').update(purchase.id, { status: 'DISCREPANCY' });
   return receiptId;
 });
 
@@ -701,8 +767,18 @@ export const registerSupplierInvoice = async payload => AppDataSource.transactio
     throw new BusinessRuleError(`La factura no puede registrarse porque la orden esta en estado ${purchase.status}. Primero debe recibir mercaderia.`);
   }
   if (!Number.isFinite(Number(payload.total)) || Number(payload.total) <= 0) throw new BusinessRuleError('El total de factura debe ser mayor a cero.');
+  const pendingTechnicalReceipts = await manager.getRepository('PurchaseReceipt').createQueryBuilder('receipt')
+    .where('receipt.purchaseId = :purchaseId', { purchaseId: payload.purchaseId })
+    .andWhere('receipt.status = :status', { status: 'RECEIVED' })
+    .getCount();
   const detailsRows = await manager.getRepository('PurchaseDetail').findBy({ purchaseId: payload.purchaseId });
-  const reconciliation = determineInvoiceMatching({ details: detailsRows, invoiceTotal: payload.total, tolerance: payload.tolerance });
+  const returns = await manager.getRepository('PurchaseReturn').findBy({ purchaseId: payload.purchaseId, status: 'REGISTERED' });
+  const billableDetails = applySupplierReturnsToDetails(detailsRows, returns);
+  if (pendingTechnicalReceipts > 0) {
+    const saved = await invoiceRepo.save(invoiceRepo.create({ ...payload, branchId: purchase?.branchId ?? payload.branchId ?? null, invoiceDate: payload.invoiceDate ? new Date(payload.invoiceDate) : new Date(), dueDate: payload.dueDate ? new Date(payload.dueDate) : null, matchingStatus: 'PENDING_TECHNICAL', status: 'PENDING_APPROVAL' }));
+    return saved.id;
+  }
+  const reconciliation = determineInvoiceMatching({ details: billableDetails, invoiceTotal: payload.total, tolerance: payload.tolerance });
   const matchingStatus = reconciliation.matchingStatus;
   const saved = await invoiceRepo.save(invoiceRepo.create({ ...payload, branchId: purchase?.branchId ?? payload.branchId ?? null, invoiceDate: payload.invoiceDate ? new Date(payload.invoiceDate) : new Date(), dueDate: payload.dueDate ? new Date(payload.dueDate) : null, matchingStatus, status: matchingStatus === 'MATCHED' ? 'APPROVED' : 'PENDING_APPROVAL' }));
   await manager.getRepository('Purchase').update(payload.purchaseId, { status: matchingStatus === 'MATCHED' ? 'INVOICED' : 'DISCREPANCY' });
@@ -765,7 +841,7 @@ export const createSupplierReturn = async payload => AppDataSource.transaction(a
   const purchase = await manager.getRepository('Purchase').findOneBy({ id: payload.purchaseId });
   if (!purchase) throw new BusinessRuleError('La compra indicada no existe.');
   if (Number(purchase.supplierId) !== Number(payload.supplierId)) throw new BusinessRuleError('El proveedor de la devolucion no coincide con el proveedor de la compra.');
-  if (!['RECEIVED', 'INVOICED', 'DISCREPANCY'].includes(purchase.status)) {
+  if (!['RECEIVED', 'INVOICED', 'DISCREPANCY', 'PAID'].includes(purchase.status)) {
     throw new BusinessRuleError(`No se puede devolver producto porque la compra esta en estado ${purchase.status}. Debe estar recibida, facturada o con discrepancia.`);
   }
   const quantity = Number(payload.quantity ?? 0);
@@ -781,6 +857,7 @@ export const createSupplierReturn = async payload => AppDataSource.transaction(a
     throw new BusinessRuleError(`La cantidad a devolver no puede superar la cantidad recibida en buen estado (${accepted}).`);
   }
   const saved = await manager.getRepository('PurchaseReturn').save({ ...payload, branchId: purchase?.branchId ?? payload.branchId ?? null });
+  if (purchase.status === 'PAID') await manager.getRepository('Purchase').update(purchase.id, { status: 'DISCREPANCY' });
   if (payload.returnMode === 'notAccepted') return saved.id;
   const stock = await manager.getRepository('Inventory').findOneBy({ branchId: purchase.branchId, medicineId: payload.medicineId });
   if (!stock) throw new BusinessRuleError('No existe inventario para descontar la devolucion.');

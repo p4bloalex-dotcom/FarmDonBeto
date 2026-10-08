@@ -34,6 +34,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   pagedData: any[] = [];
   filteredData: any[] = [];
   detailRows: any[] = [];
+  branches: any[] = [];
   detailTitle = '';
   activeInsight = 'Inventario general';
   selectedRow: any = null;
@@ -71,6 +72,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   constructor(private _generalApi: GeneralApiService, private _toast: HotToastService, private _matDialog: MatDialog) { }
 
   ngOnInit(): void {
+    this.loadBranches();
     this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
     this.searchInputControl.valueChanges.pipe(takeUntil(this._unsubscribeAll), startWith(''), debounceTime(300), distinctUntilChanged()).subscribe(() => this.applyFilters());
     this.branchFilterControl.valueChanges.pipe(takeUntil(this._unsubscribeAll)).subscribe(() => this.applyFilters());
@@ -89,9 +91,16 @@ export class InventoryComponent implements OnInit, OnDestroy {
   get activeFiltersCount(): number { return [this.searchInputControl.value, this.branchFilterControl.value !== 'ALL', this.statusFilterControl.value !== 'ALL'].filter(Boolean).length; }
   get detailCount(): number { return this.detailRows.length; }
   get branchOptions(): any[] {
-    const branches = new Map<number, string>();
-    this.filteredData.forEach(item => { if (item.branchId) branches.set(item.branchId, item.branchName); });
-    return Array.from(branches.entries()).map(([id, name]) => ({ id, name }));
+    return this.branches;
+  }
+
+  loadBranches(): void {
+    this._generalApi.getList('Branch').pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.branches = resp.success ? (resp.data ?? []).map((item: any) => ({ id: item.idBranch ?? item.id, name: item.name })) : [];
+      },
+      error: () => this._toast.error('No se pudieron cargar las sucursales.')
+    });
   }
 
   onPageChange(event: PageEvent): void {
@@ -156,7 +165,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         this.detailTitle = 'Lotes por vencer en 60 dias';
         this.activeInsight = 'Lotes por vencer';
         this.detailColumns = this.lotColumns();
-        this.detailRows = (resp.data ?? []).map((item: any) => this.decorateLot(item));
+        this.detailRows = resp.data ?? [];
       },
       error: () => this.finishLoad('No se pudieron cargar lotes por vencer.')
     });
@@ -227,7 +236,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
           { field: 'balanceAfter', header: 'Saldo', width: '90px' },
           { field: 'reason', header: 'Motivo', width: '1.5fr' }
         ];
-        this.detailRows = resp.data ?? [];
+        this.detailRows = (resp.data ?? []).map((item: any) => this.decorateLot(item));
       },
       error: () => this.finishLoad('No se pudo cargar kardex.')
     });
@@ -241,7 +250,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         this.detailTitle = `Lotes - ${row.medicineName}`;
         this.activeInsight = 'Lotes';
         this.detailColumns = this.lotColumns();
-        this.detailRows = resp.data ?? [];
+        this.detailRows = (resp.data ?? []).map((item: any) => this.decorateLot(item));
       },
       error: () => this.finishLoad('No se pudieron cargar lotes.')
     });

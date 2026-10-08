@@ -21,5 +21,20 @@ export const deleteRole = async id => (await roles().delete(id)).affected > 0;
 
 export const getRolePermissions = async id => {
   const result = await AppDataSource.query('SELECT SP_GET_ROLE_PERMISSIONS(:id) AS JSON_RESULT FROM DUAL', [id]);
-  return JSON.parse(result[0]?.JSON_RESULT ?? '{}');
+  const payload = JSON.parse(result[0]?.JSON_RESULT ?? '{}');
+  const rolePermissions = await AppDataSource.getRepository('RolePermission').createQueryBuilder('rolePermission')
+    .leftJoin('rolePermission.permission', 'permission')
+    .addSelect(['permission.id', 'permission.name'])
+    .where('rolePermission.idRole = :id', { id })
+    .getMany();
+  payload.permissions = rolePermissions.map(item => ({
+    id: item.id,
+    idRole: item.idRole,
+    idPermission: item.idPermission,
+    name: item.permission?.name ?? null,
+    isCheck: Boolean(item.isCheck),
+    isGlobal: Boolean(item.isGlobal),
+    status: item.status
+  }));
+  return payload;
 };

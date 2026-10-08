@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { badRequest, conflict, created, notFound, ok } from '../../../utils/api-response.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
+import { logger } from '../../../utils/logger.js';
 import {
   BusinessRuleError,
   approvePurchase,
@@ -18,6 +19,7 @@ import {
   hasFinancialMovement,
   hasCashMovement,
   listPurchaseDetails,
+  listPurchaseReceipts,
   listPurchaseRequests,
   listPurchases,
   paginatePurchases,
@@ -31,6 +33,7 @@ import {
 
 const toPurchaseResponse = async purchase => {
   const details = await listPurchaseDetails(purchase.id);
+  const receipts = await listPurchaseReceipts(purchase.id);
   const supplierInvoice = await findLatestSupplierInvoice(purchase.id);
   return {
     ...purchase,
@@ -51,7 +54,8 @@ const toPurchaseResponse = async purchase => {
       paidBy: supplierInvoice.paidBy ?? null,
       invoiceDate: supplierInvoice.invoiceDate
     } : null,
-    details
+    details,
+    receipts
   };
 };
 
@@ -140,7 +144,7 @@ const editableStatuses = ['E', 'DRAFT'];
 const deletableStatuses = ['E', 'DRAFT', 'PENDING_APPROVAL'];
 const receivableStatuses = ['APPROVED', 'PARTIALLY_RECEIVED'];
 const invoiceableStatuses = ['PARTIALLY_RECEIVED', 'RECEIVED', 'DISCREPANCY'];
-const returnableStatuses = ['RECEIVED', 'INVOICED', 'DISCREPANCY'];
+const returnableStatuses = ['RECEIVED', 'INVOICED', 'DISCREPANCY', 'PAID'];
 
 const validatePurchaseOrderData = async payload => {
   const supplier = await findEnabled('Supplier', payload.supplierId);
@@ -348,6 +352,7 @@ export const addPurchaseReceipt = async (req, res) => {
     return created(res, { id }, 'Recepcion registrada. Los lotes quedan pendientes de validacion tecnica farmaceutica antes de ingresar al inventario.');
   } catch (error) {
     if (error instanceof BusinessRuleError) return badRequest(res, error.message);
+    if (error?.message?.includes('value too large') || error?.errorNum === 12899 || error?.driverError?.errorNum === 12899) return badRequest(res, 'La observacion tecnica supera el limite permitido. Reduzca el texto e intente nuevamente.');
     throw error;
   }
 };
@@ -356,12 +361,16 @@ export const reviewPurchaseReceipt = async (req, res) => {
   try {
     const id = await reviewReceiptTechnically(Number(req.params.id), {
       technicalReviewerId: req.user?.id ?? req.user?.userId ?? null,
-      technicalReviewNotes: req.body?.notes ?? null
+      technicalReviewNotes: req.body?.notes ?? null,
+      sanitaryDecision: req.body?.sanitaryDecision ?? req.body?.sanitaryStatus ?? 'APPROVED',
+      qualityChecks: req.body?.qualityChecks ?? {}
     });
     return ok(res, { id }, 'Validacion tecnica registrada. Los lotes aceptados ingresaron al inventario.');
   } catch (error) {
     if (error instanceof BusinessRuleError) return badRequest(res, error.message);
-    throw error;
+    if (error?.message?.includes('value too large') || error?.errorNum === 12899 || error?.driverError?.errorNum === 12899) return badRequest(res, 'La observacion tecnica supera el limite permitido. Reduzca el texto e intente nuevamente.');
+    logger.error({ error, receiptId: req.params.id }, 'Technical receipt review failed');
+    return badRequest(res, error?.message ?? 'No se pudo registrar la validacion tecnica.');
   }
 };
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculatePurchaseTotals, calculateReceiptLine, determineInvoiceMatching } from '../../src/modules/catalog/purchases/purchase-flow.js';
+import { applySupplierReturnsToDetails, calculatePurchaseTotals, calculateReceiptLine, determineInvoiceMatching } from '../../src/modules/catalog/purchases/purchase-flow.js';
 
 test('recepcion perfecta: todo llega en buen estado y factura coincide', () => {
   const receipt = calculateReceiptLine({ ordered: 10, arrived: 10, good: 10 });
@@ -49,6 +49,33 @@ test('factura menor a lo pagable genera discrepancia', () => {
   });
   assert.equal(invoice.payableTotal, 100);
   assert.equal(invoice.difference, -10);
+  assert.equal(invoice.matchingStatus, 'DISCREPANCY');
+});
+
+test('devolucion a proveedor reduce lo pagable antes de facturar', () => {
+  const details = applySupplierReturnsToDetails([
+    { medicineId: 1, quantityOrdered: 10, quantityReceived: 10, quantityRejected: 0, unitPrice: 15 }
+  ], [
+    { medicineId: 1, quantity: 3 }
+  ]);
+
+  const invoice = determineInvoiceMatching({ details, invoiceTotal: 105 });
+  assert.equal(invoice.returned, 3);
+  assert.equal(invoice.returnedTotal, 45);
+  assert.equal(invoice.payableTotal, 105);
+  assert.equal(invoice.matchingStatus, 'MATCHED');
+});
+
+test('factura que incluye producto devuelto genera discrepancia', () => {
+  const details = applySupplierReturnsToDetails([
+    { medicineId: 1, quantityOrdered: 10, quantityReceived: 10, quantityRejected: 0, unitPrice: 15 }
+  ], [
+    { medicineId: 1, quantity: 3 }
+  ]);
+
+  const invoice = determineInvoiceMatching({ details, invoiceTotal: 150 });
+  assert.equal(invoice.payableTotal, 105);
+  assert.equal(invoice.difference, 45);
   assert.equal(invoice.matchingStatus, 'DISCREPANCY');
 });
 

@@ -44,7 +44,7 @@ purchaseRoutes.get('/requests', permissionRequired(permissions.view), asyncHandl
 purchaseRoutes.post('/orders', permissionRequired(permissions.order), asyncHandler(addPurchaseOrder));
 purchaseRoutes.post('/orders/:id/approve', permissionRequired(permissions.approve), asyncHandler(approvePurchaseOrder));
 purchaseRoutes.post('/receipts', permissionRequired(permissions.receive), asyncHandler(addPurchaseReceipt));
-purchaseRoutes.post('/receipts/:id/technical-review', permissionRequired(permissions.technicalReview), asyncHandler(reviewPurchaseReceipt));
+purchaseRoutes.post('/receipts/:id/technical-review', permissionRequired(permissions['technical-review']), asyncHandler(reviewPurchaseReceipt));
 purchaseRoutes.post('/invoices', permissionRequired(permissions.invoice), asyncHandler(addSupplierInvoice));
 purchaseRoutes.post('/invoices/:id/pay', permissionRequired(permissions.pay), validate(supplierInvoicePaymentSchema), asyncHandler(payInvoice));
 purchaseRoutes.post('/returns', permissionRequired(permissions.return), asyncHandler(addPurchaseReturn));

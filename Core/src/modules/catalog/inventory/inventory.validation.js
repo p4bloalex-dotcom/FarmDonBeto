@@ -78,11 +78,20 @@ export const inventoryLotSanitaryStatusSchema = Joi.object({
   sanitaryStatus: Joi.string().valid('APPROVED', 'IMMOBILIZED', 'QUARANTINE', 'REJECTED'),
   sanitary_status: Joi.string().valid('APPROVED', 'IMMOBILIZED', 'QUARANTINE', 'REJECTED'),
   sanitaryBlockReason: Joi.string().trim().max(500).allow(null, ''),
-  sanitary_block_reason: Joi.string().trim().max(500).allow(null, '')
+  sanitary_block_reason: Joi.string().trim().max(500).allow(null, ''),
+  qualityChecks: Joi.object({
+    sanitaryRegistrationVerified: Joi.boolean(),
+    lotMatchesDocument: Joi.boolean(),
+    expirationValid: Joi.boolean(),
+    packageIntegrityOk: Joi.boolean(),
+    storageConditionOk: Joi.boolean()
+  }).default({})
 }).custom((value, helpers) => {
   const sanitaryStatus = value.sanitaryStatus ?? value.sanitary_status;
   const sanitaryBlockReason = (value.sanitaryBlockReason ?? value.sanitary_block_reason) || null;
   if (!sanitaryStatus) return helpers.error('any.required');
+  const checks = value.qualityChecks ?? {};
+  if (sanitaryStatus === 'APPROVED' && ['sanitaryRegistrationVerified', 'lotMatchesDocument', 'expirationValid', 'packageIntegrityOk', 'storageConditionOk'].some(key => checks[key] !== true)) return helpers.error('any.custom', { message: 'Debe completar el checklist sanitario para aprobar el lote.' });
   if (sanitaryStatus !== 'APPROVED' && !sanitaryBlockReason) return helpers.error('any.custom', { message: 'Debe indicar el motivo sanitario para bloquear el lote.' });
   return { sanitaryStatus, sanitaryBlockReason: sanitaryStatus === 'APPROVED' ? null : sanitaryBlockReason };
 });

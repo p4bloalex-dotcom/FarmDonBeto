@@ -31,7 +31,8 @@ export const calculatePurchaseTotals = details => (details ?? []).reduce((totals
   const ordered = Number(detail.quantityOrdered ?? detail.quantity ?? 0);
   const verified = Number(detail.quantityReceived ?? 0);
   const notAccepted = Number(detail.quantityRejected ?? 0);
-  const good = Math.max(0, verified - notAccepted);
+  const returned = Number(detail.returnedQuantity ?? 0);
+  const good = Math.max(0, verified - notAccepted - returned);
   const pending = Number(detail.quantityPending ?? Math.max(0, ordered - verified));
   const unitPrice = Number(detail.unitPrice ?? detail.unit_price ?? 0);
 
@@ -39,13 +40,32 @@ export const calculatePurchaseTotals = details => (details ?? []).reduce((totals
   totals.arrived += verified;
   totals.good += good;
   totals.notAccepted += notAccepted;
+  totals.returned += returned;
   totals.pending += pending;
   totals.orderedTotal = roundMoney(totals.orderedTotal + ordered * unitPrice);
   totals.payableTotal = roundMoney(totals.payableTotal + good * unitPrice);
   totals.notAcceptedTotal = roundMoney(totals.notAcceptedTotal + notAccepted * unitPrice);
+  totals.returnedTotal = roundMoney(totals.returnedTotal + returned * unitPrice);
   totals.pendingTotal = roundMoney(totals.pendingTotal + pending * unitPrice);
   return totals;
-}, { ordered: 0, arrived: 0, good: 0, notAccepted: 0, pending: 0, orderedTotal: 0, payableTotal: 0, notAcceptedTotal: 0, pendingTotal: 0 });
+}, { ordered: 0, arrived: 0, good: 0, notAccepted: 0, returned: 0, pending: 0, orderedTotal: 0, payableTotal: 0, notAcceptedTotal: 0, returnedTotal: 0, pendingTotal: 0 });
+
+export const applySupplierReturnsToDetails = (details = [], returns = []) => {
+  const rows = details.map(detail => ({ ...detail, returnedQuantity: Number(detail.returnedQuantity ?? 0) }));
+  for (const item of returns) {
+    let pending = Number(item.quantity ?? 0);
+    for (const detail of rows.filter(row => Number(row.medicineId ?? row.medicine_id) === Number(item.medicineId ?? item.medicine_id))) {
+      if (pending <= 0) break;
+      const received = Number(detail.quantityReceived ?? 0);
+      const rejected = Number(detail.quantityRejected ?? 0);
+      const returnable = Math.max(0, received - rejected - Number(detail.returnedQuantity ?? 0));
+      const applied = Math.min(returnable, pending);
+      detail.returnedQuantity = Number(detail.returnedQuantity ?? 0) + applied;
+      pending -= applied;
+    }
+  }
+  return rows;
+};
 
 export const determineInvoiceMatching = ({ details, invoiceTotal, tolerance = 0.01 }) => {
   const totals = calculatePurchaseTotals(details);

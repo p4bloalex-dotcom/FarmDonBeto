@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, UntypedFormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -18,13 +19,13 @@ import { GeneralApiService } from 'app/core/services/general-api.service';
 import { debounceTime, distinctUntilChanged, forkJoin, of, startWith, Subject, takeUntil } from 'rxjs';
 import { PurchaseFormDialogComponent } from './purchase-form-dialog/purchase-form-dialog.component';
 
-type PurchaseFlowAction = 'requests' | 'orders' | 'approvals' | 'receipts' | 'invoices' | 'returns';
+type PurchaseFlowAction = 'requests' | 'orders' | 'approvals' | 'receipts' | 'technicalReview' | 'invoices' | 'returns';
 
 @Component({
   selector: 'app-purchase',
 imports: [
       CommonModule, FormsModule, ReactiveFormsModule,
-      MatProgressBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule, MatSortModule, MatSelectModule,
+      MatProgressBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule, MatSortModule, MatSelectModule, MatCheckboxModule,
       TableComponent
     ],
   templateUrl: './purchase.component.html',
@@ -69,7 +70,15 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     reason: 'Reposicion de stock',
     batchNumber: '',
     expirationDate: null,
-    qualityStatus: 'AVAILABLE'
+    qualityStatus: 'AVAILABLE',
+    receiptId: null,
+    sanitaryDecision: 'APPROVED',
+    sanitaryRegistrationVerified: false,
+    lotMatchesDocument: false,
+    expirationValid: false,
+    packageIntegrityOk: false,
+    storageConditionOk: false,
+    technicalReviewNotes: ''
   };
   returnMode: 'accepted' | 'notAccepted' = 'accepted';
   networkQuery: any = { medicineId: null, branchId: null, quantity: null };
@@ -85,6 +94,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     { value: 'orders', label: 'Orden', icon: 'heroicons_outline:shopping-cart' },
     { value: 'approvals', label: 'Aprobación', icon: 'heroicons_outline:check-circle' },
     { value: 'receipts', label: 'Recepción', icon: 'heroicons_outline:archive-box-arrow-down' },
+    { value: 'technicalReview', label: 'Validación técnica', icon: 'heroicons_outline:shield-check' },
     { value: 'invoices', label: 'Factura', icon: 'heroicons_outline:document-currency-dollar' },
     { value: 'returns', label: 'Devolución', icon: 'heroicons_outline:arrow-uturn-left' }
   ];
@@ -92,9 +102,10 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     { action: 'requests', phase: 'Fase 1', title: 'Detectar', status: 'NEED', description: 'Validar stock en red.' },
     { action: 'orders', phase: 'Fase 2', title: 'Ordenar', status: 'PENDING_APPROVAL', description: 'Armar y aprobar la orden.' },
     { action: 'approvals', phase: 'Fase 3', title: 'Aprobar', status: 'APPROVED', description: 'Autorizar compra.' },
-    { action: 'receipts', phase: 'Fase 4', title: 'Recibir', status: 'PARTIALLY_RECEIVED / RECEIVED', description: 'Validar lotes y cantidades.' },
-    { action: 'invoices', phase: 'Fase 5', title: 'Facturar', status: 'INVOICED / DISCREPANCY', description: 'Conciliar contra lo aceptado.' },
-    { action: 'returns', phase: 'Fase 6', title: 'Devolver', status: 'RETURN', description: 'Gestionar reclamos al proveedor.' }
+    { action: 'receipts', phase: 'Fase 4', title: 'Recibir', status: 'RECEIVED', description: 'Registrar lotes en cuarentena.' },
+    { action: 'technicalReview', phase: 'Fase 5', title: 'Validar', status: 'TECHNICALLY_APPROVED', description: 'Liberar o rechazar sanitariamente.' },
+    { action: 'invoices', phase: 'Fase 6', title: 'Facturar', status: 'INVOICED / DISCREPANCY', description: 'Conciliar contra lo aceptado.' },
+    { action: 'returns', phase: 'Fase 7', title: 'Devolver', status: 'RETURN', description: 'Gestionar reclamos al proveedor.' }
   ];
 
   actions: TableAction[] = [
@@ -651,6 +662,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     if (this.flowAction === 'requests') return 'Registrar solicitud';
     if (this.flowAction === 'orders') return 'Crear orden completa';
     if (this.flowAction === 'approvals') return 'Aprobar orden';
+    if (this.flowAction === 'technicalReview') return 'Registrar validacion tecnica';
     return this.selectedFlow.label;
   }
 
@@ -660,6 +672,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
       orders: 'Consolide solicitudes o agregue productos para crear una orden.',
       approvals: 'Revise y autorice la orden antes de recibir mercaderia.',
       receipts: 'Registre cantidades recibidas, aceptadas, lote y vencimiento.',
+      technicalReview: 'Responsable sanitario valida documentacion, lote, vencimiento, empaque y conservacion antes de liberar stock.',
       invoices: 'Concilie la factura contra lo recibido en buen estado.',
       returns: 'Use devolucion solo si existe producto a reclamar al proveedor.'
     };
@@ -688,6 +701,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
       orders: '',
       approvals: '',
       receipts: '',
+      technicalReview: '',
       invoices: '',
       returns: ''
     };
@@ -702,6 +716,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     if (stepIndex < currentIndex) return 'done';
     if (step.action === 'approvals' && this.availablePurchaseOrdersFor('approvals').length === 0) return 'locked';
     if (step.action === 'receipts' && this.availablePurchaseOrdersFor('receipts').length === 0) return 'locked';
+    if (step.action === 'technicalReview' && this.availablePurchaseOrdersFor('technicalReview').length === 0) return 'locked';
     if (step.action === 'invoices' && this.availablePurchaseOrdersFor('invoices').length === 0) return 'locked';
     if (step.action === 'returns' && this.availablePurchaseOrdersFor('returns').length === 0) return 'locked';
     return 'available';
@@ -713,6 +728,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     if (this.flowAction === 'orders') return !!this.flowForm.branchId && !!this.flowForm.supplierId && this.orderLines.length > 0;
     if (this.flowAction === 'approvals') return !!this.flowForm.purchaseId && this.selectedOrder?.status === 'PENDING_APPROVAL';
     if (this.flowAction === 'receipts') return !!this.flowForm.purchaseId && !!this.flowForm.purchaseDetailId && Number(this.flowForm.quantityReceived ?? 0) > 0 && !!this.flowForm.batchNumber && !!this.flowForm.expirationDate;
+    if (this.flowAction === 'technicalReview') return !!this.flowForm.receiptId && !!this.flowForm.sanitaryDecision && (this.flowForm.sanitaryDecision !== 'APPROVED' || this.technicalChecklistComplete()) && (this.flowForm.sanitaryDecision === 'APPROVED' || !!this.flowForm.technicalReviewNotes);
     if (this.flowAction === 'invoices') return !!this.flowForm.purchaseId && !!this.flowForm.supplierId && !!this.flowForm.invoiceNumber && Number(this.flowForm.total ?? 0) > 0;
     if (this.flowAction === 'returns') return !!this.flowForm.purchaseId && !!this.flowForm.supplierId && !!this.flowForm.medicineId && quantity > 0 && quantity <= this.returnableQuantity() && !!this.flowForm.reason;
     return false;
@@ -729,6 +745,10 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     }
     if (this.flowAction === 'approvals') {
       this.approveFlowOrder();
+      return;
+    }
+    if (this.flowAction === 'technicalReview') {
+      this.submitTechnicalReview();
       return;
     }
     this.submitFlow();
@@ -755,6 +775,42 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
       },
       error: () => this.finishLoad('Error inesperado al aprobar la orden.')
+    });
+  }
+
+  submitTechnicalReview(): void {
+    if (!this.canSubmitCurrentStep()) {
+      this.invalidFlow('Seleccione una recepcion y complete el checklist sanitario. Si no aprueba, indique observaciones.' );
+      return;
+    }
+    const payload = {
+      sanitaryDecision: this.flowForm.sanitaryDecision,
+      notes: this.flowForm.technicalReviewNotes || null,
+      qualityChecks: {
+        sanitaryRegistrationVerified: this.flowForm.sanitaryRegistrationVerified === true,
+        lotMatchesDocument: this.flowForm.lotMatchesDocument === true,
+        expirationValid: this.flowForm.expirationValid === true,
+        packageIntegrityOk: this.flowForm.packageIntegrityOk === true,
+        storageConditionOk: this.flowForm.storageConditionOk === true
+      }
+    };
+    this.isLoading = true;
+    this._generalApi.reviewPurchaseReceipt(this.flowForm.receiptId, payload).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: resp => {
+        if (!resp.success) {
+          this.finishLoad(resp.error?.detail ?? 'No se pudo registrar la validacion tecnica.');
+          return;
+        }
+        this._toast.success(resp.message ?? 'Validacion tecnica registrada.');
+        this.flowAction = 'invoices';
+        this.flowForm.receiptId = null;
+        this.flowForm.technicalReviewNotes = '';
+        this.loadDashboard();
+        this.refreshSelectedOrder();
+        this.onPageChange({ pageIndex: 0, pageSize: this.pageSize } as PageEvent);
+        this.finishLoad();
+      },
+      error: () => this.finishLoad('Error inesperado al validar tecnicamente la recepcion.')
     });
   }
 
@@ -953,6 +1009,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
           this.flowForm.subtotal = this.acceptedTotal();
           this.flowForm.total = this.acceptedTotal();
         }
+        if (this.flowAction === 'technicalReview' && this.pendingTechnicalReceipts().length === 1) this.flowForm.receiptId = this.pendingTechnicalReceipts()[0].id;
         if (this.purchaseDetails.length === 1) {
           this.flowForm.purchaseDetailId = this.purchaseDetails[0].id;
           this.onPurchaseDetailSelected(this.purchaseDetails[0].id);
@@ -984,9 +1041,10 @@ export class PurchaseComponent implements OnInit, OnDestroy {
         this.flowForm.purchaseDetailId = stillPending?.id ?? null;
         if (stillPending) this.onPurchaseDetailSelected(stillPending.id);
         if (this.flowAction === 'receipts' && this.receiptProgress().pending === 0) {
-          this.flowAction = 'invoices';
+          this.flowAction = 'technicalReview';
           this.flowForm.purchaseDetailId = null;
         }
+        if (this.flowAction === 'technicalReview' && this.pendingTechnicalReceipts().length === 1) this.flowForm.receiptId = this.pendingTechnicalReceipts()[0].id;
       }
     });
   }
@@ -1196,12 +1254,21 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     return this.availablePurchaseOrdersFor(this.flowAction);
   }
 
+  pendingTechnicalReceipts(): any[] {
+    return (this.selectedOrder?.receipts ?? []).filter((receipt: any) => receipt.status === 'RECEIVED');
+  }
+
+  technicalChecklistComplete(): boolean {
+    return ['sanitaryRegistrationVerified', 'lotMatchesDocument', 'expirationValid', 'packageIntegrityOk', 'storageConditionOk'].every(key => this.flowForm[key] === true);
+  }
+
   private availablePurchaseOrdersFor(action: PurchaseFlowAction): any[] {
     const allowed: Record<string, string[]> = {
       receipts: ['APPROVED', 'PARTIALLY_RECEIVED'],
+      technicalReview: ['PARTIALLY_RECEIVED', 'RECEIVED'],
       approvals: ['PENDING_APPROVAL'],
       invoices: ['PARTIALLY_RECEIVED', 'RECEIVED', 'DISCREPANCY'],
-      returns: ['RECEIVED', 'INVOICED', 'DISCREPANCY']
+      returns: ['RECEIVED', 'INVOICED', 'DISCREPANCY', 'PAID']
     };
     const statuses = allowed[action] ?? [];
     return this.purchaseOrders.filter(item => statuses.includes(item.status));
@@ -1213,7 +1280,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
       return;
     }
     if (action === 'receipts') {
-      this.flowAction = 'receipts';
+      this.flowAction = 'technicalReview';
     }
   }
 
@@ -1248,7 +1315,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   }
 
   private applySinglePurchaseOrderDefault(): void {
-    if (!['approvals', 'receipts', 'invoices', 'returns'].includes(this.flowAction) || this.flowForm.purchaseId) return;
+    if (!['approvals', 'receipts', 'technicalReview', 'invoices', 'returns'].includes(this.flowAction) || this.flowForm.purchaseId) return;
     const orders = this.availablePurchaseOrders();
     if (orders.length === 1) {
       this.flowForm.purchaseId = orders[0].id;

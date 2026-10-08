@@ -24,7 +24,7 @@ inventoryRoutes.get('/pagination', permissionRequired(permissions.view), asyncHa
 inventoryRoutes.get('/kardex', permissionRequired(permissions.view), asyncHandler(getKardex));
 inventoryRoutes.get('/lots', permissionRequired(permissions.view), asyncHandler(getLots));
 inventoryRoutes.post('/lots', permissionRequired(permissions.create), validate(inventoryLotSchema), asyncHandler(addLot));
-inventoryRoutes.patch('/lots/:id/sanitary-status', permissionRequired(permissions.technicalReview), validate(inventoryLotSanitaryStatusSchema), asyncHandler(editLotSanitaryStatus));
+inventoryRoutes.patch('/lots/:id/sanitary-status', permissionRequired(permissions['technical-review']), validate(inventoryLotSanitaryStatusSchema), asyncHandler(editLotSanitaryStatus));
 inventoryRoutes.get('/availability', permissionRequired(permissions.view), asyncHandler(getInventoryAvailability));
 inventoryRoutes.get('/replenishment-suggestions', permissionRequired(permissions.view), asyncHandler(getReplenishment));
 inventoryRoutes.post('/reservations', permissionRequired(permissions.create), validate(inventoryReservationSchema), asyncHandler(addReservation));
