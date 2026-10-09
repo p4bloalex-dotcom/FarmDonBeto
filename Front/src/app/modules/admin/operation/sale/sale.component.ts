@@ -97,7 +97,7 @@ export class SaleComponent implements OnInit, OnDestroy {
   get hasSaleContext(): boolean { return !!this.form?.value?.branchId && !!this.form?.value?.employeeId && !!this.form?.value?.cashSessionId; }
   get canRegisterSale(): boolean { return !this.isLoading && this.form?.valid && this.customerForm?.valid && this.total > 0 && !this.validateSale(); }
   get saleStepHint(): string {
-    if (!this.form?.value?.branchId) return 'Seleccione una sucursal para cargar medicamentos disponibles.';
+    if (!this.form?.value?.branchId) return '';
     if (this.openSessions.length === 0) return 'Abra o seleccione una caja activa antes de vender.';
     if (!this.form?.value?.employeeId) return 'No se pudo asociar el empleado del usuario actual. Revise el perfil del usuario.';
     if (!this.form?.value?.cashSessionId) return 'Seleccione la sesion de caja abierta.';
@@ -369,7 +369,7 @@ export class SaleComponent implements OnInit, OnDestroy {
     const branchId = this.form.value.branchId;
     const sessionId = this.form.value.cashSessionId;
     if (!this.sessions.some(item => Number(item.id) === Number(sessionId) && item.status === 'A' && Number(item.branchId) === Number(branchId))) {
-      return 'Seleccione una caja abierta de la sucursal de la venta.';
+      return '';
     }
     const details = this.details.controls.map(group => group.getRawValue());
     for (const detail of details) {
