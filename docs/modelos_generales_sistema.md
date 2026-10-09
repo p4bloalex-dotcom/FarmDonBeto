@@ -77,7 +77,6 @@ Modelos principales:
 | `InventoryReservation` | `TB_INVENTORY_RESERVATION` | Reserva de medicamentos, principalmente para pedidos. |
 | `InventoryAdjustment` | `TB_INVENTORY_ADJUSTMENT` | Ajustes manuales o correctivos de existencia. |
 | `StorageLocation` | `TB_STORAGE_LOCATION` | Ubicaciones fisicas o logicas de almacenamiento. |
-| `BranchProductConfig` | `TB_BRANCH_PRODUCT_CONFIG` | Configuracion de producto por sucursal. |
 
 Relacion funcional: inventario controla saldos por medicamento y sucursal; kardex deja el historial; lotes y reservas evitan perder trazabilidad de vencimiento y disponibilidad.
 
@@ -237,7 +236,6 @@ Estos modelos existen en el sistema y son necesarios, pero no se clasifican como
 | --- | --- | --- |
 | `MovementType` | `TB_MOVEMENT_TYPE` | Tipo de movimiento de inventario. |
 | `StorageLocation` | `TB_STORAGE_LOCATION` | Ubicacion de almacenamiento. |
-| `BranchProductConfig` | `TB_BRANCH_PRODUCT_CONFIG` | Parametros del producto por sucursal. |
 
 ### Catalogos de nomina
 
@@ -258,7 +256,7 @@ Estos modelos existen en el sistema y son necesarios, pero no se clasifican como
 | Nomina | `PayrollPayment`, `PayrollDetail`, `PayrollAdjustment`, `PayrollPeriod`, `PayrollPosition`, `PayrollConcept`, `EmployeeSalary` |
 | Activos fijos | `FixedAsset`, `FixedAssetHistory` |
 | Seguridad | `User`, `Role`, `Menu`, `RoleMenu`, `Permission`, `RolePermission`, `AuditTrailLog` |
-| Catalogos base | `Company`, `Branch`, `Department`, `Employee`, `Municipality`, `Medicine`, `MedicineCategory`, `MedicineLaboratory`, `MedicinePresentation`, `UnitMeasurement`, `Supplier`, `SupplierMedicine`, `MovementType`, `StorageLocation`, `BranchProductConfig` |
+| Catalogos base | `Company`, `Branch`, `Department`, `Employee`, `Municipality`, `Medicine`, `MedicineCategory`, `MedicineLaboratory`, `MedicinePresentation`, `UnitMeasurement`, `Supplier`, `SupplierMedicine`, `MovementType`, `StorageLocation` |
 
 ## Observaciones de consistencia
 

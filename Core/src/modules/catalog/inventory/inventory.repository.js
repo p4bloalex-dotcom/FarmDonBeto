@@ -360,38 +360,40 @@ export const cancelReservation = async (id, userId = null) => AppDataSource.tran
 });
 
 export const getReplenishmentSuggestions = async ({ branchId = null } = {}) => {
-  const query = AppDataSource.getRepository('BranchProductConfig').createQueryBuilder('config')
-    .leftJoin('config.branch', 'branch').addSelect(['branch.id', 'branch.name'])
-    .leftJoin('config.medicine', 'medicine').addSelect(['medicine.id', 'medicine.name'])
-    .leftJoin('Inventory', 'inventory', 'inventory.branchId = config.branchId AND inventory.medicineId = config.medicineId')
-    .where('config.reorderPoint > 0')
-    .andWhere('NVL(inventory.stockAvailable, 0) <= config.reorderPoint')
+  const query = AppDataSource.getRepository('Inventory').createQueryBuilder('inventory')
+    .leftJoin('inventory.branch', 'branch').addSelect(['branch.id', 'branch.name'])
+    .leftJoin('inventory.medicine', 'medicine').addSelect(['medicine.id', 'medicine.name'])
+    .where('inventory.stockMin > 0')
+    .andWhere('NVL(inventory.stockAvailable, 0) <= inventory.stockMin')
     .orderBy('branch.name', 'ASC')
     .addOrderBy('medicine.name', 'ASC');
 
-  if (branchId) query.andWhere('config.branchId = :branchId', { branchId: Number(branchId) });
+  if (branchId) query.andWhere('inventory.branchId = :branchId', { branchId: Number(branchId) });
 
   const configs = await query.getMany();
   const suggestions = [];
   for (const config of configs) {
     const currentAvailability = await getAvailability({ branchId: config.branchId, medicineId: config.medicineId });
     const current = currentAvailability[0]?.availableToPromise ?? 0;
-    const needed = Math.max(Number(config.minimumStock ?? 0) - current, Number(config.suggestedOrderQuantity ?? 0));
+    const minimumStock = Number(config.stockMin ?? 0);
+    const maximumStock = Number(config.stockMax ?? 0);
+    const targetStock = maximumStock > minimumStock ? maximumStock : minimumStock;
+    const needed = Math.max(targetStock - current, 0);
     const donors = await getAvailability({ medicineId: config.medicineId });
     const transferSources = donors
-      .filter(item => item.branchId !== config.branchId && item.availableToPromise > Number(config.minimumStock ?? 0))
-      .map(item => ({ branchId: item.branchId, branchName: item.branchName, surplus: item.availableToPromise - Number(config.minimumStock ?? 0) }));
+      .filter(item => item.branchId !== config.branchId && item.availableToPromise > minimumStock)
+      .map(item => ({ branchId: item.branchId, branchName: item.branchName, surplus: item.availableToPromise - minimumStock }));
     suggestions.push({
       branchId: config.branchId,
       branchName: config.branch?.name ?? null,
       medicineId: config.medicineId,
       medicineName: config.medicine?.name ?? null,
       currentAvailableToPromise: current,
-      reorderPoint: Number(config.reorderPoint ?? 0),
-      minimumStock: Number(config.minimumStock ?? 0),
+      reorderPoint: minimumStock,
+      minimumStock,
       neededQuantity: needed,
-      suggestionType: transferSources.length && config.allowAutomaticTransferSuggestion ? 'TRANSFER' : 'PURCHASE',
-      transferSources: config.allowAutomaticTransferSuggestion ? transferSources : []
+      suggestionType: transferSources.length ? 'TRANSFER' : 'PURCHASE',
+      transferSources
     });
   }
   return suggestions;

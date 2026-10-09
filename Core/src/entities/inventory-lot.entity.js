@@ -7,7 +7,6 @@ export const InventoryLotEntity = new EntitySchema({
     id: { name: 'ID', type: Number, primary: true, generated: 'increment' },
     branchId: { name: 'BRANCH_ID', type: Number },
     medicineId: { name: 'MEDICINE_ID', type: Number },
-    storageLocationId: { name: 'STORAGE_LOCATION_ID', type: Number, nullable: true },
     supplierId: { name: 'SUPPLIER_ID', type: Number, nullable: true },
     lotNumber: { name: 'LOT_NUMBER', type: String, length: 60 },
     expirationDate: { name: 'EXPIRATION_DATE', type: 'timestamp' },
@@ -31,7 +30,6 @@ export const InventoryLotEntity = new EntitySchema({
   relations: {
     branch: { type: 'many-to-one', target: 'Branch', joinColumn: { name: 'BRANCH_ID' } },
     medicine: { type: 'many-to-one', target: 'Medicine', joinColumn: { name: 'MEDICINE_ID' } },
-    storageLocation: { type: 'many-to-one', target: 'StorageLocation', joinColumn: { name: 'STORAGE_LOCATION_ID' } },
     supplier: { type: 'many-to-one', target: 'Supplier', joinColumn: { name: 'SUPPLIER_ID' } }
   }
 });

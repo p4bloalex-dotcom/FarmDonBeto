@@ -60,10 +60,8 @@ import { SaleReceiptEntity } from '../entities/sale-receipt.entity.js';
 import { SaleReturnEntity } from '../entities/sale-return.entity.js';
 import { SaleReturnDetailEntity } from '../entities/sale-return-detail.entity.js';
 import { CashReconciliationEntity } from '../entities/cash-reconciliation.entity.js';
-import { BranchProductConfigEntity } from '../entities/branch-product-config.entity.js';
 import { InventoryReservationEntity } from '../entities/inventory-reservation.entity.js';
 import { SaleLotDetailEntity } from '../entities/sale-lot-detail.entity.js';
-import { StorageLocationEntity } from '../entities/storage-location.entity.js';
 import { FinancialAccountEntity } from '../entities/financial-account.entity.js';
 import { FinancialMovementEntity } from '../entities/financial-movement.entity.js';
 
@@ -136,10 +134,8 @@ export const AppDataSource = new DataSource({
     PayrollDetailEntity,
     EmployeeSalaryEntity,
     PayrollAdjustmentEntity,
-    StorageLocationEntity,
     FinancialAccountEntity,
     FinancialMovementEntity,
-    BranchProductConfigEntity,
     InventoryReservationEntity,
     SaleLotDetailEntity
 
