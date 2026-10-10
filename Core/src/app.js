@@ -14,6 +14,8 @@ import { routes } from './routes/index.js';
 export const createApp = () => {
   const app = express();
 
+  app.set('trust proxy', 1);
+  
   app.disable('x-powered-by');
   app.set('etag', false);
   app.use(helmet());
