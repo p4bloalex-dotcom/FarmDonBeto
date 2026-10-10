@@ -13,7 +13,6 @@ coverage/
 # Environment files
 .env
 .env.*
-!.env.example
 
 # Logs
 logs/
@@ -34,3 +33,8 @@ bin/
 obj/
 **/bin/
 **/obj/
+
+
+
+*.dmp
+*_export.log
