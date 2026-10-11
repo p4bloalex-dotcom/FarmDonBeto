@@ -39,6 +39,7 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
   totalItems = 0;
   isLoading = false;
   selectedBranchId: number | null = null;
+  selectedOrderDetail: any = null;
   activeStep: 'customer' | 'items' | 'delivery' | 'availability' | 'confirm' | 'manage' = 'customer';
   cancelReason = '';
   private _unsubscribeAll = new Subject<void>();
@@ -53,6 +54,7 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
     { field: 'statusLabel', header: 'Estado', width: '120px' }
   ];
   actions: TableAction[] = [
+    { action: 'detail', label: 'Detalle', icon: 'heroicons_outline:eye' },
     { action: 'ship', label: 'Enviar', icon: 'heroicons_outline:truck', visible: row => row.status === 'P' },
     { action: 'deliver', label: 'Entregar', icon: 'heroicons_outline:check-circle', visible: row => row.status === 'S' },
     { action: 'cancel', label: 'Cancelar', icon: 'heroicons_outline:x-circle', visible: row => ['P', 'S'].includes(row.status) }
@@ -195,6 +197,10 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
     return Number(item?.quantity ?? 0) * Number(medicine?.priceSell ?? medicine?.price_sell ?? 0);
   }
 
+  money(value: any): string {
+    return `Q ${Number(value ?? 0).toFixed(2)}`;
+  }
+
   get subtotal(): number { return this.items.controls.reduce((sum, _item, index) => sum + this.lineTotal(index), 0); }
   get total(): number { return this.subtotal + Number(this.form.value.deliveryFee ?? 0); }
   get deliveryFeeAmount(): number { return Number(this.form.value.deliveryFee ?? 0); }
@@ -285,6 +291,11 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
   }
 
   handleRowAction(event: { action: string; row: any }): void {
+    if (event.action === 'detail') {
+      this.loadOrderDetail(event.row.id);
+      return;
+    }
+
     const next = event.action === 'ship' ? 'S' : event.action === 'deliver' ? 'D' : 'C';
     if (next === 'S' && event.row.status !== 'P') { this._toast.error('Solo una orden pendiente puede enviarse.'); return; }
     if (next === 'D' && event.row.status !== 'S') { this._toast.error('Solo una orden en ruta puede entregarse.'); return; }
@@ -299,6 +310,18 @@ export class CustomerOrderComponent implements OnInit, OnDestroy {
         this._toast.error(resp.error?.detail ?? 'No se pudo actualizar la orden.');
       },
       error: error => { this.isLoading = false; this._toast.error(this.apiErrorMessage(error, 'Error inesperado al actualizar orden.')); }
+    });
+  }
+
+  loadOrderDetail(id: number): void {
+    this.isLoading = true;
+    this._api.GetById('CustomerOrder', id).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+      next: (resp: ApiResponse<any>) => {
+        this.isLoading = false;
+        if (!resp.success) return this._toast.error(resp.error?.detail ?? 'No se pudo cargar el detalle de la orden.');
+        this.selectedOrderDetail = this.decorate(resp.data);
+      },
+      error: error => { this.isLoading = false; this._toast.error(this.apiErrorMessage(error, 'Error inesperado al cargar detalle.')); }
     });
   }
 
