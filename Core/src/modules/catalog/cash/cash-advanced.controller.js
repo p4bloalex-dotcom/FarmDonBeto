@@ -1,7 +1,8 @@
 import { badRequest, created, ok } from '../../../utils/api-response.js';
+import { BusinessRuleError as CustomerOrderRuleError } from '../customer-orders/customer-order.repository.js';
 import { CashAdvancedRuleError, callCenterAvailability, cashAlerts, cashCentralDashboard, createCallCenterOrder, createSaleReturn, reconcileSession } from './cash-advanced.repository.js';
 
-const handleRule = (res, error) => error instanceof CashAdvancedRuleError ? badRequest(res, error.message) : null;
+const handleRule = (res, error) => error instanceof CashAdvancedRuleError || error instanceof CustomerOrderRuleError ? badRequest(res, error.message) : null;
 
 export const getCashDashboard = async (_req, res) => ok(res, await cashCentralDashboard());
 export const getCashAlerts = async (_req, res) => ok(res, await cashAlerts());
@@ -26,7 +27,15 @@ export const addReconciliation = async (req, res) => {
   }
 };
 
-export const getCallCenterAvailability = async (req, res) => ok(res, await callCenterAvailability(req.body));
+export const getCallCenterAvailability = async (req, res) => {
+  try {
+    return ok(res, await callCenterAvailability(req.body));
+  } catch (error) {
+    const response = handleRule(res, error);
+    if (response) return response;
+    throw error;
+  }
+};
 
 export const addCallCenterOrder = async (req, res) => {
   try {

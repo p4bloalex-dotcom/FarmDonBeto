@@ -60,16 +60,23 @@ const validateTransferData = async payload => {
   return { ok: true, movementType };
 };
 
-export const addStockTransfer = async (req, res) => {
-  const localScope = await resolveTransferScope();
-  if (localScope) {
-    const originId = Number(req.body.branchOriginId);
-    const destinationId = Number(req.body.branchDestinationId);
-    if (![originId, destinationId].includes(Number(localScope))) {
-      return badRequest(res, 'El traspaso debe involucrar la sucursal a la que pertenece el usuario.');
-    }
-    allowSecondaryBranchScope(originId === Number(localScope) ? destinationId : originId);
+const applyTransferMixedScope = async payload => {
+  const scope = await resolveTransferScope();
+  if (!scope) return { ok: true, scope: null };
+
+  const originId = Number(payload.branchOriginId);
+  const destinationId = Number(payload.branchDestinationId);
+  if (![originId, destinationId].includes(Number(scope))) {
+    return { ok: false, message: 'El traspaso debe involucrar la sucursal a la que pertenece el usuario.' };
   }
+
+  allowSecondaryBranchScope(originId === Number(scope) ? destinationId : originId);
+  return { ok: true, scope };
+};
+
+export const addStockTransfer = async (req, res) => {
+  const mixedScope = await applyTransferMixedScope(req.body);
+  if (!mixedScope.ok) return badRequest(res, mixedScope.message);
 
   const { ok: valid, message, movementType } = await validateTransferData(req.body);
   if (!valid) {
@@ -125,6 +132,9 @@ export const editStockTransfer = async (req, res) => {
     return conflict(res, 'No se puede editar un traspaso anulado.');
   }
 
+  const mixedScope = await applyTransferMixedScope(existing);
+  if (!mixedScope.ok) return badRequest(res, mixedScope.message);
+
   const { ok: valid, message, movementType } = await validateTransferData(req.body);
   if (!valid) {
     return badRequest(res, message);
@@ -151,6 +161,9 @@ export const removeStockTransfer = async (req, res) => {
   if (existing.status === 'I') {
     return conflict(res, 'El traspaso ya fue anulado.');
   }
+
+  const mixedScope = await applyTransferMixedScope(existing);
+  if (!mixedScope.ok) return badRequest(res, mixedScope.message);
 
   try {
     await deleteStockTransferWithDetails(id, { branchOriginId: existing.branchOriginId, branchDestinationId: existing.branchDestinationId });
