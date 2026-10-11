@@ -1,5 +1,5 @@
 import { AppDataSource } from '../../../config/data-source.js';
-import { getRequestContext } from '../../../utils/request-context.js';
+import { allowSecondaryBranchScope, getRequestContext } from '../../../utils/request-context.js';
 import { BusinessRuleError as StockTransferBusinessRuleError, createStockTransferWithDetails, findMovementType } from '../stock-transfers/stock-transfer.repository.js';
 
 const requests = () => AppDataSource.getRepository('DeliveryRequest');
@@ -188,6 +188,10 @@ export const changeDeliveryRequestStatus = async (request, nextStatus) => {
     const movementType = await findMovementType('TRASPASO');
     if (!movementType) throw new BusinessRuleError('No se configuro el tipo de movimiento de traspaso.');
     const requestDetails = await listDeliveryRequestDetails(request.id);
+    const scope = await resolveDeliveryActionScope();
+    if (scope) {
+      allowSecondaryBranchScope(Number(request.fulfillmentBranchId) === Number(scope) ? request.requestingBranchId : request.fulfillmentBranchId);
+    }
     try {
       movementId = await createStockTransferWithDetails({
         branchOriginId: request.fulfillmentBranchId,

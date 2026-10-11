@@ -2,7 +2,8 @@ import { getRequestContext } from '../utils/request-context.js';
 import { cacheService } from '../services/cache.service.js';
 import { TENANT_TABLES } from '../tenant/tenant-tables.js';
 
-const CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain, :isGlobal); END;';
+const CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain, :isGlobal, :secondaryBranch); END;';
+const GLOBAL_CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain, :isGlobal); END;';
 const LEGACY_CONTEXT_CALL = 'BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain); END;';
 
 const CACHE_TTL_SECONDS = 60;
@@ -49,17 +50,23 @@ const resolveBranchScope = dataSource => async () => {
   store.__rlsScope = {
     branchId: isGlobal ? null : (user.branchId ?? null),
     isMain: user.branchIsMain ? 1 : 0,
-    isGlobal: isGlobal ? 1 : 0
+    isGlobal: isGlobal ? 1 : 0,
+    secondaryBranchId: isGlobal ? null : (store.secondaryBranchId ?? null)
   };
   return store.__rlsScope;
 };
 
 const applyBranchContext = async (runner, scope) => {
   try {
-    await runner.query(CONTEXT_CALL, [scope?.branchId ?? null, scope?.isMain ?? 0, scope?.isGlobal ?? 0]);
+    await runner.query(CONTEXT_CALL, [scope?.branchId ?? null, scope?.isMain ?? 0, scope?.isGlobal ?? 0, scope?.secondaryBranchId ?? null]);
   } catch (error) {
     if (error?.errorNum !== 6550 && error?.driverError?.errorNum !== 6550) throw error;
-    await runner.query(LEGACY_CONTEXT_CALL, [scope?.branchId ?? null, scope?.isGlobal || scope?.isMain ? 1 : 0]);
+    try {
+      await runner.query(GLOBAL_CONTEXT_CALL, [scope?.branchId ?? null, scope?.isMain ?? 0, scope?.isGlobal ?? 0]);
+    } catch (legacyError) {
+      if (legacyError?.errorNum !== 6550 && legacyError?.driverError?.errorNum !== 6550) throw legacyError;
+      await runner.query(LEGACY_CONTEXT_CALL, [scope?.branchId ?? null, scope?.isGlobal || scope?.isMain ? 1 : 0]);
+    }
   }
 };
 

@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { badRequest, conflict, created, notFound, ok } from '../../../utils/api-response.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
+import { allowSecondaryBranchScope } from '../../../utils/request-context.js';
 import {
   BusinessRuleError,
   createStockTransferWithDetails,
@@ -60,14 +61,19 @@ const validateTransferData = async payload => {
 };
 
 export const addStockTransfer = async (req, res) => {
+  const localScope = await resolveTransferScope();
+  if (localScope) {
+    const originId = Number(req.body.branchOriginId);
+    const destinationId = Number(req.body.branchDestinationId);
+    if (![originId, destinationId].includes(Number(localScope))) {
+      return badRequest(res, 'El traspaso debe involucrar la sucursal a la que pertenece el usuario.');
+    }
+    allowSecondaryBranchScope(originId === Number(localScope) ? destinationId : originId);
+  }
+
   const { ok: valid, message, movementType } = await validateTransferData(req.body);
   if (!valid) {
     return badRequest(res, message);
-  }
-
-  const scope = await resolveTransferScope();
-  if (scope && scope !== Number(req.body.branchOriginId)) {
-    return badRequest(res, 'El traspaso debe iniciarse desde la sucursal a la que pertenece el usuario.');
   }
 
   const header = {
