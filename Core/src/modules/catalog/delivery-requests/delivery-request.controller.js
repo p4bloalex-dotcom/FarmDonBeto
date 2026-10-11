@@ -16,25 +16,75 @@ import {
   updateDeliveryRequestWithDetails
 } from './delivery-request.repository.js';
 
-const findEnabled = async (name, id) => AppDataSource.getRepository(name).findOneBy({ id, status: 'E' });
 
-const toResponse = async request => ({ ...toDeliveryRequestDto(request), details: await listDeliveryRequestDetails(request.id) });
+// const toResponse = async request => ({ ...toDeliveryRequestDto(request), details: await listDeliveryRequestDetails(request.id) });
+
+
+const findEnabled = async (runner, name, id) =>
+  runner.manager.getRepository(name).findOneBy({
+    id,
+    status: 'E'
+  });
+
+const toResponse = async request => ({
+  ...toDeliveryRequestDto(request),
+  details: await listDeliveryRequestDetails(request.id)
+});
 
 const validateDeliveryData = async payload => {
-  const requesting = await findEnabled('Branch', payload.requestingBranchId);
-  if (!requesting) return { ok: false, message: 'La sucursal solicitante no existe o esta desactivada.' };
-  const fulfillment = await findEnabled('Branch', payload.fulfillmentBranchId);
-  if (!fulfillment) return { ok: false, message: 'La sucursal que entrega no existe o esta desactivada.' };
-  if (payload.requestingBranchId === payload.fulfillmentBranchId) return { ok: false, message: 'Las sucursales deben ser diferentes.' };
-  if (new Date(payload.requestedAt).getTime() > Date.now()) return { ok: false, message: 'La fecha de solicitud no puede estar en el futuro.' };
+  const runner = AppDataSource.createQueryRunner();
+  runner.__branchRlsApplied = true;
 
-  const medicineRepository = AppDataSource.getRepository('Medicine');
-  for (const detail of payload.details) {
-    const medicine = await medicineRepository.findOneBy({ id: detail.medicineId, status: 'E' });
-    if (!medicine) return { ok: false, message: `El medicamento con ID ${detail.medicineId} no existe o esta desactivado.` };
+  await runner.connect();
+
+  try {
+    await setGlobalRlsContext(runner);
+
+    const requesting = await findEnabled(runner, 'Branch', payload.requestingBranchId);
+    if (!requesting) return { ok: false, message: 'La sucursal solicitante no existe o esta desactivada.' };
+
+    const fulfillment = await findEnabled(runner, 'Branch', payload.fulfillmentBranchId);
+    if (!fulfillment) return { ok: false, message: 'La sucursal que entrega no existe o esta desactivada.' };
+
+    if (payload.requestingBranchId === payload.fulfillmentBranchId)
+      return { ok: false, message: 'Las sucursales deben ser diferentes.' };
+
+    if (new Date(payload.requestedAt).getTime() > Date.now())
+      return { ok: false, message: 'La fecha de solicitud no puede estar en el futuro.' };
+
+    const medicineRepository = runner.manager.getRepository('Medicine');
+
+    for (const detail of payload.details) {
+      const medicine = await medicineRepository.findOneBy({
+        id: detail.medicineId,
+        status: 'E'
+      });
+
+      if (!medicine)
+        return { ok: false, message: `El medicamento con ID ${detail.medicineId} no existe o esta desactivado.` };
+    }
+
+    return { ok: true };
+  } finally {
+    await runner.release();
   }
-  return { ok: true };
 };
+
+// const validateDeliveryData = async payload => {
+//   const requesting = await findEnabled('Branch', payload.requestingBranchId);
+//   if (!requesting) return { ok: false, message: 'La sucursal solicitante no existe o esta desactivada.' };
+//   const fulfillment = await findEnabled('Branch', payload.fulfillmentBranchId);
+//   if (!fulfillment) return { ok: false, message: 'La sucursal que entrega no existe o esta desactivada.' };
+//   if (payload.requestingBranchId === payload.fulfillmentBranchId) return { ok: false, message: 'Las sucursales deben ser diferentes.' };
+//   if (new Date(payload.requestedAt).getTime() > Date.now()) return { ok: false, message: 'La fecha de solicitud no puede estar en el futuro.' };
+
+//   const medicineRepository = AppDataSource.getRepository('Medicine');
+//   for (const detail of payload.details) {
+//     const medicine = await medicineRepository.findOneBy({ id: detail.medicineId, status: 'E' });
+//     if (!medicine) return { ok: false, message: `El medicamento con ID ${detail.medicineId} no existe o esta desactivado.` };
+//   }
+//   return { ok: true };
+// };
 
 const ensureScopeCanCreate = async payload => {
   const scope = await resolveDeliveryScope();

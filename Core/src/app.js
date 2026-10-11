@@ -18,7 +18,7 @@ export const createApp = () => {
   
   app.disable('x-powered-by');
   app.set('etag', false);
-  app.use(helmet());
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cors({ origin: env.corsOrigins, credentials: true, exposedHeaders: ['X-Pagination', 'Content-Disposition'] }));
   app.use(compression());
   app.use(express.json({ limit: '8mb' }));

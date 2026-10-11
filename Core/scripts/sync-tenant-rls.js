@@ -1,5 +1,8 @@
 import { AppDataSource } from '../src/config/data-source.js';
-import { addBranchRlsPolicy } from '../src/tenant/tenant-tables.js';
+import {
+  TENANT_TABLES,
+  addBranchRlsPolicy
+} from '../src/tenant/tenant-tables.js';
 
 const dataSource = AppDataSource;
 
@@ -7,10 +10,24 @@ await dataSource.initialize();
 const queryRunner = dataSource.createQueryRunner();
 
 try {
-  const tenantTables = dataSource.entityMetadatas
-    .filter(metadata => metadata.columns.some(column => column.propertyName === 'branchId' || column.databaseName === 'BRANCH_ID'))
-    .map(metadata => metadata.tableName.toUpperCase())
-    .sort();
+  // Tablas detectadas automáticamente por tener BRANCH_ID
+  const metadataTables = dataSource.entityMetadatas
+    .filter(metadata =>
+      metadata.columns.some(
+        column =>
+          column.propertyName === 'branchId' ||
+          column.databaseName === 'BRANCH_ID'
+      )
+    )
+    .map(metadata => metadata.tableName.toUpperCase());
+
+  // Combinar tablas automáticas + tablas especiales
+  const tenantTables = [
+    ...new Set([
+      ...TENANT_TABLES,
+      ...metadataTables
+    ])
+  ].sort();
 
   for (const tableName of tenantTables) {
     await addBranchRlsPolicy(queryRunner, tableName);
