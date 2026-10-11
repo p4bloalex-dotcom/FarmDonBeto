@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { badRequest, conflict, created, notFound, ok } from '../../../utils/api-response.js';
 import { getPagination, paginationMeta } from '../../../utils/pagination.js';
+import { allowSecondaryBranchScope } from '../../../utils/request-context.js';
 import {
   BusinessRuleError,
   changeDeliveryRequestStatus,
@@ -20,8 +21,8 @@ import {
 // const toResponse = async request => ({ ...toDeliveryRequestDto(request), details: await listDeliveryRequestDetails(request.id) });
 
 
-const findEnabled = async (runner, name, id) =>
-  runner.manager.getRepository(name).findOneBy({
+const findEnabled = async (name, id) =>
+  AppDataSource.getRepository(name).findOneBy({
     id,
     status: 'E'
   });
@@ -32,42 +33,31 @@ const toResponse = async request => ({
 });
 
 const validateDeliveryData = async payload => {
-  const runner = AppDataSource.createQueryRunner();
-  runner.__branchRlsApplied = true;
+  const requesting = await findEnabled('Branch', payload.requestingBranchId);
+  if (!requesting) return { ok: false, message: 'La sucursal solicitante no existe o esta desactivada.' };
 
-  await runner.connect();
+  const fulfillment = await findEnabled('Branch', payload.fulfillmentBranchId);
+  if (!fulfillment) return { ok: false, message: 'La sucursal que entrega no existe o esta desactivada.' };
 
-  try {
-    await setGlobalRlsContext(runner);
+  if (payload.requestingBranchId === payload.fulfillmentBranchId)
+    return { ok: false, message: 'Las sucursales deben ser diferentes.' };
 
-    const requesting = await findEnabled(runner, 'Branch', payload.requestingBranchId);
-    if (!requesting) return { ok: false, message: 'La sucursal solicitante no existe o esta desactivada.' };
+  if (new Date(payload.requestedAt).getTime() > Date.now())
+    return { ok: false, message: 'La fecha de solicitud no puede estar en el futuro.' };
 
-    const fulfillment = await findEnabled(runner, 'Branch', payload.fulfillmentBranchId);
-    if (!fulfillment) return { ok: false, message: 'La sucursal que entrega no existe o esta desactivada.' };
+  const medicineRepository = AppDataSource.getRepository('Medicine');
 
-    if (payload.requestingBranchId === payload.fulfillmentBranchId)
-      return { ok: false, message: 'Las sucursales deben ser diferentes.' };
+  for (const detail of payload.details) {
+    const medicine = await medicineRepository.findOneBy({
+      id: detail.medicineId,
+      status: 'E'
+    });
 
-    if (new Date(payload.requestedAt).getTime() > Date.now())
-      return { ok: false, message: 'La fecha de solicitud no puede estar en el futuro.' };
-
-    const medicineRepository = runner.manager.getRepository('Medicine');
-
-    for (const detail of payload.details) {
-      const medicine = await medicineRepository.findOneBy({
-        id: detail.medicineId,
-        status: 'E'
-      });
-
-      if (!medicine)
-        return { ok: false, message: `El medicamento con ID ${detail.medicineId} no existe o esta desactivado.` };
-    }
-
-    return { ok: true };
-  } finally {
-    await runner.release();
+    if (!medicine)
+      return { ok: false, message: `El medicamento con ID ${detail.medicineId} no existe o esta desactivado.` };
   }
+
+  return { ok: true };
 };
 
 // const validateDeliveryData = async payload => {
@@ -93,8 +83,20 @@ const ensureScopeCanCreate = async payload => {
   return Number(branch?.isMain ?? 0) === 1;
 };
 
+const applyDeliveryMixedScope = async payload => {
+  const scope = await resolveDeliveryScope();
+  if (!scope) return;
+
+  const requestingId = Number(payload.requestingBranchId);
+  const fulfillmentId = Number(payload.fulfillmentBranchId);
+  if (![requestingId, fulfillmentId].includes(Number(scope))) return;
+
+  allowSecondaryBranchScope(requestingId === Number(scope) ? fulfillmentId : requestingId);
+};
+
 export const addDeliveryRequest = async (req, res) => {
   if (!(await ensureScopeCanCreate(req.body))) return badRequest(res, 'La solicitud debe involucrar a la sucursal del usuario.');
+  await applyDeliveryMixedScope(req.body);
   const { ok: valid, message } = await validateDeliveryData(req.body);
   if (!valid) return badRequest(res, message);
 
@@ -132,6 +134,7 @@ export const editDeliveryRequest = async (req, res) => {
   const existing = await findDeliveryRequestByIdScoped(id);
   if (!existing) return notFound(res);
   if (existing.status !== 'P') return conflict(res, 'Solo se pueden editar solicitudes pendientes.');
+  await applyDeliveryMixedScope({ ...req.body, requestingBranchId: existing.requestingBranchId, fulfillmentBranchId: existing.fulfillmentBranchId });
   const { ok: valid, message } = await validateDeliveryData(req.body);
   if (!valid) return badRequest(res, message);
   await updateDeliveryRequestWithDetails(id, {
