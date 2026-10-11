@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { getRequestContext } from '../../../utils/request-context.js';
 import { registerKardex } from '../inventory/inventory-kardex.service.js';
+import { In } from 'typeorm';
 
 const stockTransfers = () => AppDataSource.getRepository('MoveInventory');
 const details = () => AppDataSource.getRepository('MoveInventoryDetail');
@@ -26,14 +27,14 @@ const toDetailDto = item => ({
   unit_cost: Number(item.unitCost ?? 0)
 });
 
-const toDto = item => ({
+const toDto = (item, branchNames = new Map()) => ({
   id: item.id,
   branchOriginId: item.branchOriginId,
   branch_origin_id: item.branchOriginId,
-  branchOriginName: item.branchOrigin?.name ?? null,
+  branchOriginName: item.branchOrigin?.name ?? branchNames.get(Number(item.branchOriginId)) ?? null,
   branchDestinationId: item.branchDestinationId,
   branch_destination_id: item.branchDestinationId,
-  branchDestinationName: item.branchDestination?.name ?? null,
+  branchDestinationName: item.branchDestination?.name ?? branchNames.get(Number(item.branchDestinationId)) ?? null,
   movementTypeId: item.movementTypeId,
   movement_type_id: item.movementTypeId,
   movementTypeName: item.movementType?.name ?? null,
@@ -53,6 +54,36 @@ export const listTransferDetails = async movementId => {
     .orderBy('item.id', 'ASC')
     .getMany();
   return rows.map(toDetailDto);
+};
+
+const setGlobalRlsContext = async runner => {
+  try {
+    await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain, :isGlobal, :secondaryBranch); END;', [null, 0, 1, null]);
+  } catch (error) {
+    if (error?.errorNum !== 6550 && error?.driverError?.errorNum !== 6550) throw error;
+    try {
+      await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain, :isGlobal); END;', [null, 0, 1]);
+    } catch (legacyError) {
+      if (legacyError?.errorNum !== 6550 && legacyError?.driverError?.errorNum !== 6550) throw legacyError;
+      await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain); END;', [null, 1]);
+    }
+  }
+};
+
+const resolveBranchNames = async rows => {
+  const ids = [...new Set(rows.flatMap(row => [row.branchOriginId, row.branchDestinationId]).filter(Boolean).map(Number))];
+  if (!ids.length) return new Map();
+
+  const runner = AppDataSource.createQueryRunner();
+  runner.__branchRlsApplied = true;
+  await runner.connect();
+  try {
+    await setGlobalRlsContext(runner);
+    const branches = await runner.manager.getRepository('Branch').find({ where: { id: In(ids), status: 'E' } });
+    return new Map(branches.map(branch => [Number(branch.id), branch.name]));
+  } finally {
+    await runner.release();
+  }
 };
 
 const queryBase = () => stockTransfers().createQueryBuilder('item')
@@ -93,12 +124,20 @@ export const resolveTransferScope = async () => {
   return isGlobal ? null : (store.user.branchId ?? null);
 };
 
-export const findTransferById = async id => queryBase().where('item.id = :id', { id }).getOne();
+export const findTransferById = async id => {
+  const item = await queryBase().where('item.id = :id', { id }).getOne();
+  if (!item) return null;
+  item.__branchNames = await resolveBranchNames([item]);
+  return item;
+};
 
 export const findTransferByIdScoped = async id => {
   const query = queryBase().andWhere('item.id = :id', { id });
   await applyBranchScope(query);
-  return query.getOne();
+  const item = await query.getOne();
+  if (!item) return null;
+  item.__branchNames = await resolveBranchNames([item]);
+  return item;
 };
 
 export const listTransfers = async () => {
@@ -106,14 +145,16 @@ export const listTransfers = async () => {
     .orderBy('item.movementDate', 'DESC');
   await applyBranchScope(query);
   const rows = await query.getMany();
-  return rows.map(toDto);
+  const branchNames = await resolveBranchNames(rows);
+  return rows.map(row => toDto(row, branchNames));
 };
 
 export const paginateTransfers = async ({ offset, pageSize }) => {
   const query = queryBase().orderBy('item.movementDate', 'DESC');
   await applyBranchScope(query);
   const [rows, total] = await query.skip(offset).take(pageSize).getManyAndCount();
-  return { rows: rows.map(toDto), total };
+  const branchNames = await resolveBranchNames(rows);
+  return { rows: rows.map(row => toDto(row, branchNames)), total };
 };
 
 export const findMovementType = async name => AppDataSource.getRepository('MovementType')

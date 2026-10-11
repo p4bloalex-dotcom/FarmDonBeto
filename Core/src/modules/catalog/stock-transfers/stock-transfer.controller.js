@@ -20,7 +20,14 @@ const MOVEMENT_TYPE_NAME = 'TRASPASO';
 
 const toTransferResponse = async item => {
   const details = await listTransferDetails(item.id);
-  return { ...item, details };
+  const branchNames = item.__branchNames;
+  const response = { ...item, details };
+  delete response.__branchNames;
+  if (branchNames) {
+    response.branchOriginName = response.branchOrigin?.name ?? branchNames.get(Number(response.branchOriginId)) ?? null;
+    response.branchDestinationName = response.branchDestination?.name ?? branchNames.get(Number(response.branchDestinationId)) ?? null;
+  }
+  return response;
 };
 
 const findEnabled = async (name, id) => AppDataSource.getRepository(name).findOneBy({ id, status: 'E' });

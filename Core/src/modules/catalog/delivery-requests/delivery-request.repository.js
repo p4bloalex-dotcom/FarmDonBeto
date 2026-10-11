@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../../config/data-source.js';
 import { allowSecondaryBranchScope, getRequestContext } from '../../../utils/request-context.js';
 import { BusinessRuleError as StockTransferBusinessRuleError, createStockTransferWithDetails, findMovementType } from '../stock-transfers/stock-transfer.repository.js';
+import { In } from 'typeorm';
 
 const requests = () => AppDataSource.getRepository('DeliveryRequest');
 const details = () => AppDataSource.getRepository('DeliveryRequestDetail');
@@ -35,14 +36,14 @@ const toDetailDto = item => ({
   unit_cost: Number(item.unitCost ?? 0)
 });
 
-const toDto = item => ({
+const toDto = (item, branchNames = new Map()) => ({
   id: item.id,
   requestingBranchId: item.requestingBranchId,
   requesting_branch_id: item.requestingBranchId,
-  requestingBranchName: item.requestingBranch?.name ?? null,
+  requestingBranchName: item.requestingBranch?.name ?? branchNames.get(Number(item.requestingBranchId)) ?? null,
   fulfillmentBranchId: item.fulfillmentBranchId,
   fulfillment_branch_id: item.fulfillmentBranchId,
-  fulfillmentBranchName: item.fulfillmentBranch?.name ?? null,
+  fulfillmentBranchName: item.fulfillmentBranch?.name ?? branchNames.get(Number(item.fulfillmentBranchId)) ?? null,
   movementId: item.movementId,
   movement_id: item.movementId,
   customerName: item.customerName,
@@ -68,6 +69,36 @@ const detailQuery = () => details().createQueryBuilder('item')
 export const listDeliveryRequestDetails = async requestId => {
   const rows = await detailQuery().where('item.requestId = :requestId', { requestId }).orderBy('item.id', 'ASC').getMany();
   return rows.map(toDetailDto);
+};
+
+const setGlobalRlsContext = async runner => {
+  try {
+    await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain, :isGlobal, :secondaryBranch); END;', [null, 0, 1, null]);
+  } catch (error) {
+    if (error?.errorNum !== 6550 && error?.driverError?.errorNum !== 6550) throw error;
+    try {
+      await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain, :isGlobal); END;', [null, 0, 1]);
+    } catch (legacyError) {
+      if (legacyError?.errorNum !== 6550 && legacyError?.driverError?.errorNum !== 6550) throw legacyError;
+      await runner.query('BEGIN PKG_RLS_CTX.SET_BRANCH(:branch, :isMain); END;', [null, 1]);
+    }
+  }
+};
+
+const resolveBranchNames = async rows => {
+  const ids = [...new Set(rows.flatMap(row => [row.requestingBranchId, row.fulfillmentBranchId]).filter(Boolean).map(Number))];
+  if (!ids.length) return new Map();
+
+  const runner = AppDataSource.createQueryRunner();
+  runner.__branchRlsApplied = true;
+  await runner.connect();
+  try {
+    await setGlobalRlsContext(runner);
+    const branches = await runner.manager.getRepository('Branch').find({ where: { id: In(ids), status: 'E' } });
+    return new Map(branches.map(branch => [Number(branch.id), branch.name]));
+  } finally {
+    await runner.release();
+  }
 };
 
 const queryBase = () => requests().createQueryBuilder('item')
@@ -100,25 +131,36 @@ const applyBranchScope = async query => {
   return query;
 };
 
-export const findDeliveryRequestById = async id => queryBase().where('item.id = :id', { id }).getOne();
+export const findDeliveryRequestById = async id => {
+  const item = await queryBase().where('item.id = :id', { id }).getOne();
+  if (!item) return null;
+  item.__branchNames = await resolveBranchNames([item]);
+  return item;
+};
 
 export const findDeliveryRequestByIdScoped = async id => {
   const query = queryBase().where('item.id = :id', { id });
   await applyBranchScope(query);
-  return query.getOne();
+  const item = await query.getOne();
+  if (!item) return null;
+  item.__branchNames = await resolveBranchNames([item]);
+  return item;
 };
 
 export const listDeliveryRequests = async () => {
   const query = queryBase().where('item.status <> :cancelled', { cancelled: 'C' }).orderBy('item.requestedAt', 'DESC');
   await applyBranchScope(query);
-  return (await query.getMany()).map(toDto);
+  const rows = await query.getMany();
+  const branchNames = await resolveBranchNames(rows);
+  return rows.map(row => toDto(row, branchNames));
 };
 
 export const paginateDeliveryRequests = async ({ offset, pageSize }) => {
   const query = queryBase().orderBy('item.requestedAt', 'DESC');
   await applyBranchScope(query);
   const [rows, total] = await query.skip(offset).take(pageSize).getManyAndCount();
-  return { rows: rows.map(toDto), total };
+  const branchNames = await resolveBranchNames(rows);
+  return { rows: rows.map(row => toDto(row, branchNames)), total };
 };
 
 export const createDeliveryRequestWithDetails = async (headerData, detailData) => AppDataSource.transaction(async manager => {
@@ -218,4 +260,4 @@ export const deleteDeliveryRequestWithDetails = async id => AppDataSource.transa
   await manager.getRepository('DeliveryRequest').delete(id);
 });
 
-export const toDeliveryRequestDto = toDto;
+export const toDeliveryRequestDto = item => toDto(item, item.__branchNames);
